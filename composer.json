@@ -1,0 +1,47 @@
+{
+  "name": "lomkit/laravel-access-control",
+  "description": "A package to help you manage your laravel application access rights.",
+  "keywords": ["laravel", "access", "control", "lomkit", "security"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Gautier Deleglise",
+      "email": "gautier@lomkit.com"
+    }
+  ],
+  "require": {
+    "php": "^8.0",
+    "ext-json": "*",
+    "laravel/framework": "^10.0"
+  },
+  "require-dev": {
+    "guzzlehttp/guzzle": "^6.0|^7.0",
+    "orchestra/testbench": "^8.5",
+    "phpunit/phpunit": "^8.0|^9.0|^10.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Lomkit\\Access\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Lomkit\\Access\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Lomkit\\Access\\AccessServiceProvider"
+      ],
+      "aliases": {
+        "Access": "Lomkit\\Access\\Facades\\Access"
+      }
+    }
+  },
+  "config": {
+    "sort-packages": true
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
