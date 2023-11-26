@@ -23,4 +23,17 @@ class Perimeters
     {
         return $this->perimeters->add($perimeter);
     }
+
+    /**
+     * Find the perimeter matching a given name.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return Perimeter
+     */
+    public function findPerimeter(string $name)
+    {
+        $perimeter = $this->perimeters->match($name);
+
+        return $perimeter;
+    }
 }
