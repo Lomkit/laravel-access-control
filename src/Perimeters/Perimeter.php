@@ -5,25 +5,50 @@ namespace Lomkit\Access\Perimeters;
 class Perimeter
 {
     /**
+     * The priority of the perimeter.
+     *
+     * @var int
+     */
+    public int $priority;
+
+    /**
+     * The name of the perimeter.
+     *
+     * @var string
+     */
+    public string $name;
+
+    /**
+     * The perimeter's registration status.
+     *
+     * @var bool
+     */
+    protected bool $registered = false;
+
+    /**
      * Set the priority of the perimeter.
      *
-     * @param  integer $priority
-     * @return PendingPerimeterRegistration
+     * @param  int $priority
+     * @return Perimeter
      */
-    public function priority(int $priority): PendingPerimeterRegistration
+    public function priority(int $priority): Perimeter
     {
-        return (new PendingPerimeterRegistration($this))->priority($priority);
+        return tap($this, function () use ($priority) {
+            $this->priority = $priority;
+        });
     }
 
     /**
      * Set the name of the perimeter.
      *
      * @param  string $name
-     * @return PendingPerimeterRegistration
+     * @return Perimeter
      */
-    public function name(string $name): PendingPerimeterRegistration
+    public function name(string $name): Perimeter
     {
-        return (new PendingPerimeterRegistration($this))->name($name);
+        return tap($this, function () use ($name) {
+            $this->name = $name;
+        });
     }
 
     /**
@@ -31,10 +56,23 @@ class Perimeter
      *
      * @return PerimeterCollection
      */
-    public function register()
+    public function register(): PerimeterCollection
     {
-        // @TODO: le soucis ici c'est que le perimeter ne contient pas les infos mais c'est le pending perimeter plutôt --> quasiment prêt mais il faut faire en sorte que l'on puisse récupérer tous les périmètres --> createRoute comme dans le router ????
+        $this->registered = true;
+
         return app(Perimeters::class)
-            ->register($this);
+            ->addPerimeter($this);
+    }
+
+    /**
+     * Handle the object's destruction.
+     *
+     * @return void
+     */
+    public function __destruct()
+    {
+        if (! $this->registered) {
+            $this->register();
+        }
     }
 }

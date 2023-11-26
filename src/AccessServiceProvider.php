@@ -3,6 +3,8 @@
 namespace Lomkit\Access;
 
 use Illuminate\Support\ServiceProvider;
+use Lomkit\Access\Perimeters\Perimeters;
+
 class AccessServiceProvider extends ServiceProvider
 {
     /**
@@ -32,6 +34,6 @@ class AccessServiceProvider extends ServiceProvider
      */
     protected function registerServices()
     {
-        // $this->app->singleton('lomkit-access', Access::class);
+        $this->app->singleton(Perimeters::class);
     }
 }

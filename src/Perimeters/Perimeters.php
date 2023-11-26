@@ -19,7 +19,7 @@ class Perimeters
      * @param Perimeter $perimeter
      * @return Perimeter
      */
-    public function addPerimeter(Perimeter $perimeter)
+    public function addPerimeter(Perimeter $perimeter): Perimeter
     {
         return $this->perimeters->add($perimeter);
     }
