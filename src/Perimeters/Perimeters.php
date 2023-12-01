@@ -36,4 +36,14 @@ class Perimeters
 
         return $perimeter;
     }
+
+    /**
+     * Get the underlying perimeter collection.
+     *
+     * @return PerimeterCollection
+     */
+    public function getPerimeters(): PerimeterCollection
+    {
+        return $this->perimeters;
+    }
 }

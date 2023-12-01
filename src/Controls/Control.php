@@ -5,6 +5,7 @@ namespace Lomkit\Access\Controls;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Lomkit\Access\Controls\Concerns\HasQuery;
+use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\Perimeters;
 
 class Control
@@ -18,9 +19,7 @@ class Control
         $this->perimeters = $perimeters;
     }
 
-    public function should(Request $request, string $name): bool {
-        $perimeter = $this->perimeters->findPerimeter($name);
-
+    protected function should(Perimeter $perimeter, Request $request): bool {
         $perimeterMethod = 'sould'.Str::studly($perimeter->name);
 
         if (method_exists($this, $perimeterMethod)) {
