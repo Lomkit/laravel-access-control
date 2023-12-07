@@ -13,14 +13,14 @@ class Perimeter
      *
      * @var int
      */
-    public int $priority;
+    protected int $priority;
 
     /**
      * The name of the perimeter.
      *
      * @var string
      */
-    public string $name;
+    protected string $name;
 
     /**
      * The perimeter's registration status.
@@ -32,38 +32,32 @@ class Perimeter
     /**
      * Set the priority of the perimeter.
      *
-     * @param  int $priority
-     * @return Perimeter
+     * @return int
      */
-    public function priority(int $priority): Perimeter
+    public function priority(): int
     {
-        return tap($this, function () use ($priority) {
-            $this->priority = $priority;
-        });
+        return $this->priority ?? 1;
     }
 
     /**
      * Set the name of the perimeter.
      *
-     * @param  string $name
-     * @return Perimeter
+     * @return string
      */
-    public function name(string $name): Perimeter
+    public function name(): string
     {
-        return tap($this, function () use ($name) {
-            $this->name = Str::camel($name);
-        });
+        return $this->name ?? Str::of((new \ReflectionClass($this))->getShortName())->beforeLast('Perimeter')->camel()->toString();
     }
 
     /**
      * Determine if the perimeter matches a given name.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param string $name
      * @return bool
      */
     public function matches(string $name)
     {
-        return $name === $this->name;
+        return $name === $this->name();
     }
 
     /**

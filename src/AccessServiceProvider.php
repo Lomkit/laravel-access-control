@@ -14,6 +14,11 @@ class AccessServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->mergeConfigFrom(
+            __DIR__.'/../config/access-control.php',
+            'access-control'
+        );
+
         $this->registerServices();
     }
 
@@ -24,16 +29,45 @@ class AccessServiceProvider extends ServiceProvider
      */
     public function boot()
     {
-        //
+        $this->registerPublishing();
+
+        $this->registerPerimeters();
     }
 
     /**
-     * Register Rest's services in the container.
+     * Register Access's perimeters.
+     *
+     * @return void
+     */
+    protected function registerPerimeters()
+    {
+        $this->app->make(Perimeters::class)
+            ->perimetersIn(
+                config('access-control.perimeters.path', app_path('Access/Perimeters'))
+            );
+    }
+
+    /**
+     * Register Access's services in the container.
      *
      * @return void
      */
     protected function registerServices()
     {
         $this->app->singleton(Perimeters::class);
+    }
+
+    /**
+     * Register the package's publishable resources.
+     *
+     * @return void
+     */
+    private function registerPublishing()
+    {
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/../config/access-control.php' => config_path('access-control.php'),
+            ], 'access-control-config');
+        }
     }
 }

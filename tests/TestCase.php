@@ -16,6 +16,8 @@ class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        config(['access-control.perimeters.path' => '../../']);
     }
 
     /**
@@ -62,6 +64,8 @@ class TestCase extends BaseTestCase
                 'driver'   => 'session',
                 'provider' => 'users',
             ]);
+
+            $config->set('access-control.perimeters.path', __DIR__.'/Support/Access/Perimeters');
         });
     }
 
