@@ -9,4 +9,9 @@ use Lomkit\Access\Tests\Support\Access\Queries\ModelQuery;
 class ModelControl extends Control
 {
     protected string $query = ModelQuery::class;
+
+    protected function shouldClient()
+    {
+        dd('okKAZEKzkaec');
+    }
 }

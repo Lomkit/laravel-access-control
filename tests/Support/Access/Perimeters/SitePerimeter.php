@@ -6,7 +6,7 @@ use Lomkit\Access\Perimeters\Perimeter;
 
 class SitePerimeter extends Perimeter
 {
-    protected string $name = 'site';
+    public string $name = 'site';
 
-    protected int $priority = 2;
+    public int $priority = 2;
 }

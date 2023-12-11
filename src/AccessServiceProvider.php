@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\ServiceProvider;
 use Lomkit\Access\Perimeters\Perimeters;
 
@@ -32,6 +33,24 @@ class AccessServiceProvider extends ServiceProvider
         $this->registerPublishing();
 
         $this->registerPerimeters();
+
+        $this->registerMacros();
+    }
+
+    /**
+     * Register Access's macros.
+     *
+     * @return void
+     */
+    protected function registerMacros()
+    {
+        // @TODO: or bind via trait ? In order to link for control ?
+        Builder::macro(
+            'control',
+            function () {
+                dd($this);
+            }
+        );
     }
 
     /**

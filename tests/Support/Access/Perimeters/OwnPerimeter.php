@@ -6,7 +6,7 @@ use Lomkit\Access\Perimeters\Perimeter;
 
 class OwnPerimeter extends Perimeter
 {
-    protected string $name = 'own';
+    public string $name = 'own';
 
-    protected int $priority = 3;
+    public int $priority = 3;
 }

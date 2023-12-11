@@ -7,6 +7,10 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Lomkit\Access\AccessServiceProvider;
+use Lomkit\Access\Perimeters\Perimeters;
+use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
+use Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter;
+use Lomkit\Access\Tests\Support\Access\Perimeters\SitePerimeter;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase
@@ -16,8 +20,6 @@ class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
-
-        config(['access-control.perimeters.path' => '../../']);
     }
 
     /**
@@ -59,6 +61,18 @@ class TestCase extends BaseTestCase
      */
     protected function defineEnvironment($app)
     {
+        foreach (
+            [
+                ClientPerimeter::class,
+                OwnPerimeter::class,
+                SitePerimeter::class
+            ]
+            as $perimeter
+        ) {
+            app(Perimeters::class)
+                ->addPerimeter(new $perimeter);
+        }
+
         tap($app->make('config'), function (Repository $config) {
             $config->set('auth.guards.web', [
                 'driver'   => 'session',

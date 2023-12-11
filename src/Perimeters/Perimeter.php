@@ -13,21 +13,14 @@ class Perimeter
      *
      * @var int
      */
-    protected int $priority;
+    public int $priority;
 
     /**
      * The name of the perimeter.
      *
      * @var string
      */
-    protected string $name;
-
-    /**
-     * The perimeter's registration status.
-     *
-     * @var bool
-     */
-    protected bool $registered = false;
+    public string $name;
 
     /**
      * Set the priority of the perimeter.
@@ -58,30 +51,5 @@ class Perimeter
     public function matches(string $name)
     {
         return $name === $this->name();
-    }
-
-    /**
-     * Register the perimeter.
-     *
-     * @return PerimeterCollection
-     */
-    public function register(): PerimeterCollection
-    {
-        $this->registered = true;
-
-        return app(Perimeters::class)
-            ->addPerimeter($this);
-    }
-
-    /**
-     * Handle the object's destruction.
-     *
-     * @return void
-     */
-    public function __destruct()
-    {
-        if (! $this->registered) {
-            $this->register();
-        }
     }
 }

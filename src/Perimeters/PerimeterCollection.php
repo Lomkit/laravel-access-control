@@ -26,11 +26,11 @@ class PerimeterCollection
      * @param  Perimeter  $perimeter
      * @return Perimeter
      */
-    public function add(Perimeter $perimeter): Perimeter
+    public function add(Perimeter $perimeter): PerimeterCollection
     {
         $this->addToCollections($perimeter);
 
-        return $perimeter;
+        return $this;
     }
 
     /**
@@ -45,7 +45,8 @@ class PerimeterCollection
 
         $this->allPerimeters = collect($this->allPerimeters)
             ->push($perimeter)
-            ->sortBy('priority');
+            ->sortBy('priority')
+            ->all();
     }
 
     /**

@@ -17,12 +17,22 @@ class Perimeters
     protected PerimeterCollection $perimeters;
 
     /**
+     * Create a new Perimeters instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->perimeters = new PerimeterCollection;
+    }
+
+    /**
      * Add a route to the underlying route collection.
      *
      * @param Perimeter $perimeter
-     * @return Perimeter
+     * @return PerimeterCollection
      */
-    public function addPerimeter(Perimeter $perimeter): Perimeter
+    public function addPerimeter(Perimeter $perimeter): PerimeterCollection
     {
         return $this->perimeters->add($perimeter);
     }
