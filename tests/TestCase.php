@@ -79,7 +79,7 @@ class TestCase extends BaseTestCase
                 'provider' => 'users',
             ]);
 
-            $config->set('access-control.perimeters.path', __DIR__.'/Support/Access/Perimeters');
+            $config->set('access-control.perimeters.path', __DIR__);
         });
     }
 

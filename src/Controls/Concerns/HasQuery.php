@@ -27,12 +27,12 @@ trait HasQuery
         return new $query();
     }
 
-    public function runQuery(Request $request, Builder $query) {
+    public function runQuery(Builder $query) {
         $queryObject = $this->newQuery();
 
         foreach ($this->perimeters->getPerimeters() as $perimeter) {
-            if ($this->should($perimeter, $request)) {
-                return $queryObject->query($perimeter, $request, $query);
+            if ($this->should($perimeter)) {
+                return $queryObject->query($perimeter, $query);
             }
         }
 

@@ -8,6 +8,8 @@ use Lomkit\Access\Perimeters\Perimeters;
 
 class AccessServiceProvider extends ServiceProvider
 {
+    // @TODO: add the ability to remove control scope on certain conditions
+
     /**
      * Register the service provider.
      *
@@ -33,24 +35,6 @@ class AccessServiceProvider extends ServiceProvider
         $this->registerPublishing();
 
         $this->registerPerimeters();
-
-        $this->registerMacros();
-    }
-
-    /**
-     * Register Access's macros.
-     *
-     * @return void
-     */
-    protected function registerMacros()
-    {
-        // @TODO: or bind via trait ? In order to link for control ?
-        Builder::macro(
-            'control',
-            function () {
-                dd($this);
-            }
-        );
     }
 
     /**

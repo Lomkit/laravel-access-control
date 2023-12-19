@@ -19,11 +19,11 @@ class Control
         $this->perimeters = $perimeters;
     }
 
-    protected function should(Perimeter $perimeter, Request $request): bool {
-        $perimeterMethod = 'sould'.Str::studly($perimeter->name);
+    protected function should(Perimeter $perimeter): bool {
+        $perimeterMethod = 'should'.Str::studly($perimeter->name);
 
         if (method_exists($this, $perimeterMethod)) {
-            return $this->$perimeterMethod($request);
+            return $this->$perimeterMethod();
         }
 
         return false;

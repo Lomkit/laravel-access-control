@@ -51,13 +51,13 @@ class Perimeters
     }
 
     /**
-     * Get the underlying perimeter collection.
+     * Get the plain perimeters.
      *
-     * @return PerimeterCollection
+     * @return Perimeter[]
      */
-    public function getPerimeters(): PerimeterCollection
+    public function getPerimeters()
     {
-        return $this->perimeters;
+        return $this->perimeters->getPerimeters();
     }
 
     /**

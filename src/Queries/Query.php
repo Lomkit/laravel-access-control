@@ -10,11 +10,12 @@ use Lomkit\Access\Perimeters\Perimeter;
 
 class Query
 {
-    public function query(Perimeter $perimeter, Request $request, Builder $query) : Builder {
+    public function query(Perimeter $perimeter, Builder $query) : Builder {
         $queryMethod = Str::camel($perimeter->name).'Query';
 
         if (method_exists($this, $queryMethod)) {
-            return $this->$queryMethod($request, $query);
+            $this->$queryMethod($query);
+            return $query;
         }
 
         throw new RuntimeException(sprintf('The %s method is not implemented in the %s class', $queryMethod, get_class($this)));
