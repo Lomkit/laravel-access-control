@@ -19,7 +19,7 @@ class Control
         $this->perimeters = $perimeters;
     }
 
-    protected function should(Perimeter $perimeter): bool {
+    public function should(Perimeter $perimeter): bool {
         $perimeterMethod = 'should'.Str::studly($perimeter->name);
 
         if (method_exists($this, $perimeterMethod)) {

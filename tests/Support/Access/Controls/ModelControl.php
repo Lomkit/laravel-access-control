@@ -13,16 +13,16 @@ class ModelControl extends Control
 
     protected function shouldClient()
     {
-        return Cache::has('model-should-client');
+        return Cache::get('model-should-client', false);
     }
 
     protected function shouldSite()
     {
-        return Cache::has('model-should-site');
+        return Cache::get('model-should-site', false);
     }
 
     protected function shouldOwn()
     {
-        return Cache::has('model-should-own');
+        return Cache::get('model-should-own', false);
     }
 }
