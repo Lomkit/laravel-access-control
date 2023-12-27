@@ -36,6 +36,6 @@ trait HasQuery
             }
         }
 
-        return $queryObject->defaultQuery($query);
+        return $queryObject->fallbackQuery($query);
     }
 }

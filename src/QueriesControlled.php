@@ -5,7 +5,7 @@ namespace Lomkit\Access;
 use Illuminate\Support\Facades\App;
 use Lomkit\Access\Controls\Control;
 
-trait AccessControlled
+trait QueriesControlled
 {
     /**
      * Return the control instance string
@@ -32,7 +32,7 @@ trait AccessControlled
      *
      * @return void
      */
-    public static function bootAccessControlled()
+    public static function bootQueriesControlled()
     {
         static::addGlobalScope(new ControlScope);
     }

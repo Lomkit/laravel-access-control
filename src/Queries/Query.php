@@ -21,7 +21,7 @@ class Query
         throw new RuntimeException(sprintf('The %s method is not implemented in the %s class', $queryMethod, get_class($this)));
     }
 
-    public function defaultQuery(Builder $query) : Builder {
+    public function fallbackQuery(Builder $query) : Builder {
         return $query;
     }
 }

@@ -4,6 +4,7 @@ namespace Lomkit\Access\Controls;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Lomkit\Access\Controls\Concerns\HasPolicy;
 use Lomkit\Access\Controls\Concerns\HasQuery;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\Perimeters;

@@ -18,4 +18,9 @@ class ModelQuery extends Query
     public function ownQuery(Builder $query) {
         $query->where('is_own', true);
     }
+
+    public function fallbackQuery(Builder $query): Builder
+    {
+        return $query->whereRaw('0 = 1');
+    }
 }
