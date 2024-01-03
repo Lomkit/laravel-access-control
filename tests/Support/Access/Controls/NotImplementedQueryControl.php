@@ -8,7 +8,7 @@ use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Queries\Query;
 use Lomkit\Access\Tests\Support\Access\Queries\ModelQuery;
 
-class ModelControl extends Control
+class NotImplementedQueryControl extends Control
 {
     protected function shouldClient()
     {
@@ -23,18 +23,6 @@ class ModelControl extends Control
     protected function shouldOwn()
     {
         return Cache::get('model-should-own', false);
-    }
-
-    public function clientQuery(Builder $query) {
-        $query->where('is_client', true);
-    }
-
-    public function siteQuery(Builder $query) {
-        $query->where('is_site', true);
-    }
-
-    public function ownQuery(Builder $query) {
-        $query->where('is_own', true);
     }
 
     public function fallbackQuery(Builder $query): Builder
