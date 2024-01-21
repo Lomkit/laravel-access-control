@@ -13,11 +13,8 @@ use Lomkit\Access\Queries\Query;
 trait HasQuery
 {
     public function runQuery(Builder $query) {
-
-        foreach ($this->perimeters->getPerimeters() as $perimeter) {
-            if ($this->should($perimeter)) {
-                return $this->query($perimeter, $query);
-            }
+        if (($concernedPerimeters = $this->getConcernedPerimeters())->isNotEmpty()) {
+            return $this->query($concernedPerimeters->first(), $query);
         }
 
         return $this->fallbackQuery($query);

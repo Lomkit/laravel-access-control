@@ -33,7 +33,12 @@ trait PoliciesControlled
      */
     public function viewAny(Model $user)
     {
-        return true;
+        foreach ($this->perimeters->getPerimeters() as $perimeter) {
+            if ($this->should($perimeter)) {
+                return $this->query($perimeter, $query);
+            }
+        }
+        return false;
     }
 
     /**
