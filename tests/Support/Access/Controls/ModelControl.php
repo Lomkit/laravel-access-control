@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Queries\Query;
 use Lomkit\Access\Tests\Support\Access\Queries\ModelQuery;
+use Lomkit\Access\Tests\Support\Models\Model;
 
 class ModelControl extends Control
 {
@@ -40,5 +41,23 @@ class ModelControl extends Control
     public function fallbackQuery(Builder $query): Builder
     {
         return $query->whereRaw('0 = 1');
+    }
+
+    public function clientPolicy(string $method, Model $user, Model $model): bool
+    {
+        // @TODO: tester
+        return true;
+    }
+
+    public function sitePolicy(string $method, Model $user, Model $model): bool
+    {
+        // @TODO: tester
+        return true;
+    }
+
+    public function ownPolicy(string $method, Model $user, Model $model): bool
+    {
+        // @TODO: tester
+        return true;
     }
 }

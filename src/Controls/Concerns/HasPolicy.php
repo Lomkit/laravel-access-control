@@ -13,27 +13,22 @@ use Lomkit\Access\Queries\Query;
 
 trait HasPolicy
 {
-    public function runPolicy(Model $model) {
-        if (($concernedPerimeters = $this->getConcernedPerimeters())->isNotEmpty()) {
-            return $this->policy($concernedPerimeters->first(), $model);
+    public function runPolicy(string $method, Model $user, Model $model) {
+        $concernedPerimeters = $this->getConcernedPerimeters();
+
+        return $concernedPerimeters->contains(function (Perimeter $concernedPerimeter) use ($method, $model, $user) {
+            return $this->policy($concernedPerimeter, $method, $user, $model);
+        });
+    }
+
+    public function policy(Perimeter $perimeter, string $method, Model $user, Model $model) : bool {
+        // @TODO: for the "shared" example, implement the fact that for the query you can add multiple query
+        $policyMethod = Str::camel($perimeter->name).'Policy';
+
+        if (method_exists($this, $policyMethod)) {
+            return $this->$policyMethod($method, $user, $model);
         }
 
         return false;
     }
-
-    public function policy(Perimeter $perimeter, Model $model) : Builder {
-        // @TODO: here verify the policy is ok :) + for the "shared" example, implement the fact that for the query you can add multiple query
-//        $queryMethod = Str::camel($perimeter->name).'Query';
-//
-//        if (method_exists($this, $queryMethod)) {
-//            $this->$queryMethod($query);
-//            return $query;
-//        }
-//
-//        throw new QueryNotImplemented(sprintf('The %s method is not implemented in the %s class', $queryMethod, get_class($this)));
-    }
-//
-//    public function fallbackQuery(Builder $query) : Builder {
-//        return $query;
-//    }
 }

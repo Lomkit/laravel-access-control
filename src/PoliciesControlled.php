@@ -4,6 +4,7 @@ namespace Lomkit\Access;
 
 use Illuminate\Support\Facades\App;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Support\Models\Model;
 
 trait PoliciesControlled
@@ -33,12 +34,7 @@ trait PoliciesControlled
      */
     public function viewAny(Model $user)
     {
-        foreach ($this->perimeters->getPerimeters() as $perimeter) {
-            if ($this->should($perimeter)) {
-                return $this->query($perimeter, $query);
-            }
-        }
-        return false;
+        return $this->newControl()->getConcernedPerimeters()->isNotEmpty();
     }
 
     /**
@@ -46,7 +42,7 @@ trait PoliciesControlled
      */
     public function view(Model $user, Model $model)
     {
-        return true;
+        return $this->newControl()->runPolicy(__FUNCTION__, $user, $model);
     }
 
     /**
@@ -54,7 +50,7 @@ trait PoliciesControlled
      */
     public function create(Model $user)
     {
-        return true;
+        return $this->newControl()->getConcernedPerimeters()->isNotEmpty();
     }
 
     /**
@@ -62,7 +58,7 @@ trait PoliciesControlled
      */
     public function update(Model $user, Model $model)
     {
-        return true;
+        return $this->newControl()->runPolicy(__FUNCTION__, $user, $model);
     }
 
     /**
@@ -70,6 +66,6 @@ trait PoliciesControlled
      */
     public function delete(Model $user, Model $model)
     {
-        return true;
+        return $this->newControl()->runPolicy(__FUNCTION__, $user, $model);
     }
 }
