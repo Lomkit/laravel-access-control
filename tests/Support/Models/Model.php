@@ -5,14 +5,14 @@ namespace Lomkit\Access\Tests\Support\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model as BaseModel;
-use Lomkit\Access\AccessControlled;
+use Lomkit\Access\QueriesControlled;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Database\Factories\ModelFactory;
 
 class Model extends BaseModel
 {
-    use HasFactory, AccessControlled;
+    use HasFactory, QueriesControlled;
 
     /**
      * Return the control instance string

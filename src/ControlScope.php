@@ -15,17 +15,16 @@ class ControlScope implements Scope
      *
      * @var string[]
      */
-    protected $extensions = [];
+    protected $extensions = ['WithoutControl', 'WithControl'];
 
     /**
      * Apply the access control features to the query.
      */
     public function apply(Builder $builder, Model $model): void
     {
-        /** @var Control $control */
-        $control = $model->newControl();
-
-        $control->runQuery($builder);
+        if (config('access-control.queries.enabled_by_default', true)) {
+            $builder->withControl();
+        }
     }
 
     /**
@@ -39,5 +38,34 @@ class ControlScope implements Scope
         foreach ($this->extensions as $extension) {
             $this->{"add{$extension}"}($builder);
         }
+    }
+
+    /**
+     * Add the with-control extension to the builder.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $builder
+     * @return void
+     */
+    protected function addWithControl(Builder $builder)
+    {
+        $builder->macro('withControl', function (Builder $builder) {
+            /** @var Control $control */
+            $control = $builder->getModel()->newControl();
+
+            return $control->runQuery($builder);
+        });
+    }
+
+    /**
+     * Add the without-control extension to the builder.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $builder
+     * @return void
+     */
+    protected function addWithoutControl(Builder $builder)
+    {
+        $builder->macro('withoutControl', function (Builder $builder) {
+            return $builder->withoutGlobalScope($this);
+        });
     }
 }
