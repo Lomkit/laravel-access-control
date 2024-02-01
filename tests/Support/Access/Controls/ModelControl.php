@@ -5,9 +5,7 @@ namespace Lomkit\Access\Tests\Support\Access\Controls;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Queries\Query;
-use Lomkit\Access\Tests\Support\Access\Queries\ModelQuery;
-use Lomkit\Access\Tests\Support\Models\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class ModelControl extends Control
 {
@@ -45,19 +43,16 @@ class ModelControl extends Control
 
     public function clientPolicy(string $method, Model $user, Model $model): bool
     {
-        // @TODO: tester
         return true;
     }
 
     public function sitePolicy(string $method, Model $user, Model $model): bool
     {
-        // @TODO: tester
         return true;
     }
 
     public function ownPolicy(string $method, Model $user, Model $model): bool
     {
-        // @TODO: tester
         return true;
     }
 }

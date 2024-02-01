@@ -4,8 +4,7 @@ namespace Lomkit\Access;
 
 use Illuminate\Support\Facades\App;
 use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Perimeters\Perimeter;
-use Lomkit\Access\Tests\Support\Models\Model;
+use Illuminate\Database\Eloquent\Model;
 
 trait PoliciesControlled
 {

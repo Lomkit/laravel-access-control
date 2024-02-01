@@ -1,6 +1,10 @@
 <?php
 
-class ControlsTest extends \Lomkit\Access\Tests\TestCase
+namespace Lomkit\Access\Tests\Unit;
+
+use Mockery;
+
+class ControlsTest extends TestCase
 {
     protected function tearDown(): void
     {
