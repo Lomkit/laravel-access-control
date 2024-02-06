@@ -74,6 +74,44 @@ class QueriesTest extends TestCase
         );
     }
 
+    public function test_should_not_final_perimeter(): void
+    {
+        // @TODO: the problem is here --> how to do "or query" ?
+        Cache::set('model-should-shared', true);
+        Cache::set('model-should-client', false);
+        Cache::set('model-should-site', false);
+        Cache::set('model-should-own', true);
+
+        ModelFactory::new()->create(['is_client' => true]);
+        ModelFactory::new()->create(['is_site' => true]);
+        ModelFactory::new()->create(['is_own' => true]);
+        $model = ModelFactory::new()->create(['is_own' => true, 'is_shared' => true]);
+
+        $this->assertEquals(
+            [$model->fresh()->toArray()],
+            Model::query()->get()->toArray()
+        );
+    }
+
+    public function test_should_not_final_perimeter_with_no_other_perimeter(): void
+    {
+        // @TODO
+//        Cache::set('model-should-shared', false);
+//        Cache::set('model-should-client', false);
+//        Cache::set('model-should-site', false);
+//        Cache::set('model-should-own', true);
+//
+//        ModelFactory::new()->create(['is_client' => true]);
+//        ModelFactory::new()->create(['is_site' => true]);
+//        ModelFactory::new()->create(['is_own' => true]);
+//        $model = ModelFactory::new()->create(['is_own' => true, 'is_shared' => true]);
+//
+//        $this->assertEquals(
+//            [$model->fresh()->toArray()],
+//            Model::query()->get()->toArray()
+//        );
+    }
+
     public function test_without_control_scope(): void
     {
         Cache::set('model-should-client', true);

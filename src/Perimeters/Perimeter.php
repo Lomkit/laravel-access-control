@@ -23,7 +23,14 @@ class Perimeter
     public string $name;
 
     /**
-     * Set the priority of the perimeter.
+     * Determine if the perimeter is final.
+     *
+     * @var bool
+     */
+    public bool $final;
+
+    /**
+     * Get the priority of the perimeter.
      *
      * @return int
      */
@@ -33,13 +40,23 @@ class Perimeter
     }
 
     /**
-     * Set the name of the perimeter.
+     * Get the name of the perimeter.
      *
      * @return string
      */
     public function name(): string
     {
         return $this->name ?? Str::of((new \ReflectionClass($this))->getShortName())->beforeLast('Perimeter')->camel()->toString();
+    }
+
+    /**
+     * Get the final perimeter status.
+     *
+     * @return int
+     */
+    public function final(): int
+    {
+        return $this->final ?? true;
     }
 
     /**

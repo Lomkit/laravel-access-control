@@ -4,9 +4,9 @@ namespace Lomkit\Access\Tests\Support\Access\Perimeters;
 
 use Lomkit\Access\Perimeters\Perimeter;
 
-class SitePerimeter extends Perimeter
+class SharedPerimeter extends Perimeter
 {
-    public string $name = 'site';
+    public string $name = 'shared';
 
-    public int $priority = 3;
+    public int $priority = 1;
 }
