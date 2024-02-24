@@ -11,7 +11,7 @@ return [
     */
 
     'perimeters' => [
-        'path' => app_path('Access/Perimeters')
+        'path' => app_path('Access/Perimeters'),
     ],
 
     /*
@@ -22,6 +22,6 @@ return [
     |
     */
     'queries' => [
-        'enabled_by_default' => true
-    ]
+        'enabled_by_default' => true,
+    ],
 ];

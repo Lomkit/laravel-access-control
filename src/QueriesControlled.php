@@ -8,21 +8,21 @@ use Lomkit\Access\Controls\Control;
 trait QueriesControlled
 {
     /**
-     * Return the control instance string
+     * Return the control instance string.
      *
      * @return class-string<Control>
      */
-    public function getControl():string
+    public function getControl(): string
     {
         return '';
     }
 
     /**
-     * Return a new control instance
+     * Return a new control instance.
      *
      * @return Control
      */
-    public function newControl():Control
+    public function newControl(): Control
     {
         return App::make($this->getControl());
     }
@@ -34,6 +34,6 @@ trait QueriesControlled
      */
     public static function bootQueriesControlled()
     {
-        static::addGlobalScope(new ControlScope);
+        static::addGlobalScope(new ControlScope());
     }
 }

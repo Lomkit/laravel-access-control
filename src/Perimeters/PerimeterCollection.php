@@ -23,7 +23,8 @@ class PerimeterCollection
     /**
      * Add a Perimeter instance to the collection.
      *
-     * @param  Perimeter  $perimeter
+     * @param Perimeter $perimeter
+     *
      * @return Perimeter
      */
     public function add(Perimeter $perimeter): PerimeterCollection
@@ -36,7 +37,8 @@ class PerimeterCollection
     /**
      * Add the given perimeter to the arrays of perimeters.
      *
-     * @param  Perimeter $perimeter
+     * @param Perimeter $perimeter
+     *
      * @return void
      */
     protected function addToCollections(Perimeter $perimeter)
@@ -52,10 +54,11 @@ class PerimeterCollection
     /**
      * Find the first perimeter matching a given name.
      *
-     * @param  string $name
-     * @return Perimeter
+     * @param string $name
      *
      * @throws \RuntimeException
+     *
+     * @return Perimeter
      */
     public function match(string $name)
     {
@@ -69,8 +72,9 @@ class PerimeterCollection
     /**
      * Determine if a perimeter in the array matches the name.
      *
-     * @param  Perimeter[]  $perimeters
-     * @param  \Illuminate\Http\Request  $request
+     * @param Perimeter[]              $perimeters
+     * @param \Illuminate\Http\Request $request
+     *
      * @return Perimeter|null
      */
     protected function matchAgainstPerimeters(array $perimeters, string $name)
@@ -83,15 +87,16 @@ class PerimeterCollection
     /**
      * Handle the matched perimeter.
      *
-     * @param  string  $name
-     * @param  Perimeter|null  $perimeter
-     * @return Perimeter
+     * @param string         $name
+     * @param Perimeter|null $perimeter
      *
      * @throws \RuntimeException
+     *
+     * @return Perimeter
      */
     protected function handleMatchedPerimeter(string $name, $perimeter)
     {
-        if (! is_null($perimeter)) {
+        if (!is_null($perimeter)) {
             return $perimeter;
         }
 
@@ -105,6 +110,7 @@ class PerimeterCollection
      * Get perimeters from the collection by priority.
      *
      * @param int|null $priority
+     *
      * @return Perimeter[]
      */
     public function get(int $priority = null)

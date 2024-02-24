@@ -23,13 +23,14 @@ class Perimeters
      */
     public function __construct()
     {
-        $this->perimeters = new PerimeterCollection;
+        $this->perimeters = new PerimeterCollection();
     }
 
     /**
      * Add a route to the underlying route collection.
      *
      * @param Perimeter $perimeter
+     *
      * @return PerimeterCollection
      */
     public function addPerimeter(Perimeter $perimeter): PerimeterCollection
@@ -40,7 +41,8 @@ class Perimeters
     /**
      * Find the perimeter matching a given name.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param \Illuminate\Http\Request $request
+     *
      * @return Perimeter
      */
     public function findPerimeter(string $name)
@@ -63,7 +65,8 @@ class Perimeters
     /**
      * Register all the perimeter classes in the given directory.
      *
-     * @param  string  $directory
+     * @param string $directory
+     *
      * @return void
      */
     public function perimetersIn($directory)
@@ -72,14 +75,14 @@ class Perimeters
 
         foreach ((new Finder())->in($directory)->files() as $perimeter) {
             $perimeter = $namespace.str_replace(
-                    ['/', '.php'],
-                    ['\\', ''],
-                    Str::after($perimeter->getPathname(), app_path().DIRECTORY_SEPARATOR)
-                );
+                ['/', '.php'],
+                ['\\', ''],
+                Str::after($perimeter->getPathname(), app_path().DIRECTORY_SEPARATOR)
+            );
 
             if (
                 is_subclass_of($perimeter, \Lomkit\Access\Perimeters\Perimeter::class) &&
-                ! (new ReflectionClass($perimeter))->isAbstract()
+                !(new ReflectionClass($perimeter))->isAbstract()
             ) {
                 $this->addPerimeter($perimeter);
             }

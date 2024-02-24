@@ -11,11 +11,11 @@ class ModelPolicy
     use PoliciesControlled;
 
     /**
-     * Return the control instance string
+     * Return the control instance string.
      *
      * @return class-string<Control>
      */
-    public function getControl():string
+    public function getControl(): string
     {
         return ModelControl::class;
     }

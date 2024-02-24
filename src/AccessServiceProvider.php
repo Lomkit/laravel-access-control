@@ -2,7 +2,6 @@
 
 namespace Lomkit\Access;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\ServiceProvider;
 use Lomkit\Access\Perimeters\Perimeters;
 

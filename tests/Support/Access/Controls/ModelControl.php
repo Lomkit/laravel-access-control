@@ -3,9 +3,9 @@
 namespace Lomkit\Access\Tests\Support\Access\Controls;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 use Lomkit\Access\Controls\Control;
-use Illuminate\Database\Eloquent\Model;
 
 class ModelControl extends Control
 {
@@ -29,19 +29,23 @@ class ModelControl extends Control
         return Cache::get('model-should-own', false);
     }
 
-    public function sharedQuery(Builder $query) {
+    public function sharedQuery(Builder $query)
+    {
         $query->orWhere('is_shared', true);
     }
 
-    public function clientQuery(Builder $query) {
+    public function clientQuery(Builder $query)
+    {
         $query->orWhere('is_client', true);
     }
 
-    public function siteQuery(Builder $query) {
+    public function siteQuery(Builder $query)
+    {
         $query->orWhere('is_site', true);
     }
 
-    public function ownQuery(Builder $query) {
+    public function ownQuery(Builder $query)
+    {
         $query->orWhere('is_own', true);
     }
 
