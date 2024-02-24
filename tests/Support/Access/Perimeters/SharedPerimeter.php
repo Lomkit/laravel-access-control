@@ -8,5 +8,7 @@ class SharedPerimeter extends Perimeter
 {
     public string $name = 'shared';
 
+    public bool $final = false;
+
     public int $priority = 1;
 }

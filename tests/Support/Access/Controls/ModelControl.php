@@ -30,19 +30,19 @@ class ModelControl extends Control
     }
 
     public function sharedQuery(Builder $query) {
-        $query->where('is_client', true);
+        $query->orWhere('is_shared', true);
     }
 
     public function clientQuery(Builder $query) {
-        $query->where('is_client', true);
+        $query->orWhere('is_client', true);
     }
 
     public function siteQuery(Builder $query) {
-        $query->where('is_site', true);
+        $query->orWhere('is_site', true);
     }
 
     public function ownQuery(Builder $query) {
-        $query->where('is_own', true);
+        $query->orWhere('is_own', true);
     }
 
     public function fallbackQuery(Builder $query): Builder
