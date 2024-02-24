@@ -2,31 +2,31 @@
 
 namespace Lomkit\Access\Tests\Support\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model as BaseModel;
-use Lomkit\Access\QueriesControlled;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\QueriesControlled;
 use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Database\Factories\ModelFactory;
 
 class Model extends BaseModel
 {
-    use HasFactory, QueriesControlled;
+    use HasFactory;
+    use QueriesControlled;
 
     /**
-     * Return the control instance string
+     * Return the control instance string.
      *
      * @return class-string<Control>
      */
-    public function getControl():string
+    public function getControl(): string
     {
         return ModelControl::class;
     }
 
     protected static function newFactory()
     {
-        return new ModelFactory;
+        return new ModelFactory();
     }
 
     protected $fillable = [
@@ -35,7 +35,7 @@ class Model extends BaseModel
 
     protected $casts = [
         'is_client' => 'bool',
-        'is_site' => 'bool',
-        'is_own' => 'bool',
+        'is_site'   => 'bool',
+        'is_own'    => 'bool',
     ];
 }

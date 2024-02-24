@@ -2,8 +2,6 @@
 
 namespace Lomkit\Access\Perimeters;
 
-use Illuminate\Http\Request;
-use Illuminate\Routing\Matching\MethodValidator;
 use Illuminate\Support\Str;
 
 class Perimeter
@@ -63,6 +61,7 @@ class Perimeter
      * Determine if the perimeter matches a given name.
      *
      * @param string $name
+     *
      * @return bool
      */
     public function matches(string $name)

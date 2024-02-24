@@ -2,28 +2,28 @@
 
 namespace Lomkit\Access;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
 use Lomkit\Access\Controls\Control;
-use Illuminate\Database\Eloquent\Model;
 
 trait PoliciesControlled
 {
     /**
-     * Return the control instance string
+     * Return the control instance string.
      *
      * @return class-string<Control>
      */
-    public function getControl():string
+    public function getControl(): string
     {
         return '';
     }
 
     /**
-     * Return a new control instance
+     * Return a new control instance.
      *
      * @return Control
      */
-    public function newControl():Control
+    public function newControl(): Control
     {
         return App::make($this->getControl());
     }

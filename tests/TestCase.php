@@ -67,12 +67,12 @@ class TestCase extends BaseTestCase
                 SharedPerimeter::class,
                 ClientPerimeter::class,
                 OwnPerimeter::class,
-                SitePerimeter::class
+                SitePerimeter::class,
             ]
             as $perimeter
         ) {
             app(Perimeters::class)
-                ->addPerimeter(new $perimeter);
+                ->addPerimeter(new $perimeter());
         }
 
         tap($app->make('config'), function (Repository $config) {

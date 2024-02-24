@@ -2,7 +2,6 @@
 
 namespace Lomkit\Access\Controls;
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Lomkit\Access\Controls\Concerns\HasPolicy;
@@ -12,7 +11,8 @@ use Lomkit\Access\Perimeters\Perimeters;
 
 class Control
 {
-    use HasQuery, HasPolicy;
+    use HasQuery;
+    use HasPolicy;
 
     protected Perimeters $perimeters;
 
@@ -23,7 +23,8 @@ class Control
         $this->perimeters = $perimeters;
     }
 
-    public function should(Perimeter $perimeter): bool {
+    public function should(Perimeter $perimeter): bool
+    {
         $perimeterMethod = 'should'.Str::studly($perimeter->name);
 
         if (method_exists($this, $perimeterMethod)) {
@@ -33,7 +34,8 @@ class Control
         return false;
     }
 
-    public function getConcernedPerimeters(): Collection {
+    public function getConcernedPerimeters(): Collection
+    {
         if (isset($this->concernedPerimeters)) {
             return $this->concernedPerimeters;
         }

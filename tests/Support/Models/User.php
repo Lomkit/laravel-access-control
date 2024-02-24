@@ -14,7 +14,7 @@ class User extends Authenticatable
 
     protected static function newFactory()
     {
-        return new UserFactory;
+        return new UserFactory();
     }
 
     /**

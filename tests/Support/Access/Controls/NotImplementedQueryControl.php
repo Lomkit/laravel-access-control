@@ -5,8 +5,6 @@ namespace Lomkit\Access\Tests\Support\Access\Controls;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Queries\Query;
-use Lomkit\Access\Tests\Support\Access\Queries\ModelQuery;
 
 class NotImplementedQueryControl extends Control
 {
