@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\Sequence;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Lomkit\Access\Exceptions\QueryNotImplemented;
-use Lomkit\Access\Perimeters\Perimeters;
 use Lomkit\Access\Tests\Support\Database\Factories\ModelFactory;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\NotImplementedQueryModel;
@@ -125,7 +124,7 @@ class QueriesTest extends TestCase
                     new Sequence(
                         ['is_client' => true],
                         ['is_site' => true],
-                        ['is_own' => true],
+                        ['is_own'  => true],
                     )
                 );
 
@@ -145,7 +144,7 @@ class QueriesTest extends TestCase
                 new Sequence(
                     ['is_client' => true],
                     ['is_site' => true],
-                    ['is_own' => true],
+                    ['is_own'  => true],
                 )
             );
 
@@ -163,7 +162,7 @@ class QueriesTest extends TestCase
                 new Sequence(
                     ['is_client' => true],
                     ['is_site' => true],
-                    ['is_own' => true],
+                    ['is_own'  => true],
                 )
             );
 

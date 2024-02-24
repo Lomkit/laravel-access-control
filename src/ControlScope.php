@@ -5,7 +5,6 @@ namespace Lomkit\Access;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
-use Illuminate\Http\Client\Request;
 use Lomkit\Access\Controls\Control;
 
 class ControlScope implements Scope
@@ -30,7 +29,8 @@ class ControlScope implements Scope
     /**
      * Extend the query builder with the needed functions.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $builder
+     * @param \Illuminate\Database\Eloquent\Builder $builder
+     *
      * @return void
      */
     public function extend(Builder $builder)
@@ -43,7 +43,8 @@ class ControlScope implements Scope
     /**
      * Add the with-control extension to the builder.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $builder
+     * @param \Illuminate\Database\Eloquent\Builder $builder
+     *
      * @return void
      */
     protected function addWithControl(Builder $builder)
@@ -59,7 +60,8 @@ class ControlScope implements Scope
     /**
      * Add the without-control extension to the builder.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $builder
+     * @param \Illuminate\Database\Eloquent\Builder $builder
+     *
      * @return void
      */
     protected function addWithoutControl(Builder $builder)
