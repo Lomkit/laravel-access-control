@@ -8,5 +8,5 @@ class ClientPerimeter extends Perimeter
 {
     public string $name = 'client';
 
-    public int $priority = 1;
+    public int $priority = 2;
 }

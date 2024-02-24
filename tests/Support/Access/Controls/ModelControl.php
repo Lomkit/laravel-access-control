@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class ModelControl extends Control
 {
+    protected function shouldShared()
+    {
+        return Cache::get('model-should-shared', false);
+    }
+
     protected function shouldClient()
     {
         return Cache::get('model-should-client', false);
@@ -24,21 +29,30 @@ class ModelControl extends Control
         return Cache::get('model-should-own', false);
     }
 
+    public function sharedQuery(Builder $query) {
+        $query->orWhere('is_shared', true);
+    }
+
     public function clientQuery(Builder $query) {
-        $query->where('is_client', true);
+        $query->orWhere('is_client', true);
     }
 
     public function siteQuery(Builder $query) {
-        $query->where('is_site', true);
+        $query->orWhere('is_site', true);
     }
 
     public function ownQuery(Builder $query) {
-        $query->where('is_own', true);
+        $query->orWhere('is_own', true);
     }
 
     public function fallbackQuery(Builder $query): Builder
     {
         return $query->whereRaw('0 = 1');
+    }
+
+    public function sharedPolicy(string $method, Model $user, Model $model): bool
+    {
+        return true;
     }
 
     public function clientPolicy(string $method, Model $user, Model $model): bool

@@ -10,6 +10,7 @@ use Lomkit\Access\AccessServiceProvider;
 use Lomkit\Access\Perimeters\Perimeters;
 use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter;
+use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\SitePerimeter;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
@@ -63,6 +64,7 @@ class TestCase extends BaseTestCase
     {
         foreach (
             [
+                SharedPerimeter::class,
                 ClientPerimeter::class,
                 OwnPerimeter::class,
                 SitePerimeter::class

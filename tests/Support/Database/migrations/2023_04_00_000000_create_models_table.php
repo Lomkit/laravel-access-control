@@ -16,6 +16,7 @@ return new class() extends Migration {
             $table->id();
             $table->string('name');
             $table->bigInteger('number');
+            $table->boolean('is_shared')->default(false);
             $table->boolean('is_client')->default(false);
             $table->boolean('is_site')->default(false);
             $table->boolean('is_own')->default(false);

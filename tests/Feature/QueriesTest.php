@@ -74,6 +74,44 @@ class QueriesTest extends TestCase
         );
     }
 
+    public function test_should_not_final_perimeter(): void
+    {
+        Cache::set('model-should-shared', true);
+        Cache::set('model-should-client', false);
+        Cache::set('model-should-site', false);
+        Cache::set('model-should-own', true);
+
+        ModelFactory::new()->create(['is_client' => true]);
+        ModelFactory::new()->create(['is_site' => true]);
+        $modelOwn = ModelFactory::new()->create(['is_own' => true]);
+        $modelOwnAndShared = ModelFactory::new()->create(['is_own' => true, 'is_shared' => true]);
+        $modelShared = ModelFactory::new()->create(['is_shared' => true]);
+
+        $this->assertEquals(
+            [$modelOwn->fresh()->toArray(), $modelOwnAndShared->fresh()->toArray(), $modelShared->fresh()->toArray()],
+            Model::query()->get()->toArray()
+        );
+    }
+
+    public function test_should_not_final_perimeter_with_no_other_perimeter(): void
+    {
+        Cache::set('model-should-shared', true);
+        Cache::set('model-should-client', false);
+        Cache::set('model-should-site', false);
+        Cache::set('model-should-own', false);
+
+        ModelFactory::new()->create(['is_client' => true]);
+        ModelFactory::new()->create(['is_site' => true]);
+        ModelFactory::new()->create(['is_own' => true]);
+        $modelOwnAndShared = ModelFactory::new()->create(['is_own' => true, 'is_shared' => true]);
+        $modelShared = ModelFactory::new()->create(['is_shared' => true]);
+
+        $this->assertEquals(
+            [$modelOwnAndShared->fresh()->toArray(), $modelShared->fresh()->toArray()],
+            Model::query()->get()->toArray()
+        );
+    }
+
     public function test_without_control_scope(): void
     {
         Cache::set('model-should-client', true);

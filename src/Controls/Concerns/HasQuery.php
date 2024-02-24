@@ -14,7 +14,15 @@ trait HasQuery
 {
     public function runQuery(Builder $query) {
         if (($concernedPerimeters = $this->getConcernedPerimeters())->isNotEmpty()) {
-            return $this->query($concernedPerimeters->first(), $query);
+            return tap($query, function (Builder $query) use ($concernedPerimeters) {
+                 foreach ($concernedPerimeters as $concernedPerimeter) {
+                     $this->query($concernedPerimeter, $query);
+                     if ($concernedPerimeter->final()) {
+                         return;
+                     }
+                 }
+            });
+            return ;
         }
 
         return $this->fallbackQuery($query);

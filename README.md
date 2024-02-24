@@ -2,3 +2,5 @@
 
 # Laravel Access Control
 
+# BETA
+Please note that this package is under beta and is not recommended to use for production environment for now. End of beta should be by summer 2024.

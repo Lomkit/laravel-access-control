@@ -8,5 +8,5 @@ class OwnPerimeter extends Perimeter
 {
     public string $name = 'own';
 
-    public int $priority = 3;
+    public int $priority = 4;
 }

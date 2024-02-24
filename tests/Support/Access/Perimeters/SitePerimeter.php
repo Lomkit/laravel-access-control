@@ -8,5 +8,5 @@ class SitePerimeter extends Perimeter
 {
     public string $name = 'site';
 
-    public int $priority = 2;
+    public int $priority = 3;
 }
