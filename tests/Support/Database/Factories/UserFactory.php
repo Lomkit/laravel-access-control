@@ -33,7 +33,7 @@ class UserFactory extends Factory
             'remember_token'    => Str::random(10),
             'should_shared'     => false,
             'should_global'     => false,
-            'should_own'     => false,
+            'should_own'        => false,
             'should_client'     => false,
         ];
     }

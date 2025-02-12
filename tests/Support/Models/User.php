@@ -49,9 +49,9 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'should_shared' => 'bool',
-        'should_global' => 'bool',
-        'should_client' => 'bool',
-        'should_own'    => 'bool',
+        'should_shared'     => 'bool',
+        'should_global'     => 'bool',
+        'should_client'     => 'bool',
+        'should_own'        => 'bool',
     ];
 }

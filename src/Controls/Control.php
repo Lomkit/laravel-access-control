@@ -24,7 +24,7 @@ class Control
     public static $namespace = 'App\\Access\\Controls\\';
 
     /**
-     * Get the perimeters for the current control
+     * Get the perimeters for the current control.
      *
      * @return array
      */
@@ -36,7 +36,8 @@ class Control
     /**
      * Specify the callback that should be invoked to guess control names.
      *
-     * @param  callable(class-string<\Illuminate\Database\Eloquent\Model>): class-string<\Lomkit\Access\Controls\Control>  $callback
+     * @param callable(class-string<\Illuminate\Database\Eloquent\Model>): class-string<\Lomkit\Access\Controls\Control> $callback
+     *
      * @return void
      */
     public static function guessControlNamesUsing(callable $callback)
@@ -44,13 +45,13 @@ class Control
         static::$controlNameResolver = $callback;
     }
 
-
     /**
      * Get a new control instance for the given model name.
      *
      * @template TClass of \Illuminate\Database\Eloquent\Model
      *
-     * @param  class-string<TClass>  $modelName
+     * @param class-string<TClass> $modelName
+     *
      * @return \Lomkit\Access\Controls\Control<TClass>
      */
     public static function controlForModel(string $modelName)
@@ -69,7 +70,7 @@ class Control
      */
     public static function new()
     {
-        return (new static);
+        return new static();
     }
 
     /**
@@ -77,7 +78,8 @@ class Control
      *
      * @template TClass of \Illuminate\Database\Eloquent\Model
      *
-     * @param  class-string<TClass>  $modelName
+     * @param class-string<TClass> $modelName
+     *
      * @return class-string<\Lomkit\Access\Controls\Control<TClass>>
      */
     public static function resolveControlName(string $modelName)

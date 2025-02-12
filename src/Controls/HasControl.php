@@ -3,8 +3,6 @@
 namespace Lomkit\Access\Controls;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Facades\App;
-use Illuminate\Support\Str;
 
 trait HasControl
 {
@@ -15,7 +13,7 @@ trait HasControl
      */
     public static function bootHasControl()
     {
-        static::addGlobalScope(new HasControlScope);
+        static::addGlobalScope(new HasControlScope());
     }
 
     /**

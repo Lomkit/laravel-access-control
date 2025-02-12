@@ -9,7 +9,8 @@ use Lomkit\Access\Tests\Support\Database\Factories\ModelFactory;
 
 class Model extends BaseModel
 {
-    use HasFactory, HasControl;
+    use HasFactory;
+    use HasControl;
 
     protected static function newFactory()
     {

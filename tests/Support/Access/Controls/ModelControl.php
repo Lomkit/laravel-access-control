@@ -25,6 +25,6 @@ class ModelControl extends Control
                 ->query(function (Builder $query) {
                     $query->where('is_own', true);
                 }),
-            ];
+        ];
     }
 }

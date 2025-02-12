@@ -21,6 +21,7 @@ class Perimeter
     {
         // @TODO: ok mais pas possible de le déclarer globalement alors, seems ok for me
         $this->queryCallback = $queryCallback;
+
         return $this;
     }
 
@@ -31,6 +32,6 @@ class Perimeter
      */
     public static function new()
     {
-        return (new static);
+        return new static();
     }
 }
