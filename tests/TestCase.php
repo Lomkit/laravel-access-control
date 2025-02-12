@@ -7,11 +7,6 @@ use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Lomkit\Access\AccessServiceProvider;
-use Lomkit\Access\Perimeters\Perimeters;
-use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
-use Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter;
-use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
-use Lomkit\Access\Tests\Support\Access\Perimeters\SitePerimeter;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase
@@ -62,26 +57,11 @@ class TestCase extends BaseTestCase
      */
     protected function defineEnvironment($app)
     {
-        foreach (
-            [
-                SharedPerimeter::class,
-                ClientPerimeter::class,
-                OwnPerimeter::class,
-                SitePerimeter::class,
-            ]
-            as $perimeter
-        ) {
-            app(Perimeters::class)
-                ->addPerimeter(new $perimeter());
-        }
-
         tap($app->make('config'), function (Repository $config) {
             $config->set('auth.guards.web', [
                 'driver'   => 'session',
                 'provider' => 'users',
             ]);
-
-            $config->set('access-control.perimeters.path', __DIR__);
         });
     }
 
@@ -97,5 +77,21 @@ class TestCase extends BaseTestCase
         return [
             AccessServiceProvider::class,
         ];
+    }
+
+    protected function withAuthenticatedUser($user = null, string $driver = 'web')
+    {
+        return $this->actingAs($user ?? $this->resolveAuthFactoryClass()::new()->create(), $driver);
+    }
+
+    protected function resolveAuthFactoryClass()
+    {
+        return null;
+    }
+
+    protected function assertUnauthorizedResponse($response)
+    {
+        $response->assertStatus(403);
+        $response->assertJson(['message' => 'This action is unauthorized.']);
     }
 }

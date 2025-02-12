@@ -1,20 +1,19 @@
 <?php
 
-namespace Lomkit\Access;
+namespace Lomkit\Access\Controls;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
-use Lomkit\Access\Controls\Control;
 
-class ControlScope implements Scope
+class HasControlScope implements Scope
 {
     /**
      * All of the extensions to be added to the builder.
      *
      * @var string[]
      */
-    protected $extensions = ['WithoutControl', 'WithControl'];
+    protected $extensions = ['controlled', 'uncontrolled'];
 
     /**
      * Apply the access control features to the query.
@@ -22,7 +21,7 @@ class ControlScope implements Scope
     public function apply(Builder $builder, Model $model): void
     {
         if (config('access-control.queries.enabled_by_default', true)) {
-            $builder->withControl();
+            $builder->controlled();
         }
     }
 
@@ -47,13 +46,14 @@ class ControlScope implements Scope
      *
      * @return void
      */
-    protected function addWithControl(Builder $builder)
+    protected function addControlled(Builder $builder)
     {
-        $builder->macro('withControl', function (Builder $builder) {
+        $builder->macro('controlled', function (Builder $builder) {
             /** @var Control $control */
             $control = $builder->getModel()->newControl();
 
-            return $control->runQuery($builder);
+            // @TODO:
+            //return $control->runQuery($builder);
         });
     }
 
@@ -64,9 +64,9 @@ class ControlScope implements Scope
      *
      * @return void
      */
-    protected function addWithoutControl(Builder $builder)
+    protected function addUncontrolled(Builder $builder)
     {
-        $builder->macro('withoutControl', function (Builder $builder) {
+        $builder->macro('uncontrolled', function (Builder $builder) {
             return $builder->withoutGlobalScope($this);
         });
     }

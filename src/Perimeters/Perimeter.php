@@ -2,70 +2,35 @@
 
 namespace Lomkit\Access\Perimeters;
 
-use Illuminate\Support\Str;
+use Closure;
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 
 class Perimeter
 {
-    /**
-     * The priority of the perimeter.
-     *
-     * @var int
-     */
-    public int $priority;
+    // @TODO: what for shared example ? (final on former project)
 
-    /**
-     * The name of the perimeter.
-     *
-     * @var string
-     */
-    public string $name;
+    protected Closure $queryCallback;
 
-    /**
-     * Determine if the perimeter is final.
-     *
-     * @var bool
-     */
-    public bool $final;
-
-    /**
-     * Get the priority of the perimeter.
-     *
-     * @return int
-     */
-    public function priority(): int
+    public function should(Authenticatable $user, string $method, Model $model): bool
     {
-        return $this->priority ?? 1;
+        return false;
+    }
+
+    public function query(Closure $queryCallback): self
+    {
+        // @TODO: ok mais pas possible de le déclarer globalement alors, seems ok for me
+        $this->queryCallback = $queryCallback;
+        return $this;
     }
 
     /**
-     * Get the name of the perimeter.
+     * Get a new control instance for the given attributes.
      *
-     * @return string
+     * @return static
      */
-    public function name(): string
+    public static function new()
     {
-        return $this->name ?? Str::of((new \ReflectionClass($this))->getShortName())->beforeLast('Perimeter')->camel()->toString();
-    }
-
-    /**
-     * Get the final perimeter status.
-     *
-     * @return int
-     */
-    public function final(): int
-    {
-        return $this->final ?? true;
-    }
-
-    /**
-     * Determine if the perimeter matches a given name.
-     *
-     * @param string $name
-     *
-     * @return bool
-     */
-    public function matches(string $name)
-    {
-        return $name === $this->name();
+        return (new static);
     }
 }

@@ -2,52 +2,112 @@
 
 namespace Lomkit\Access\Controls;
 
-use Illuminate\Support\Collection;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Str;
-use Lomkit\Access\Controls\Concerns\HasPolicy;
-use Lomkit\Access\Controls\Concerns\HasQuery;
-use Lomkit\Access\Perimeters\Perimeter;
-use Lomkit\Access\Perimeters\Perimeters;
+use Throwable;
 
 class Control
 {
-    use HasQuery;
-    use HasPolicy;
+    /**
+     * The control name resolver.
+     *
+     * @var callable
+     */
+    protected static $controlNameResolver;
 
-    protected Perimeters $perimeters;
+    /**
+     * The default namespace where control reside.
+     *
+     * @var string
+     */
+    public static $namespace = 'App\\Access\\Controls\\';
 
-    protected Collection $concernedPerimeters;
-
-    public function __construct(Perimeters $perimeters)
+    /**
+     * Get the perimeters for the current control
+     *
+     * @return array
+     */
+    protected function perimeters(): array
     {
-        $this->perimeters = $perimeters;
+        return [];
     }
 
-    public function should(Perimeter $perimeter): bool
+    /**
+     * Specify the callback that should be invoked to guess control names.
+     *
+     * @param  callable(class-string<\Illuminate\Database\Eloquent\Model>): class-string<\Lomkit\Access\Controls\Control>  $callback
+     * @return void
+     */
+    public static function guessControlNamesUsing(callable $callback)
     {
-        $perimeterMethod = 'should'.Str::studly($perimeter->name);
-
-        if (method_exists($this, $perimeterMethod)) {
-            return $this->$perimeterMethod();
-        }
-
-        return false;
+        static::$controlNameResolver = $callback;
     }
 
-    public function getConcernedPerimeters(): Collection
+
+    /**
+     * Get a new control instance for the given model name.
+     *
+     * @template TClass of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  class-string<TClass>  $modelName
+     * @return \Lomkit\Access\Controls\Control<TClass>
+     */
+    public static function controlForModel(string $modelName)
     {
-        if (isset($this->concernedPerimeters)) {
-            return $this->concernedPerimeters;
+        $control = static::resolveControlName($modelName);
+
+        return $control::new();
+    }
+    //@TODO: new ClientPerimeter($queryCallback, $policyCallback) ?
+    // @TODO: shouldCallback déjà définie ?
+
+    /**
+     * Get a new control instance for the given attributes.
+     *
+     * @return static
+     */
+    public static function new()
+    {
+        return (new static);
+    }
+
+    /**
+     * Get the control name for the given model name.
+     *
+     * @template TClass of \Illuminate\Database\Eloquent\Model
+     *
+     * @param  class-string<TClass>  $modelName
+     * @return class-string<\Lomkit\Access\Controls\Control<TClass>>
+     */
+    public static function resolveControlName(string $modelName)
+    {
+        $resolver = static::$controlNameResolver ?? function (string $modelName) {
+            $appNamespace = static::appNamespace();
+
+            $modelName = Str::startsWith($modelName, $appNamespace.'Models\\')
+                ? Str::after($modelName, $appNamespace.'Models\\')
+                : Str::after($modelName, $appNamespace);
+
+            return static::$namespace.$modelName.'Control';
+        };
+
+        return $resolver($modelName);
+    }
+
+    /**
+     * Get the application namespace for the application.
+     *
+     * @return string
+     */
+    protected static function appNamespace()
+    {
+        try {
+            return Container::getInstance()
+                ->make(Application::class)
+                ->getNamespace();
+        } catch (Throwable) {
+            return 'App\\';
         }
-
-        $perimeters = new Collection();
-
-        foreach ($this->perimeters->getPerimeters() as $perimeter) {
-            if ($this->should($perimeter)) {
-                $perimeters->push($perimeter);
-            }
-        }
-
-        return $this->concernedPerimeters = $perimeters;
     }
 }
