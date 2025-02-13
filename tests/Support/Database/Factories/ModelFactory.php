@@ -22,12 +22,12 @@ class ModelFactory extends Factory
     public function definition()
     {
         return [
-            'name'   => fake()->name(),
-            'number' => fake()->numberBetween(-9999999, 9999999),
+            'name'      => fake()->name(),
+            'number'    => fake()->numberBetween(-9999999, 9999999),
             'is_shared' => false,
             'is_global' => false,
             'is_client' => false,
-            'is_own' => false,
+            'is_own'    => false,
         ];
     }
 }

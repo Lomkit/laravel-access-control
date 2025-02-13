@@ -3,7 +3,6 @@
 namespace Lomkit\Access\Perimeters;
 
 use Closure;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
 
 class Perimeter
@@ -26,6 +25,7 @@ class Perimeter
     public function should(Closure $shouldCallback): self
     {
         $this->shouldCallback = $shouldCallback;
+
         return $this;
     }
 

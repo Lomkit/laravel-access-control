@@ -3,7 +3,6 @@
 namespace Lomkit\Access\Controls;
 
 use Illuminate\Container\Container;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -36,7 +35,6 @@ class Control
         return [];
     }
 
-
     public function applies(Model $user, string $method, Model $model): bool
     {
         foreach ($this->perimeters() as $perimeter) {
@@ -46,6 +44,7 @@ class Control
                 if (!$model->exists) {
                     return true;
                 }
+
                 return $perimeter->getShouldResult($user, $method, $model);
             }
         }

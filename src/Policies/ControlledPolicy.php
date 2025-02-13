@@ -3,13 +3,13 @@
 namespace Lomkit\Access\Policies;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\App;
 use Lomkit\Access\Controls\Control;
 
 class ControlledPolicy
 {
     /**
-     * The model class string
+     * The model class string.
+     *
      * @var string
      */
     protected string $model = '';
