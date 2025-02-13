@@ -8,7 +8,7 @@ use Lomkit\Access\Perimeters\Perimeter;
 
 class GlobalPerimeter extends Perimeter
 {
-    public function should(Authenticatable $user, string $method, Model $model): bool
+    public function applies(Model $user): bool
     {
         return $user->should_global;
     }

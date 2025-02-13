@@ -8,7 +8,7 @@ use Lomkit\Access\Perimeters\Perimeter;
 
 class SharedPerimeter extends Perimeter
 {
-    public function should(Authenticatable $user, string $method, Model $model): bool
+    public function applies(Model $user): bool
     {
         return $user->should_shared;
     }

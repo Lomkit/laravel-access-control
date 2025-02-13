@@ -11,15 +11,26 @@ class Perimeter
     // @TODO: what for shared example ? (final on former project)
 
     protected Closure $queryCallback;
+    protected Closure $shouldCallback;
 
-    public function should(Authenticatable $user, string $method, Model $model): bool
+    public function applies(Model $user): bool
     {
         return false;
     }
 
+    public function getShouldResult(Model $user, string $method, Model $model): bool
+    {
+        return ($this->shouldCallback)($user, $method, $model);
+    }
+
+    public function should(Closure $shouldCallback): self
+    {
+        $this->shouldCallback = $shouldCallback;
+        return $this;
+    }
+
     public function query(Closure $queryCallback): self
     {
-        // @TODO: ok mais pas possible de le déclarer globalement alors, seems ok for me
         $this->queryCallback = $queryCallback;
 
         return $this;

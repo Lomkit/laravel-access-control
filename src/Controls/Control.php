@@ -3,8 +3,11 @@
 namespace Lomkit\Access\Controls;
 
 use Illuminate\Container\Container;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Lomkit\Access\Perimeters\Perimeter;
 use Throwable;
 
 class Control
@@ -26,11 +29,28 @@ class Control
     /**
      * Get the perimeters for the current control.
      *
-     * @return array
+     * @return array<Perimeter>
      */
     protected function perimeters(): array
     {
         return [];
+    }
+
+
+    public function applies(Model $user, string $method, Model $model): bool
+    {
+        foreach ($this->perimeters() as $perimeter) {
+            if ($perimeter->applies($user)) {
+                // If the model doesn't exists, it means the method is not related to a model
+                // so we don't need to activate the should result since we can't compare an existing model
+                if (!$model->exists) {
+                    return true;
+                }
+                return $perimeter->getShouldResult($user, $method, $model);
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -40,7 +60,7 @@ class Control
      *
      * @return void
      */
-    public static function guessControlNamesUsing(callable $callback)
+    public static function guessControlNamesUsing(callable $callback): void
     {
         static::$controlNameResolver = $callback;
     }
@@ -54,7 +74,7 @@ class Control
      *
      * @return \Lomkit\Access\Controls\Control<TClass>
      */
-    public static function controlForModel(string $modelName)
+    public static function controlForModel(string $modelName): self
     {
         $control = static::resolveControlName($modelName);
 
@@ -68,7 +88,7 @@ class Control
      *
      * @return static
      */
-    public static function new()
+    public static function new(): self
     {
         return new static();
     }
@@ -82,7 +102,7 @@ class Control
      *
      * @return class-string<\Lomkit\Access\Controls\Control<TClass>>
      */
-    public static function resolveControlName(string $modelName)
+    public static function resolveControlName(string $modelName): string
     {
         $resolver = static::$controlNameResolver ?? function (string $modelName) {
             $appNamespace = static::appNamespace();
@@ -102,7 +122,7 @@ class Control
      *
      * @return string
      */
-    protected static function appNamespace()
+    protected static function appNamespace(): string
     {
         try {
             return Container::getInstance()

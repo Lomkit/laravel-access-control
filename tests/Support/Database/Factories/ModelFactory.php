@@ -24,6 +24,10 @@ class ModelFactory extends Factory
         return [
             'name'   => fake()->name(),
             'number' => fake()->numberBetween(-9999999, 9999999),
+            'is_shared' => false,
+            'is_global' => false,
+            'is_client' => false,
+            'is_own' => false,
         ];
     }
 }
