@@ -8,5 +8,4 @@ class OverlayPerimeter extends Perimeter
     {
         return true;
     }
-
 }

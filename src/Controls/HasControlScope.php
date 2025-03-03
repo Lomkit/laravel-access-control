@@ -47,7 +47,7 @@ class HasControlScope implements Scope
      *
      * @return void
      */
-    protected function addControlled(Builder $builder):void
+    protected function addControlled(Builder $builder): void
     {
         $builder->macro('controlled', function (Builder $builder) {
             /** @var Control $control */

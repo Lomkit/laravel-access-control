@@ -36,5 +36,5 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         $this->assertEquals(50, $query->count());
     }
 
-   // @TODO: tester le overlays perimeter
+    // @TODO: tester le overlays perimeter
 }

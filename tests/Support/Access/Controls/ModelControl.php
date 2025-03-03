@@ -5,7 +5,6 @@ namespace Lomkit\Access\Tests\Support\Access\Controls;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Perimeters\OverlayPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\GlobalPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter;

@@ -23,7 +23,8 @@ class Perimeter
         return ($this->shouldCallback)($user, $method, $model);
     }
 
-    public function applyQueryCallback(Builder $query, Model $user): Builder {
+    public function applyQueryCallback(Builder $query, Model $user): Builder
+    {
         return ($this->queryCallback)($query, $user);
     }
 
@@ -52,7 +53,7 @@ class Perimeter
     }
 
     /**
-     * Indicates if the Perimeter can overlay with others
+     * Indicates if the Perimeter can overlay with others.
      *
      * @return bool
      */

@@ -7,7 +7,6 @@ use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\GlobalPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
-use Lomkit\Access\Tests\Support\Models\Model;
 
 class PerimetersTest extends TestCase
 {
