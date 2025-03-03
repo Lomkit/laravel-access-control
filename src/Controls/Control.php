@@ -4,6 +4,7 @@ namespace Lomkit\Access\Controls;
 
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Lomkit\Access\Perimeters\Perimeter;
@@ -45,11 +46,27 @@ class Control
                     return true;
                 }
 
-                return $perimeter->getShouldResult($user, $method, $model);
+                return $perimeter->applyShouldCallback($user, $method, $model);
             }
         }
 
         return false;
+    }
+
+    public function queried(Builder $query, Model $user): Builder
+    {
+        foreach ($this->perimeters() as $perimeter) {
+            if ($perimeter->applies($user)) {
+                return $perimeter->applyQueryCallback($query, $user);
+            }
+        }
+
+        return $this->noResultQuery($query);
+    }
+
+    protected function noResultQuery(Builder $query): Builder
+    {
+        return $query->whereRaw('0=1');
     }
 
     /**
@@ -79,8 +96,6 @@ class Control
 
         return $control::new();
     }
-    //@TODO: new ClientPerimeter($queryCallback, $policyCallback) ?
-    // @TODO: shouldCallback déjà définie ?
 
     /**
      * Get a new control instance for the given attributes.

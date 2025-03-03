@@ -5,6 +5,7 @@ namespace Lomkit\Access\Controls;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
+use Illuminate\Support\Facades\Auth;
 
 class HasControlScope implements Scope
 {
@@ -20,7 +21,7 @@ class HasControlScope implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        if (config('access-control.queries.enabled_by_default', true)) {
+        if (config('access-control.queries.enabled_by_default', false)) {
             $builder->controlled();
         }
     }
@@ -46,14 +47,13 @@ class HasControlScope implements Scope
      *
      * @return void
      */
-    protected function addControlled(Builder $builder)
+    protected function addControlled(Builder $builder):void
     {
         $builder->macro('controlled', function (Builder $builder) {
             /** @var Control $control */
             $control = $builder->getModel()->newControl();
 
-            // @TODO:
-            //return $control->runQuery($builder);
+            return $control->queried($builder, Auth::user());
         });
     }
 

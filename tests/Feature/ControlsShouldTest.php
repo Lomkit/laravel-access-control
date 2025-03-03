@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Auth;
 use Lomkit\Access\Tests\Support\Models\Model;
 
-class ControlsTest extends \Lomkit\Access\Tests\Feature\TestCase
+class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
     public function test_control_with_no_perimeter_passing(): void
     {

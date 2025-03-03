@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Perimeters;
 
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Perimeter
@@ -14,12 +15,16 @@ class Perimeter
 
     public function applies(Model $user): bool
     {
-        return false;
+        return true;
     }
 
-    public function getShouldResult(Model $user, string $method, Model $model): bool
+    public function applyShouldCallback(Model $user, string $method, Model $model): bool
     {
         return ($this->shouldCallback)($user, $method, $model);
+    }
+
+    public function applyQueryCallback(Builder $query, Model $user): Builder {
+        return ($this->queryCallback)($query, $user);
     }
 
     public function should(Closure $shouldCallback): self
@@ -44,5 +49,15 @@ class Perimeter
     public static function new()
     {
         return new static();
+    }
+
+    /**
+     * Indicates if the Perimeter can overlay with others
+     *
+     * @return bool
+     */
+    protected function overlays(): bool
+    {
+        return false;
     }
 }
