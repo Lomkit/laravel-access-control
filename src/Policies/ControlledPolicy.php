@@ -7,7 +7,6 @@ use Lomkit\Access\Controls\Control;
 
 class ControlledPolicy
 {
-
     //@TODO: what to do for other methods like attach ? It only has view / etc basic methods
 
     /**
