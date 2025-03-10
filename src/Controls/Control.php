@@ -39,7 +39,7 @@ class Control
     public function applies(Model $user, string $method, Model $model): bool
     {
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applies($user)) {
+            if ($perimeter->applyAllowedCallback($user)) {
                 // If the model doesn't exists, it means the method is not related to a model
                 // so we don't need to activate the should result since we can't compare an existing model
                 if (!$model->exists) {
@@ -55,9 +55,28 @@ class Control
 
     public function queried(Builder $query, Model $user): Builder
     {
+        $callback = function (Builder $query, Model $user) {
+            return $this->applyQueryControl($query, $user);
+        };
+
+        if (config('access-control.queries.isolated')) {
+            return $query->where(function (Builder $query) use ($user, $callback) {
+                $callback($query, $user);
+            });
+        }
+
+        return $callback($query, $user);
+    }
+
+    protected function applyQueryControl(Builder $query, Model $user): Builder
+    {
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applies($user)) {
-                return $perimeter->applyQueryCallback($query, $user);
+            if ($perimeter->applyAllowedCallback($user)) {
+                $query = $perimeter->applyQueryCallback($query, $user);
+
+                if (!$perimeter->overlays()) {
+                    return $query;
+                }
             }
         }
 

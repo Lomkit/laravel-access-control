@@ -13,10 +13,7 @@ class Perimeter
     protected Closure $queryCallback;
     protected Closure $shouldCallback;
 
-    public function applies(Model $user): bool
-    {
-        return true;
-    }
+    protected Closure $allowedCallback;
 
     public function applyShouldCallback(Model $user, string $method, Model $model): bool
     {
@@ -26,6 +23,18 @@ class Perimeter
     public function applyQueryCallback(Builder $query, Model $user): Builder
     {
         return ($this->queryCallback)($query, $user);
+    }
+
+    public function applyAllowedCallback(Model $user): bool
+    {
+        return ($this->allowedCallback)($user);
+    }
+
+    public function allowed(Closure $allowedCallback): self
+    {
+        $this->allowedCallback = $allowedCallback;
+
+        return $this;
     }
 
     public function should(Closure $shouldCallback): self
@@ -54,10 +63,8 @@ class Perimeter
 
     /**
      * Indicates if the Perimeter can overlay with others.
-     *
-     * @return bool
      */
-    protected function overlays(): bool
+    public function overlays(): bool
     {
         return false;
     }

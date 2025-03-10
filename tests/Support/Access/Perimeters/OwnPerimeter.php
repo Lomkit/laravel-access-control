@@ -7,8 +7,5 @@ use Lomkit\Access\Perimeters\Perimeter;
 
 class OwnPerimeter extends Perimeter
 {
-    public function applies(Model $user): bool
-    {
-        return $user->should_own;
-    }
+
 }

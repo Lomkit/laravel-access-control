@@ -19,28 +19,38 @@ class ModelControl extends Control
             return in_array($method, explode(',', $model->allowed_methods));
         };
 
-        // @TODO: should or applies ? Why do we have two way of defining ?
-
         return [
             SharedPerimeter::new()
                 ->should($shouldCallback)
+                ->allowed(function(Model $user) {
+                    return $user->should_shared;
+                })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->where('is_shared', true);
+                    return $query->orWhere('is_shared', true);
                 }),
             GlobalPerimeter::new()
                 ->should($shouldCallback)
+                ->allowed(function(Model $user) {
+                    return $user->should_global;
+                })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->where('is_global', true);
+                    return $query->orWhere('is_global', true);
                 }),
             ClientPerimeter::new()
                 ->should($shouldCallback)
+                ->allowed(function(Model $user) {
+                    return $user->should_client;
+                })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->where('is_client', true);
+                    return $query->orWhere('is_client', true);
                 }),
             OwnPerimeter::new()
                 ->should($shouldCallback)
+                ->allowed(function(Model $user) {
+                    return $user->should_own;
+                })
                 ->query(function (Builder $query, Model $user) {
-                    $query->where('is_own', true);
+                    return $query->orWhere('is_own', true);
                 }),
         ];
     }

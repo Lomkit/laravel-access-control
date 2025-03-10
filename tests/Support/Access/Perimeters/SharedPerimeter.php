@@ -7,8 +7,4 @@ use Lomkit\Access\Perimeters\OverlayPerimeter;
 
 class SharedPerimeter extends OverlayPerimeter
 {
-    public function applies(Model $user): bool
-    {
-        return $user->should_shared;
-    }
 }

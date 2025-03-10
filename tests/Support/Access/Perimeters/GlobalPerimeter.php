@@ -7,8 +7,4 @@ use Lomkit\Access\Perimeters\Perimeter;
 
 class GlobalPerimeter extends Perimeter
 {
-    public function applies(Model $user): bool
-    {
-        return $user->should_global;
-    }
 }
