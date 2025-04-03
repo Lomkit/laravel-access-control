@@ -21,34 +21,36 @@ class ModelControl extends Control
 
         return [
             SharedPerimeter::new()
-                ->should($shouldCallback)
                 ->allowed(function (Model $user) {
                     return $user->should_shared;
+                })
+                ->should(function (Model $user, string $method, Model $model) {
+                    return in_array($method.'_shared', explode(',', $model->allowed_methods));
                 })
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_shared', true);
                 }),
             GlobalPerimeter::new()
-                ->should($shouldCallback)
                 ->allowed(function (Model $user) {
                     return $user->should_global;
                 })
+                ->should($shouldCallback)
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_global', true);
                 }),
             ClientPerimeter::new()
-                ->should($shouldCallback)
                 ->allowed(function (Model $user) {
                     return $user->should_client;
                 })
+                ->should($shouldCallback)
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_client', true);
                 }),
             OwnPerimeter::new()
-                ->should($shouldCallback)
                 ->allowed(function (Model $user) {
                     return $user->should_own;
                 })
+                ->should($shouldCallback)
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_own', true);
                 }),

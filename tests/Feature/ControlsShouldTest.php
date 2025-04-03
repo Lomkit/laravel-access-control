@@ -125,4 +125,28 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
     }
+
+    public function test_control_should_delete_global_using_shared_overlayed_perimeter(): void
+    {
+        Auth::user()->update(['should_shared' => true]);
+        Auth::user()->update(['should_global' => true]);
+        $model = Model::factory()
+            ->create([
+                'allowed_methods' => 'delete',
+            ]);
+
+        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
+    }
+
+    public function test_control_should_not_delete_global_using_shared_overlayed_perimeter(): void
+    {
+        Auth::user()->update(['should_shared' => true]);
+        Auth::user()->update(['should_global' => true]);
+        $model = Model::factory()
+            ->create([
+                'allowed_methods' => 'delete_shared',
+            ]);
+
+        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
+    }
 }

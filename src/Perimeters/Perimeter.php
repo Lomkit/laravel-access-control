@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Perimeter
 {
-    // @TODO: what for shared example ? (final on former project)
-
     protected Closure $queryCallback;
     protected Closure $shouldCallback;
 

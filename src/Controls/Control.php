@@ -12,6 +12,7 @@ use Throwable;
 
 class Control
 {
+    // @TODO: scout queried
     /**
      * The control name resolver.
      *
@@ -46,7 +47,11 @@ class Control
                     return true;
                 }
 
-                return $perimeter->applyShouldCallback($user, $method, $model);
+                $should = $perimeter->applyShouldCallback($user, $method, $model);
+
+                if (!$perimeter->overlays() || $should) {
+                    return $should;
+                }
             }
         }
 
@@ -70,9 +75,16 @@ class Control
 
     protected function applyQueryControl(Builder $query, Model $user): Builder
     {
+        $noResultCallback = function(Builder $query) {
+            return $this->noResultQuery($query);
+        };
+
+
         foreach ($this->perimeters() as $perimeter) {
             if ($perimeter->applyAllowedCallback($user)) {
                 $query = $perimeter->applyQueryCallback($query, $user);
+
+                $noResultCallback = function($query){return $query;};
 
                 if (!$perimeter->overlays()) {
                     return $query;
@@ -80,7 +92,7 @@ class Control
             }
         }
 
-        return $this->noResultQuery($query);
+        return $noResultCallback($query);
     }
 
     protected function noResultQuery(Builder $query): Builder

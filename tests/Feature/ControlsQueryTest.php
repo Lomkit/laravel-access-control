@@ -31,7 +31,6 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         $query = Model::query();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
-        // @TODO: le soucis ici c'est que on n'applique pas le applies ?
 
         $this->assertEquals(50, $query->count());
     }
@@ -81,6 +80,29 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
 
         $this->assertEquals(100, $query->count());
+    }
+
+    public function test_control_queried_using_only_shared_overlayed_perimeter(): void
+    {
+        Auth::user()->update(['should_shared' => true]);
+
+        Model::factory()
+            ->state(['is_client' => true])
+            ->count(50)
+            ->create();
+        Model::factory()
+            ->state(['is_shared' => true])
+            ->count(50)
+            ->create();
+        Model::factory()
+            ->state(['is_own' => true])
+            ->count(50)
+            ->create();
+
+        $query = Model::query();
+        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+
+        $this->assertEquals(50, $query->count());
     }
 
     public function test_control_queried_isolated(): void
