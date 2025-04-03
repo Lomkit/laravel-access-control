@@ -75,16 +75,15 @@ class Control
 
     protected function applyQueryControl(Builder $query, Model $user): Builder
     {
-        $noResultCallback = function(Builder $query) {
+        $noResultCallback = function (Builder $query) {
             return $this->noResultQuery($query);
         };
-
 
         foreach ($this->perimeters() as $perimeter) {
             if ($perimeter->applyAllowedCallback($user)) {
                 $query = $perimeter->applyQueryCallback($query, $user);
 
-                $noResultCallback = function($query){return $query;};
+                $noResultCallback = function ($query) {return $query; };
 
                 if (!$perimeter->overlays()) {
                     return $query;

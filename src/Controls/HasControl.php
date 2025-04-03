@@ -33,7 +33,7 @@ trait HasControl
      *
      * @return Control|null
      */
-    protected static function newControl(): Control|null
+    protected static function newControl(): ?Control
     {
         return static::$control::new() ?? null;
     }
