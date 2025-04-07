@@ -17,9 +17,9 @@ class ControlledPolicy
     protected string $model = '';
 
     /**
-     * Return the control instance string.
+     * Returns the fully qualified model class name associated with this policy.
      *
-     * @return string-class<Model>
+     * @return string The fully qualified class name of the model.
      */
     protected function getModel(): string
     {
@@ -27,9 +27,9 @@ class ControlledPolicy
     }
 
     /**
-     * Return the control instance.
+     * Retrieves the control instance associated with the current model.
      *
-     * @return Control
+     * @return Control The control instance for the current model.
      */
     protected function getControl(): Control
     {
@@ -37,7 +37,11 @@ class ControlledPolicy
     }
 
     /**
-     * Determine if any model can be viewed by the user.
+     * Determine if the user is authorized to view any instances of the model.
+     *
+     * @param Model $user The user for which the permission check is performed.
+     *
+     * @return bool True if the user is authorized to view any instances, false otherwise.
      */
     public function viewAny(Model $user)
     {
@@ -45,7 +49,12 @@ class ControlledPolicy
     }
 
     /**
-     * Determine if the given model can be viewed by the user.
+     * Checks whether a specific model instance is viewable by the given user.
+     *
+     * @param Model $user  The user whose permission to view the model is being evaluated.
+     * @param Model $model The model instance for which view permission is checked.
+     *
+     * @return bool True if the user is authorized to view the model instance, false otherwise.
      */
     public function view(Model $user, Model $model)
     {
@@ -53,7 +62,11 @@ class ControlledPolicy
     }
 
     /**
-     * Determine if the model can be created by the user.
+     * Checks if the given user has permission to create a new instance of the model.
+     *
+     * @param Model $user The user whose permission to create the model is being verified.
+     *
+     * @return bool True if the user is allowed to create a new model instance, false otherwise.
      */
     public function create(Model $user)
     {
@@ -61,7 +74,12 @@ class ControlledPolicy
     }
 
     /**
-     * Determine if the given model can be updated by the user.
+     * Determines whether the user is authorized to update the specified model instance.
+     *
+     * @param Model $user  The user attempting to perform the update.
+     * @param Model $model The model instance targeted for update.
+     *
+     * @return bool True if the update action is permitted, false otherwise.
      */
     public function update(Model $user, Model $model)
     {
@@ -69,7 +87,12 @@ class ControlledPolicy
     }
 
     /**
-     * Determine if the given model can be deleted by the user.
+     * Determines if the specified user is authorized to delete the given model instance.
+     *
+     * @param Model $user  The user attempting the deletion.
+     * @param Model $model The model instance to be deleted.
+     *
+     * @return bool True if deletion is permitted, false otherwise.
      */
     public function delete(Model $user, Model $model)
     {

@@ -28,15 +28,24 @@ class Control
     public static $namespace = 'App\\Access\\Controls\\';
 
     /**
-     * Get the perimeters for the current control.
+     * Retrieve the list of perimeter definitions for the current control.
      *
-     * @return array<Perimeter>
+     * @return array<Perimeter> An array of Perimeter objects.
      */
     protected function perimeters(): array
     {
         return [];
     }
 
+    /**
+     * Determines if the control applies based on the user's permissions and model state.
+     *
+     * @param Model  $user   The user whose permissions are evaluated.
+     * @param string $method The action or method to verify.
+     * @param Model  $model  The target model; if it does not exist, the control applies by default.
+     *
+     * @return bool True if the control applies to the user and model; otherwise, false.
+     */
     public function applies(Model $user, string $method, Model $model): bool
     {
         foreach ($this->perimeters() as $perimeter) {
@@ -58,6 +67,14 @@ class Control
         return false;
     }
 
+    /**
+     * Modifies the query builder to enforce access control restrictions for a given user.
+     *
+     * @param Builder $query The query builder instance to modify.
+     * @param Model   $user  The user model used to determine applicable query control restrictions.
+     *
+     * @return Builder The modified query builder with access controls applied.
+     */
     public function queried(Builder $query, Model $user): Builder
     {
         $callback = function (Builder $query, Model $user) {
@@ -73,6 +90,14 @@ class Control
         return $callback($query, $user);
     }
 
+    /**
+     * Applies query modifications based on access control perimeters for the given user.
+     *
+     * @param Builder $query The query builder instance to be modified.
+     * @param Model   $user  The user model used to evaluate access control conditions.
+     *
+     * @return Builder The query builder after applying access control modifications.
+     */
     protected function applyQueryControl(Builder $query, Model $user): Builder
     {
         $noResultCallback = function (Builder $query) {
@@ -94,6 +119,13 @@ class Control
         return $noResultCallback($query);
     }
 
+    /**
+     * Modifies the query builder to return no results.
+     *
+     * @param Builder $query The query builder instance to modify.
+     *
+     * @return Builder The modified query builder that yields an empty result set.
+     */
     protected function noResultQuery(Builder $query): Builder
     {
         return $query->whereRaw('0=1');
@@ -128,9 +160,9 @@ class Control
     }
 
     /**
-     * Get a new control instance for the given attributes.
+     * Creates a new instance of the control.
      *
-     * @return static
+     * @return static A newly created control instance.
      */
     public static function new(): self
     {
@@ -138,13 +170,13 @@ class Control
     }
 
     /**
-     * Get the control name for the given model name.
+     * Resolve the control name for a given model.
      *
      * @template TClass of \Illuminate\Database\Eloquent\Model
      *
-     * @param class-string<TClass> $modelName
+     * @param class-string<TClass> $modelName The fully qualified model class name.
      *
-     * @return class-string<\Lomkit\Access\Controls\Control<TClass>>
+     * @return class-string<\Lomkit\Access\Controls\Control<TClass>> The fully qualified control class name corresponding to the model.
      */
     public static function resolveControlName(string $modelName): string
     {
@@ -162,9 +194,9 @@ class Control
     }
 
     /**
-     * Get the application namespace for the application.
+     * Retrieves the application's namespace.
      *
-     * @return string
+     * @return string The resolved or default application namespace.
      */
     protected static function appNamespace(): string
     {

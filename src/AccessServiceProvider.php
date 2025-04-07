@@ -7,7 +7,7 @@ use Illuminate\Support\ServiceProvider;
 class AccessServiceProvider extends ServiceProvider
 {
     /**
-     * Register the service provider.
+     * Registers the service provider.
      *
      * @return void
      */

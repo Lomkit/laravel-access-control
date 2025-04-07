@@ -2,8 +2,6 @@
 
 namespace Lomkit\Access\Controls;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
-
 trait HasControl
 {
     /**
@@ -17,9 +15,9 @@ trait HasControl
     }
 
     /**
-     * Get a new factory instance for the model.
+     * Retrieves a control instance for the model.
      *
-     * @return Control
+     * @return Control The control instance for the model.
      */
     public static function control()
     {
@@ -29,9 +27,9 @@ trait HasControl
     }
 
     /**
-     * Return a new control instance.
+     * Attempts to create a new control instance.
      *
-     * @return Control|null
+     * @return Control|null The newly created control instance, or null if creation was unsuccessful.
      */
     protected static function newControl(): ?Control
     {

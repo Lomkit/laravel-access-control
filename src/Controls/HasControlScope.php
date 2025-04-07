@@ -17,7 +17,10 @@ class HasControlScope implements Scope
     protected $extensions = ['controlled', 'uncontrolled'];
 
     /**
-     * Apply the access control features to the query.
+     * Applies access control to the query builder.
+     *
+     * @param Builder $builder The Eloquent query builder instance.
+     * @param Model   $model   The related model instance (unused in this method).
      */
     public function apply(Builder $builder, Model $model): void
     {
@@ -41,9 +44,9 @@ class HasControlScope implements Scope
     }
 
     /**
-     * Add the with-control extension to the builder.
+     * Registers the "controlled" macro on the query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder
+     * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance to extend.
      *
      * @return void
      */
@@ -58,9 +61,9 @@ class HasControlScope implements Scope
     }
 
     /**
-     * Add the without-control extension to the builder.
+     * Registers the "uncontrolled" macro on the query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder
+     * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance to extend.
      *
      * @return void
      */
