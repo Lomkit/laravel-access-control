@@ -106,7 +106,7 @@ class Perimeter
      *
      * @return static A new instance of the current class.
      */
-    public static function new()
+    public static function new(): static
     {
         return new static();
     }
