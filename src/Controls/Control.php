@@ -48,9 +48,9 @@ class Control
      * a conditional callback using the provided method and model, returning the result based on whether
      * the perimeter overlays its logic.
      *
-     * @param Model $user The user whose permissions are evaluated.
+     * @param Model  $user   The user whose permissions are evaluated.
      * @param string $method The action or method to verify.
-     * @param Model $model The target model; if it does not exist, the control applies by default.
+     * @param Model  $model  The target model; if it does not exist, the control applies by default.
      *
      * @return bool True if the control applies to the user and model; otherwise, false.
      */
@@ -111,7 +111,7 @@ class Control
      * is altered to return no results.
      *
      * @param Builder $query The query builder instance to be modified.
-     * @param Model $user The user model used to evaluate access control conditions.
+     * @param Model   $user  The user model used to evaluate access control conditions.
      *
      * @return Builder The query builder after applying access control modifications.
      */
@@ -143,6 +143,7 @@ class Control
      * the modified query will not match any records.
      *
      * @param Builder $query The query builder instance to modify.
+     *
      * @return Builder The modified query builder that yields an empty result set.
      */
     protected function noResultQuery(Builder $query): Builder

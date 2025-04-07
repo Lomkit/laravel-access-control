@@ -53,6 +53,7 @@ class Perimeter
      * returning a boolean value that indicates whether the user is permitted.
      *
      * @param Model $user The user model instance to evaluate for access.
+     *
      * @return bool True if the user is allowed; false otherwise.
      */
     public function applyAllowedCallback(Model $user): bool
@@ -67,6 +68,7 @@ class Perimeter
      * and returns the current instance to facilitate method chaining.
      *
      * @param Closure $allowedCallback A callback that performs the permission evaluation.
+     *
      * @return self Returns the current instance.
      */
     public function allowed(Closure $allowedCallback): self
@@ -84,6 +86,7 @@ class Perimeter
      * to facilitate method chaining.
      *
      * @param Closure $shouldCallback A callback that returns a boolean based on custom logic.
+     *
      * @return self The current instance.
      */
     public function should(Closure $shouldCallback): self
@@ -99,6 +102,7 @@ class Perimeter
      * Assigns the provided closure to modify query builder instances dynamically when processing user-related queries.
      *
      * @param Closure $queryCallback A callback that customizes the query logic.
+     *
      * @return self Returns the current instance for method chaining.
      */
     public function query(Closure $queryCallback): self

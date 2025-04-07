@@ -82,8 +82,8 @@ class TestCase extends BaseTestCase
      *
      * If no user instance is provided, a new user is created using the default authentication factory.
      *
-     * @param mixed|null $user The user to authenticate. If null, a new user is created.
-     * @param string $driver The authentication guard to use. Defaults to 'web'.
+     * @param mixed|null $user   The user to authenticate. If null, a new user is created.
+     * @param string     $driver The authentication guard to use. Defaults to 'web'.
      *
      * @return mixed The result of the actingAs method, representing the authenticated application instance.
      */

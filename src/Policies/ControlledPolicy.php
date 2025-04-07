@@ -50,6 +50,7 @@ class ControlledPolicy
      * model.
      *
      * @param Model $user The user for which the permission check is performed.
+     *
      * @return bool True if the user is authorized to view any instances, false otherwise.
      */
     public function viewAny(Model $user)
@@ -63,7 +64,7 @@ class ControlledPolicy
      * This method delegates the permission check to the Control instance using the current function name to determine
      * the 'view' action associated with the provided model instance.
      *
-     * @param Model $user The user whose permission to view the model is being evaluated.
+     * @param Model $user  The user whose permission to view the model is being evaluated.
      * @param Model $model The model instance for which view permission is checked.
      *
      * @return bool True if the user is authorized to view the model instance, false otherwise.
@@ -98,7 +99,8 @@ class ControlledPolicy
      *
      * @param Model $user  The user attempting to perform the update.
      * @param Model $model The model instance targeted for update.
-     * @return bool        True if the update action is permitted, false otherwise.
+     *
+     * @return bool True if the update action is permitted, false otherwise.
      */
     public function update(Model $user, Model $model)
     {
@@ -111,8 +113,9 @@ class ControlledPolicy
      * This method delegates the permission check to the control layer, which evaluates
      * the 'delete' action for the provided user and model.
      *
-     * @param Model $user The user attempting the deletion.
+     * @param Model $user  The user attempting the deletion.
      * @param Model $model The model instance to be deleted.
+     *
      * @return bool True if deletion is permitted, false otherwise.
      */
     public function delete(Model $user, Model $model)
