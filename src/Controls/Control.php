@@ -48,9 +48,9 @@ class Control
      * Otherwise, it evaluates the "should" callback with the user, method, and model, returning its result
      * if the perimeter does not overlay or if the "should" callback yields a truthy value.
      *
-     * @param Model $user The user attempting the action.
+     * @param Model  $user   The user attempting the action.
      * @param string $method The action method being checked.
-     * @param Model $model The target model for the action.
+     * @param Model  $model  The target model for the action.
      *
      * @return bool True if the control applies, false otherwise.
      */
@@ -142,6 +142,7 @@ class Control
      * effectively filtering out all records.
      *
      * @param Builder $query The query builder instance to modify.
+     *
      * @return Builder The modified query builder that yields an empty result set.
      */
     protected function noResultQuery(Builder $query): Builder

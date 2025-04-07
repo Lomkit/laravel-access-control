@@ -26,7 +26,7 @@ class HasControlScope implements Scope
      * Note: The $model parameter is included for interface compatibility and is not used by this method.
      *
      * @param Builder $builder The Eloquent query builder instance.
-     * @param Model $model The model instance (unused).
+     * @param Model   $model   The model instance (unused).
      */
     public function apply(Builder $builder, Model $model): void
     {

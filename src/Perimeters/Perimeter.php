@@ -19,9 +19,9 @@ class Perimeter
      * Invokes the callback set via the `should` method with the provided user, method, and model,
      * then returns the resulting boolean value.
      *
-     * @param Model $user The user model to evaluate.
+     * @param Model  $user   The user model to evaluate.
      * @param string $method The operation method to check.
-     * @param Model $model The model instance on which to perform the check.
+     * @param Model  $model  The model instance on which to perform the check.
      *
      * @return bool The outcome of the should callback evaluation.
      */
@@ -53,6 +53,7 @@ class Perimeter
      * to check if the corresponding action is allowed.
      *
      * @param Model $user The user model instance to evaluate.
+     *
      * @return bool True if the user is allowed; false otherwise.
      */
     public function applyAllowedCallback(Model $user): bool
@@ -66,6 +67,7 @@ class Perimeter
      * Assigns a callback that determines if a user is permitted to perform a specific action, and returns the current instance for method chaining.
      *
      * @param Closure $allowedCallback The callback used to evaluate access permissions.
+     *
      * @return self The current instance.
      */
     public function allowed(Closure $allowedCallback): self
@@ -81,6 +83,7 @@ class Perimeter
      * This callback is later invoked to assess whether specific access rules need to be enforced.
      *
      * @param Closure $shouldCallback A callable that evaluates access conditions.
+     *
      * @return self Returns the current instance for method chaining.
      */
     public function should(Closure $shouldCallback): self
@@ -96,6 +99,7 @@ class Perimeter
      * This method assigns the provided callback for use in access control-based query adjustments and returns the current instance to enable method chaining.
      *
      * @param Closure $queryCallback The callback that alters the query builder.
+     *
      * @return self The current Perimeter instance.
      */
     public function query(Closure $queryCallback): self
