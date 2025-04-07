@@ -11,6 +11,7 @@ class Model extends BaseModel
 {
     use HasFactory;
     use HasControl;
+
     protected static function newFactory()
     {
         return new ModelFactory();
