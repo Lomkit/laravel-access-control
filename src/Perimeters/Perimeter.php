@@ -10,8 +10,15 @@ class Perimeter
 {
     protected Closure $queryCallback;
     protected Closure $shouldCallback;
-
     protected Closure $allowedCallback;
+
+    public function __construct()
+    {
+        // Default implementations that can be overridden
+        $this->queryCallback = function (Builder $query, Model $user) { return $query; };
+        $this->shouldCallback = function (Model $user, string $method, Model $model) { return true; };
+        $this->allowedCallback = function (Model $user) { return true; };
+    }
 
     /**
      * Executes the should callback to determine if the access control condition is met.
