@@ -6,7 +6,20 @@ use Illuminate\Support\Facades\Schema;
 
 return new class() extends Migration {
     /**
-     * Run the migrations.
+     * Create the 'models' table with the updated schema.
+     *
+     * This migration sets up the 'models' table with the following columns:
+     * - id: Auto-incrementing primary key.
+     * - name: Required model name.
+     * - string: Optional text field.
+     * - unique: Optional field with a unique constraint.
+     * - number: Big integer field.
+     * - allowed_methods: Optional field for allowed methods.
+     * - is_shared: Boolean indicating whether the model is shared.
+     * - is_global: Boolean indicating global status.
+     * - is_client: Boolean indicating client-specific status.
+     * - is_own: Boolean indicating ownership.
+     * - timestamps: Automatic tracking of creation and update times.
      *
      * @return void
      */

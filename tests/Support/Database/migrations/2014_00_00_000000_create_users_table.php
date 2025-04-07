@@ -6,7 +6,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class() extends Migration {
     /**
-     * Run the migrations.
+     * Creates the "users" table with the defined schema.
+     *
+     * This migration sets up the "users" table with columns for an auto-incrementing primary key,
+     * user details (name, email, password), a nullable timestamp for email verification, and 
+     * boolean flags for shared, global, client, and ownership permissions. It also includes a 
+     * remember token and timestamps for tracking record creation and updates.
      *
      * @return void
      */
