@@ -17,7 +17,14 @@ class HasControlScope implements Scope
     protected $extensions = ['controlled', 'uncontrolled'];
 
     /**
-     * Apply the access control features to the query.
+     * Conditionally applies access control to the query builder.
+     *
+     * When the configuration 'access-control.queries.enabled_by_default' is enabled, this method invokes
+     * the "controlled" macro on the provided query builder to enforce access control restrictions.
+     * The $model parameter is included to satisfy interface requirements but is not used in this implementation.
+     *
+     * @param Builder $builder The query builder instance to be extended.
+     * @param Model $model The model instance associated with the query (unused).
      */
     public function apply(Builder $builder, Model $model): void
     {
@@ -41,9 +48,12 @@ class HasControlScope implements Scope
     }
 
     /**
-     * Add the with-control extension to the builder.
+     * Registers a "controlled" macro on the Eloquent query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder
+     * This macro extends the builder by creating a new Control instance from the model
+     * and applying its queried method with the builder and the currently authenticated user.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $builder The Eloquent query builder instance.
      *
      * @return void
      */
@@ -58,9 +68,12 @@ class HasControlScope implements Scope
     }
 
     /**
-     * Add the without-control extension to the builder.
+     * Registers the "uncontrolled" macro on the query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder
+     * This macro enables bypassing the access control global scope by removing the current scope from the query builder,
+     * allowing retrieval of unfiltered records.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance to extend.
      *
      * @return void
      */

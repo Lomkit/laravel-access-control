@@ -19,9 +19,17 @@ class UserFactory extends Factory
     protected $model = User::class;
 
     /**
-     * Define the model's default state.
+     * Returns the default state for a User model instance.
      *
-     * @return array<string, mixed>
+     * This method defines the initial attributes for creating a User, including:
+     * - 'name': a randomly generated full name.
+     * - 'email': a unique, safe email address.
+     * - 'email_verified_at': the current timestamp for email verification.
+     * - 'password': a pre-hashed password.
+     * - 'remember_token': a randomly generated token.
+     * - 'should_shared', 'should_global', 'should_own', 'should_client': boolean flags for additional user properties, all initialized to false.
+     *
+     * @return array<string, mixed> An associative array of default attribute values.
      */
     public function definition(): array
     {

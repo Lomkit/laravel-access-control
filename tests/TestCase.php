@@ -49,9 +49,12 @@ class TestCase extends BaseTestCase
     }
 
     /**
-     * Define environment setup.
+     * Configure the testing environment with default authentication settings.
      *
-     * @param \Illuminate\Foundation\Application $app
+     * This method sets the 'web' authentication guard to use the session driver and the 'users' provider,
+     * ensuring that authentication is properly configured during tests.
+     *
+     * @param \Illuminate\Foundation\Application $app The Laravel application instance.
      *
      * @return void
      */
@@ -66,11 +69,12 @@ class TestCase extends BaseTestCase
     }
 
     /**
-     * Get package providers.
+     * Retrieve the package's service providers.
      *
-     * @param \Illuminate\Foundation\Application $app
+     * This method returns an array of service provider class names to be registered with the
+     * Laravel application during testing, ensuring that the package's functionality is properly bootstrapped.
      *
-     * @return array<int, class-string<\Illuminate\Support\ServiceProvider>>
+     * @return array<int, class-string<\Illuminate\Support\ServiceProvider>> An array of package service provider class names.
      */
     protected function getPackageProviders($app)
     {
@@ -79,16 +83,42 @@ class TestCase extends BaseTestCase
         ];
     }
 
+    /**
+     * Authenticates a user for testing.
+     *
+     * If a user instance is provided, it will be used for authentication; otherwise, a new user is created using
+     * the factory returned by resolveAuthFactoryClass(). The authentication is performed under the specified guard.
+     *
+     * @param mixed|null $user Optional user instance to authenticate. If null, a new user is generated.
+     * @param string $driver The authentication guard to use (defaults to "web").
+     * @return mixed The test instance with the authenticated user.
+     */
     protected function withAuthenticatedUser($user = null, string $driver = 'web')
     {
         return $this->actingAs($user ?? $this->resolveAuthFactoryClass()::new()->create(), $driver);
     }
 
+    /**
+     * Resolves the authentication factory class.
+     *
+     * This placeholder method is intended to be overridden in child classes to provide
+     * a specific authentication factory class. By default, it returns null.
+     *
+     * @return null
+     */
     protected function resolveAuthFactoryClass()
     {
         return null;
     }
 
+    /**
+     * Assert that the response indicates unauthorized access.
+     *
+     * This method verifies that the HTTP response has a 403 status code and a JSON body
+     * containing a "message" field with the value "This action is unauthorized."
+     *
+     * @param mixed $response The response object to validate.
+     */
     protected function assertUnauthorizedResponse($response)
     {
         $response->assertStatus(403);

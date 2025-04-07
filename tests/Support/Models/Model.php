@@ -12,6 +12,13 @@ class Model extends BaseModel
     use HasFactory;
     use HasControl;
 
+    /**
+     * Create a new factory instance for the model.
+     *
+     * Overrides the base factory method to return a custom factory for generating model instances.
+     *
+     * @return ModelFactory A new instance of the model factory.
+     */
     protected static function newFactory()
     {
         return new ModelFactory();

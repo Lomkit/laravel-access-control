@@ -7,7 +7,10 @@ use Illuminate\Support\ServiceProvider;
 class AccessServiceProvider extends ServiceProvider
 {
     /**
-     * Register the service provider.
+     * Registers the service provider by merging the access control configuration into the application.
+     *
+     * This method merges the package's configuration file (located at __DIR__.'/../config/access-control.php') 
+     * with the application's configuration under the "access-control" key.
      *
      * @return void
      */
@@ -20,7 +23,11 @@ class AccessServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bootstrap any package services.
+     * Bootstraps package services by registering publishable resources.
+     *
+     * This method is executed after all service providers have been registered and
+     * invokes a routine to make the package configuration file available for publishing
+     * when the application is running in a console environment.
      *
      * @return void
      */
