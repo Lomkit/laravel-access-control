@@ -50,8 +50,8 @@ class HasControlScope implements Scope
     /**
      * Registers the "controlled" macro on the query builder.
      *
-     * The macro instantiates a new Control instance via the model's newControl method and applies 
-     * access control logic by invoking the Control's queried method with the builder and the 
+     * The macro instantiates a new Control instance via the model's newControl method and applies
+     * access control logic by invoking the Control's queried method with the builder and the
      * currently authenticated user.
      *
      * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance.

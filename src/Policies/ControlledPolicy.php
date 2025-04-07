@@ -50,6 +50,7 @@ class ControlledPolicy
      * and delegates the permission check to the associated Control instance via its `should` method.
      *
      * @param Model $user The model instance representing the user whose access is being verified.
+     *
      * @return bool True if the user is permitted to view any instance of the model, false otherwise.
      */
     public function viewAny(Model $user)
@@ -62,8 +63,9 @@ class ControlledPolicy
      *
      * This method delegates the permission check to the control instance. It uses the method's name as the action identifier when evaluating if the user should be allowed to view the model.
      *
-     * @param Model $user The user attempting to view the model.
+     * @param Model $user  The user attempting to view the model.
      * @param Model $model The model instance being accessed.
+     *
      * @return bool True if the user has permission to view the model, otherwise false.
      */
     public function view(Model $user, Model $model)
@@ -79,6 +81,7 @@ class ControlledPolicy
      * whether the "create" action is permitted for the provided user.
      *
      * @param Model $user The user for whom the create permission is being checked.
+     *
      * @return bool True if the user is allowed to create a new model instance; otherwise, false.
      */
     public function create(Model $user)
@@ -91,8 +94,9 @@ class ControlledPolicy
      *
      * Delegates the permission check to the control instance associated with the model.
      *
-     * @param Model $user The user attempting the update.
+     * @param Model $user  The user attempting the update.
      * @param Model $model The model instance to update.
+     *
      * @return bool True if the update is permitted, false otherwise.
      */
     public function update(Model $user, Model $model)
@@ -108,7 +112,8 @@ class ControlledPolicy
      *
      * @param Model $user  The user for whom the delete permission is evaluated.
      * @param Model $model The model instance to be deleted.
-     * @return bool        True if the user is authorized to delete the model, false otherwise.
+     *
+     * @return bool True if the user is authorized to delete the model, false otherwise.
      */
     public function delete(Model $user, Model $model)
     {

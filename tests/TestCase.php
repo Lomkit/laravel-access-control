@@ -84,8 +84,9 @@ class TestCase extends BaseTestCase
      * If no user is provided, a new user instance is created via the authentication factory
      * returned by resolveAuthFactoryClass and then authenticated.
      *
-     * @param mixed|null $user An existing user instance to authenticate, or null to auto-create one.
-     * @param string $driver The authentication guard driver to use (defaults to 'web').
+     * @param mixed|null $user   An existing user instance to authenticate, or null to auto-create one.
+     * @param string     $driver The authentication guard driver to use (defaults to 'web').
+     *
      * @return mixed The result of the authentication action.
      */
     protected function withAuthenticatedUser($user = null, string $driver = 'web')

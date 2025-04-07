@@ -2,8 +2,6 @@
 
 namespace Lomkit\Access\Controls;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
-
 trait HasControl
 {
     /**

@@ -48,9 +48,10 @@ class Control
      *   perimeter does not overlay or the callback returns true.
      * Returns false if no perimeter permits the action.
      *
-     * @param Model $user The user whose permissions are checked.
+     * @param Model  $user   The user whose permissions are checked.
      * @param string $method The action name under consideration.
-     * @param Model $model The model instance that the action targets.
+     * @param Model  $model  The model instance that the action targets.
+     *
      * @return bool True if access is allowed, false otherwise.
      */
     public function applies(Model $user, string $method, Model $model): bool
@@ -109,7 +110,8 @@ class Control
      * Otherwise, if no perimeter fully authorizes the query, the final query is adjusted to yield no results.
      *
      * @param Builder $query The query builder instance to modify.
-     * @param Model $user The user model for permission checks.
+     * @param Model   $user  The user model for permission checks.
+     *
      * @return Builder The modified query builder instance.
      */
     protected function applyQueryControl(Builder $query, Model $user): Builder
@@ -140,6 +142,7 @@ class Control
      * ensuring that the query returns no matching records.
      *
      * @param Builder $query The query builder instance to modify.
+     *
      * @return Builder The modified query builder configured to return no results.
      */
     protected function noResultQuery(Builder $query): Builder
