@@ -107,7 +107,7 @@ class Perimeter
     /**
      * Determines whether this Perimeter instance supports overlay functionality with other perimeters.
      *
-     * @return bool Always false.
+     * @return bool
      */
     public function overlays(): bool
     {

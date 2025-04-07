@@ -5,9 +5,9 @@ namespace Lomkit\Access\Perimeters;
 class OverlayPerimeter extends Perimeter
 {
     /**
-     * Indicates that the overlay perimeter is active.
+     * A perimeter overlays if he collides with other perimeters.
      *
-     * @return bool Always true.
+     * @return bool
      */
     public function overlays(): bool
     {
