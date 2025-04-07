@@ -15,9 +15,13 @@ class ModelFactory extends Factory
     protected $model = Model::class;
 
     /**
-     * Define the model's default state.
+     * Returns the default state for the model.
      *
-     * @return array
+     * This method returns an associative array containing default attributes for a model instance.
+     * The returned array includes a randomly generated name, a random number between -9999999 and 9999999,
+     * and boolean flags for shared, global, client, and own states, all set to false.
+     *
+     * @return array An associative array representing the model's default attributes.
      */
     public function definition()
     {

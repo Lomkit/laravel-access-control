@@ -17,7 +17,16 @@ class HasControlScope implements Scope
     protected $extensions = ['controlled', 'uncontrolled'];
 
     /**
-     * Apply the access control features to the query.
+     * Applies the default access control to the Eloquent query builder.
+     *
+     * Checks the 'access-control.queries.enabled_by_default' configuration and, if enabled,
+     * invokes the 'controlled' macro on the query builder to restrict results based on
+     * the authenticated user's permissions.
+     *
+     * Note: The $model parameter is included for interface compatibility and is not used by this method.
+     *
+     * @param Builder $builder The Eloquent query builder instance.
+     * @param Model $model The model instance (unused).
      */
     public function apply(Builder $builder, Model $model): void
     {
@@ -41,11 +50,11 @@ class HasControlScope implements Scope
     }
 
     /**
-     * Add the with-control extension to the builder.
+     * Adds the "controlled" macro to the Eloquent query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder
+     * The macro extends the builder to apply access control conditions by retrieving a new control instance from the model and invoking its queried method with the current authenticated user.
      *
-     * @return void
+     * @param \Illuminate\Database\Eloquent\Builder $builder The query builder to extend.
      */
     protected function addControlled(Builder $builder): void
     {
@@ -58,11 +67,11 @@ class HasControlScope implements Scope
     }
 
     /**
-     * Add the without-control extension to the builder.
+     * Registers the "uncontrolled" macro on the query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder
+     * The macro, when invoked, removes the current global control scope from the builder.
      *
-     * @return void
+     * @param \Illuminate\Database\Eloquent\Builder $builder The Eloquent query builder instance.
      */
     protected function addUncontrolled(Builder $builder)
     {

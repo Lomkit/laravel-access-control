@@ -19,9 +19,16 @@ class UserFactory extends Factory
     protected $model = User::class;
 
     /**
-     * Define the model's default state.
+     * Returns the default state for a test user.
      *
-     * @return array<string, mixed>
+     * This method generates an associative array of attributes for a user instance,
+     * including a randomly generated name, a unique and safe email address, and a
+     * current timestamp for email verification. It sets a hard-coded hashed password,
+     * a random 10-character remember token, and initializes four additional boolean
+     * flags (should_shared, should_global, should_own, should_client) to false for
+     * flexible state customization in tests.
+     *
+     * @return array<string, mixed> Associative array of user attributes.
      */
     public function definition(): array
     {

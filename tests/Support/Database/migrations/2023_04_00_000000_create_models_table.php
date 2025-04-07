@@ -6,7 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class() extends Migration {
     /**
-     * Run the migrations.
+     * Run migrations to create the 'models' table.
+     *
+     * This method creates the 'models' table with an auto-incrementing primary key, various string
+     * and numeric columns, and boolean flags for shared, global, client, and ownership status. It also
+     * includes timestamp columns for record tracking.
      *
      * @return void
      */

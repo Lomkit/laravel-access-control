@@ -7,6 +7,13 @@ use Lomkit\Access\Tests\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase
 {
+    /**
+     * Sets up the test case environment.
+     *
+     * Executes the parent setup routine and configures an authenticated user so that tests run with the necessary authentication context.
+     *
+     * @return void
+     */
     protected function setUp(): void
     {
         parent::setUp();
