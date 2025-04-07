@@ -19,10 +19,6 @@ class HasControlScope implements Scope
     /**
      * Applies access control to the query builder.
      *
-     * If the default configuration for query access control is enabled, this method augments the builder
-     * with the "controlled" macro to enforce access restrictions. The model parameter is provided to
-     * satisfy the interface contract but is not used in this implementation.
-     *
      * @param Builder $builder The Eloquent query builder instance.
      * @param Model   $model   The related model instance (unused in this method).
      */
@@ -50,9 +46,6 @@ class HasControlScope implements Scope
     /**
      * Registers the "controlled" macro on the query builder.
      *
-     * The macro creates a new Control instance from the model and enforces access control by invoking
-     * the queried method with the query builder and the currently authenticated user.
-     *
      * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance to extend.
      *
      * @return void
@@ -69,9 +62,6 @@ class HasControlScope implements Scope
 
     /**
      * Registers the "uncontrolled" macro on the query builder.
-     *
-     * This macro removes the access control global scope from queries, allowing retrieval of results
-     * without applying the default access control restrictions.
      *
      * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance to extend.
      *

@@ -7,10 +7,7 @@ use Illuminate\Support\ServiceProvider;
 class AccessServiceProvider extends ServiceProvider
 {
     /**
-     * Registers the access control package by merging its configuration file with the application's configuration.
-     *
-     * This method loads configuration settings from the package's access control file and merges them under the
-     * 'access-control' key in the application's configuration.
+     * Registers the service provider.
      *
      * @return void
      */
@@ -23,11 +20,7 @@ class AccessServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bootstraps the Access package by enabling configuration file publishing.
-     *
-     * Called after all service providers are registered, this method triggers resource publishing,
-     * ensuring the access control configuration file is available in the application's configuration
-     * directory when running in a console environment.
+     * Bootstrap any package services.
      *
      * @return void
      */

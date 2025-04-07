@@ -49,9 +49,11 @@ class TestCase extends BaseTestCase
     }
 
     /**
-     * Configures the test application's environment by setting the default web authentication guard.
+     * Define environment setup.
      *
-     * Sets the authentication guard for web users to use the session driver with the 'users' provider.
+     * @param \Illuminate\Foundation\Application $app
+     *
+     * @return void
      */
     protected function defineEnvironment($app)
     {
@@ -64,9 +66,9 @@ class TestCase extends BaseTestCase
     }
 
     /**
-     * Returns the package's service provider classes.
+     * Get package providers.
      *
-     * This method registers the service providers necessary for the package in the test environment.
+     * @param \Illuminate\Foundation\Application $app
      *
      * @return array<int, class-string<\Illuminate\Support\ServiceProvider>>
      */
@@ -77,43 +79,16 @@ class TestCase extends BaseTestCase
         ];
     }
 
-    /**
-     * Authenticates a user for testing.
-     *
-     * If no user instance is provided, a new user is created using the default authentication factory.
-     *
-     * @param mixed|null $user   The user to authenticate. If null, a new user is created.
-     * @param string     $driver The authentication guard to use. Defaults to 'web'.
-     *
-     * @return mixed The result of the actingAs method, representing the authenticated application instance.
-     */
     protected function withAuthenticatedUser($user = null, string $driver = 'web')
     {
         return $this->actingAs($user ?? $this->resolveAuthFactoryClass()::new()->create(), $driver);
     }
 
-    /**
-     * Retrieves the authentication factory class.
-     *
-     * This default implementation returns null, indicating that no custom
-     * authentication factory is provided. Override this method in subclasses
-     * to specify a particular factory class when needed.
-     *
-     * @return null
-     */
     protected function resolveAuthFactoryClass()
     {
         return null;
     }
 
-    /**
-     * Asserts that the response indicates an unauthorized action.
-     *
-     * This method verifies that the provided response has a 403 HTTP status code and a JSON body
-     * with a message stating "This action is unauthorized."
-     *
-     * @param mixed $response The HTTP response object to validate.
-     */
     protected function assertUnauthorizedResponse($response)
     {
         $response->assertStatus(403);
