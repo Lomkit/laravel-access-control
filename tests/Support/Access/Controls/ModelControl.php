@@ -4,73 +4,56 @@ namespace Lomkit\Access\Tests\Support\Access\Controls;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Cache;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
+use Lomkit\Access\Tests\Support\Access\Perimeters\GlobalPerimeter;
+use Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter;
+use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
 
 class ModelControl extends Control
 {
-    protected function shouldShared()
+    protected function perimeters(): array
     {
-        return Cache::get('model-should-shared', false);
-    }
+        // @TODO: possible to extract the should callback to another method ??
+        $shouldCallback = function (Model $user, string $method, Model $model) {
+            return in_array($method, explode(',', $model->allowed_methods));
+        };
 
-    protected function shouldClient()
-    {
-        return Cache::get('model-should-client', false);
-    }
-
-    protected function shouldSite()
-    {
-        return Cache::get('model-should-site', false);
-    }
-
-    protected function shouldOwn()
-    {
-        return Cache::get('model-should-own', false);
-    }
-
-    public function sharedQuery(Builder $query)
-    {
-        $query->orWhere('is_shared', true);
-    }
-
-    public function clientQuery(Builder $query)
-    {
-        $query->orWhere('is_client', true);
-    }
-
-    public function siteQuery(Builder $query)
-    {
-        $query->orWhere('is_site', true);
-    }
-
-    public function ownQuery(Builder $query)
-    {
-        $query->orWhere('is_own', true);
-    }
-
-    public function fallbackQuery(Builder $query): Builder
-    {
-        return $query->whereRaw('0 = 1');
-    }
-
-    public function sharedPolicy(string $method, Model $user, Model $model): bool
-    {
-        return true;
-    }
-
-    public function clientPolicy(string $method, Model $user, Model $model): bool
-    {
-        return true;
-    }
-
-    public function sitePolicy(string $method, Model $user, Model $model): bool
-    {
-        return true;
-    }
-
-    public function ownPolicy(string $method, Model $user, Model $model): bool
-    {
-        return true;
+        return [
+            SharedPerimeter::new()
+                ->allowed(function (Model $user) {
+                    return $user->should_shared;
+                })
+                ->should(function (Model $user, string $method, Model $model) {
+                    return in_array($method.'_shared', explode(',', $model->allowed_methods));
+                })
+                ->query(function (Builder $query, Model $user) {
+                    return $query->orWhere('is_shared', true);
+                }),
+            GlobalPerimeter::new()
+                ->allowed(function (Model $user) {
+                    return $user->should_global;
+                })
+                ->should($shouldCallback)
+                ->query(function (Builder $query, Model $user) {
+                    return $query->orWhere('is_global', true);
+                }),
+            ClientPerimeter::new()
+                ->allowed(function (Model $user) {
+                    return $user->should_client;
+                })
+                ->should($shouldCallback)
+                ->query(function (Builder $query, Model $user) {
+                    return $query->orWhere('is_client', true);
+                }),
+            OwnPerimeter::new()
+                ->allowed(function (Model $user) {
+                    return $user->should_own;
+                })
+                ->should($shouldCallback)
+                ->query(function (Builder $query, Model $user) {
+                    return $query->orWhere('is_own', true);
+                }),
+        ];
     }
 }

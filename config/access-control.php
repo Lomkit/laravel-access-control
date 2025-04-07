@@ -1,27 +1,14 @@
 <?php
 
 return [
-
-    /*
-    |--------------------------------------------------------------------------
-    | Access Control Perimeters
-    |--------------------------------------------------------------------------
-    |
-    |
-    */
-
-    'perimeters' => [
-        'path' => app_path('Access/Perimeters'),
-    ],
-
     /*
     |--------------------------------------------------------------------------
     | Access Control Queries
     |--------------------------------------------------------------------------
     |
-    |
     */
     'queries' => [
-        'enabled_by_default' => true,
+        'enabled_by_default' => false,
+        'isolated'           => true, // Isolate the control's logic by applying a parent where on the query
     ],
 ];

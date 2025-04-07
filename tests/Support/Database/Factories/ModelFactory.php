@@ -14,16 +14,15 @@ class ModelFactory extends Factory
      */
     protected $model = Model::class;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array
-     */
     public function definition()
     {
         return [
-            'name'   => fake()->name(),
-            'number' => fake()->numberBetween(-9999999, 9999999),
+            'name'      => fake()->name(),
+            'number'    => fake()->numberBetween(-9999999, 9999999),
+            'is_shared' => false,
+            'is_global' => false,
+            'is_client' => false,
+            'is_own'    => false,
         ];
     }
 }

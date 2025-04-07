@@ -2,13 +2,8 @@
 
 namespace Lomkit\Access\Tests\Support\Access\Perimeters;
 
-use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\OverlayPerimeter;
 
-class SharedPerimeter extends Perimeter
+class SharedPerimeter extends OverlayPerimeter
 {
-    public string $name = 'shared';
-
-    public bool $final = false;
-
-    public int $priority = 1;
 }

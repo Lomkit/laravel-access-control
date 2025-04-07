@@ -18,6 +18,10 @@ return new class() extends Migration {
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->boolean('should_shared');
+            $table->boolean('should_global');
+            $table->boolean('should_client');
+            $table->boolean('should_own');
             $table->rememberToken();
             $table->timestamps();
         });
