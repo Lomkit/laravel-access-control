@@ -12,6 +12,16 @@ use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
 
 class ModelControl extends Control
 {
+    /**
+     * Returns an array of configured perimeter instances for model access control.
+     *
+     * Each perimeter (Shared, Global, Client, and Own) is set up with:
+     * - A permission check (allowed callback) to determine if the user is authorized.
+     * - A method availability check (should callback) to verify if the action is permitted based on the model's allowed methods.
+     * - A query modifier (query callback) to apply a specific filtering condition.
+     *
+     * @return array An array of perimeter configuration instances.
+     */
     protected function perimeters(): array
     {
         // @TODO: possible to extract the should callback to another method ??

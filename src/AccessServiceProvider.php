@@ -7,7 +7,9 @@ use Illuminate\Support\ServiceProvider;
 class AccessServiceProvider extends ServiceProvider
 {
     /**
-     * Register the service provider.
+     * Register the service provider by merging the package configuration with the application's configuration.
+     *
+     * This method loads the configuration file from the package's config directory and merges it under the "access-control" key, ensuring that the default package settings are available to the application.
      *
      * @return void
      */

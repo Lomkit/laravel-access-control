@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 trait HasControl
 {
     /**
-     * Boot the has control trait for a model.
+     * Boot the HasControl trait.
+     *
+     * Registers a global query scope by adding an instance of HasControlScope to the model,
+     * ensuring control-specific constraints are applied to all queries.
      *
      * @return void
      */
@@ -17,9 +20,13 @@ trait HasControl
     }
 
     /**
-     * Get a new factory instance for the model.
+     * Retrieve a control instance associated with the model.
      *
-     * @return Control
+     * This static method first attempts to create a new control instance using the newControl method.
+     * If that call returns null, it falls back to obtaining the control instance for the model via
+     * Control::controlForModel with the current model's class name.
+     *
+     * @return Control The control instance for the model.
      */
     public static function control()
     {
@@ -29,9 +36,13 @@ trait HasControl
     }
 
     /**
-     * Return a new control instance.
+     * Creates a new control instance.
      *
-     * @return Control|null
+     * This method attempts to instantiate a new control object by calling the static "new"
+     * method on the control class defined in the static property. If the instantiation fails,
+     * it returns null.
+     *
+     * @return Control|null A newly created control instance or null if the creation fails.
      */
     protected static function newControl(): ?Control
     {

@@ -6,7 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class() extends Migration {
     /**
-     * Run the migrations.
+     * Execute the migration to create the 'users' table.
+     *
+     * This migration defines the 'users' table with columns for a unique identifier, name, email (with an optional verification timestamp), and password.
+     * It also adds boolean flag columns (should_shared, should_global, should_client, should_own) for additional user preferences, along with columns
+     * for a remember token and automatic timestamps for record creation and updates.
      *
      * @return void
      */

@@ -6,7 +6,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class() extends Migration {
     /**
-     * Run the migrations.
+     * Creates the `models` table in the database.
+     *
+     * This migration sets up the `models` table with an auto-incrementing primary key, a required name,
+     * nullable string fields (`string` and `unique` with a unique constraint), a big integer (`number`),
+     * and an optional `allowed_methods` field. It also defines boolean columns (`is_shared`, `is_global`,
+     * `is_client`, and `is_own`) without default values and includes automatically managed timestamp columns.
      *
      * @return void
      */
