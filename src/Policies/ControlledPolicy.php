@@ -48,6 +48,7 @@ class ControlledPolicy
      * current method name, and a new instance of the model.
      *
      * @param Model $user The user for which permission is being verified.
+     *
      * @return bool True if the user is authorized to view any model instance; false otherwise.
      */
     public function viewAny(Model $user)
@@ -61,8 +62,9 @@ class ControlledPolicy
      * Delegates the permission check to the control instance, which evaluates access based on the user's
      * permissions for the view action on the given model.
      *
-     * @param Model $user The user attempting to view the model.
+     * @param Model $user  The user attempting to view the model.
      * @param Model $model The model instance to check access for.
+     *
      * @return bool True if the user is permitted to view the model; otherwise, false.
      */
     public function view(Model $user, Model $model)
@@ -76,6 +78,7 @@ class ControlledPolicy
      * Evaluates permissions by invoking the control mechanism with a new instance of the model.
      *
      * @param Model $user The user attempting to create a model instance.
+     *
      * @return bool True if the user is permitted to create the model instance, false otherwise.
      */
     public function create(Model $user)
@@ -88,8 +91,9 @@ class ControlledPolicy
      *
      * Delegates the permission check to the Control instance, which evaluates the update action for the given user and model.
      *
-     * @param Model $user The user attempting the update.
+     * @param Model $user  The user attempting the update.
      * @param Model $model The model instance that is the target of the update.
+     *
      * @return bool True if the user has update permissions; otherwise, false.
      */
     public function update(Model $user, Model $model)
@@ -102,8 +106,9 @@ class ControlledPolicy
      *
      * Delegates the deletion permission check to the control instance, which evaluates the user's rights against the provided model.
      *
-     * @param Model $user The user attempting the deletion.
+     * @param Model $user  The user attempting the deletion.
      * @param Model $model The model instance subject to deletion.
+     *
      * @return bool True if deletion is permitted; false otherwise.
      */
     public function delete(Model $user, Model $model)

@@ -19,9 +19,9 @@ class Perimeter
      * Invokes the stored closure using the provided user, action method name, and target model,
      * returning a boolean result based on the evaluation.
      *
-     * @param Model $user The user to be evaluated.
+     * @param Model  $user   The user to be evaluated.
      * @param string $method The name of the action triggering the callback.
-     * @param Model $model The model instance involved in the evaluation.
+     * @param Model  $model  The model instance involved in the evaluation.
      *
      * @return bool The result from the callback indicating whether the condition is met.
      */
@@ -37,7 +37,8 @@ class Perimeter
      * the provided user model, enabling dynamic query modifications for access control.
      *
      * @param Builder $query The query builder instance to be modified.
-     * @param Model $user The user model used to determine query modifications.
+     * @param Model   $user  The user model used to determine query modifications.
+     *
      * @return Builder The modified query builder.
      */
     public function applyQueryCallback(Builder $query, Model $user): Builder
@@ -49,6 +50,7 @@ class Perimeter
      * Executes the allowed callback to determine if the given user is permitted.
      *
      * @param Model $user The user model instance to check.
+     *
      * @return bool True if the callback allows access, otherwise false.
      */
     public function applyAllowedCallback(Model $user): bool
@@ -63,6 +65,7 @@ class Perimeter
      * instance to facilitate method chaining.
      *
      * @param Closure $allowedCallback A callback that checks and returns whether a user is permitted.
+     *
      * @return self The current instance for chained method calls.
      */
     public function allowed(Closure $allowedCallback): self
@@ -78,6 +81,7 @@ class Perimeter
      * The provided callback is stored and executed later to evaluate whether access control rules should be enforced.
      *
      * @param Closure $shouldCallback The callback to assess if a condition is met.
+     *
      * @return self The current instance for method chaining.
      */
     public function should(Closure $shouldCallback): self
@@ -93,6 +97,7 @@ class Perimeter
      * This callback is invoked by applyQueryCallback() to tailor query conditions based on the user's access.
      *
      * @param Closure $queryCallback The callback that modifies the query builder.
+     *
      * @return self Returns the current instance for method chaining.
      */
     public function query(Closure $queryCallback): self

@@ -9,7 +9,7 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Registers the service provider by merging the access control configuration into the application.
      *
-     * This method merges the package's configuration file (located at __DIR__.'/../config/access-control.php') 
+     * This method merges the package's configuration file (located at __DIR__.'/../config/access-control.php')
      * with the application's configuration under the "access-control" key.
      *
      * @return void

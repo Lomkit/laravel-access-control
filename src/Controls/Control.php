@@ -83,7 +83,8 @@ class Control
      * logic is applied directly to the query.
      *
      * @param Builder $query The query builder instance to modify.
-     * @param Model $user The user for whom the access control restrictions are applied.
+     * @param Model   $user  The user for whom the access control restrictions are applied.
+     *
      * @return Builder The modified query builder with applied control conditions.
      */
     public function queried(Builder $query, Model $user): Builder
@@ -219,7 +220,7 @@ class Control
     /**
      * Retrieves the application namespace.
      *
-     * This method returns the application's namespace as configured. If an error occurs during the retrieval process, 
+     * This method returns the application's namespace as configured. If an error occurs during the retrieval process,
      * it falls back to returning the default namespace "App\\".
      *
      * @return string The application namespace or "App\\" if an error is encountered.

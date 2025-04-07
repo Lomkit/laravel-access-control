@@ -24,7 +24,7 @@ class HasControlScope implements Scope
      * The $model parameter is included to satisfy interface requirements but is not used in this implementation.
      *
      * @param Builder $builder The query builder instance to be extended.
-     * @param Model $model The model instance associated with the query (unused).
+     * @param Model   $model   The model instance associated with the query (unused).
      */
     public function apply(Builder $builder, Model $model): void
     {
