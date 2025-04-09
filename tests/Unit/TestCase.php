@@ -1,5 +1,7 @@
 <?php
 
+namespace Lomkit\Access\Tests\Unit;
+
 use Lomkit\Access\Tests\Support\Database\Factories\UserFactory;
 use Lomkit\Access\Tests\TestCase as BaseTestCase;
 
