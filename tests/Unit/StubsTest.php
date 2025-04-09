@@ -9,7 +9,7 @@ class StubsTest extends TestCase
     public function test_stubs_correctly_registered(): void
     {
         app(Dispatcher::class)->dispatch($event = new \Illuminate\Foundation\Events\PublishingStubs([]));
-        
+
         $this->assertEquals(
             [
                 realpath(__DIR__.'/../../src/Console/stubs/control.stub')           => 'controller.stub',
