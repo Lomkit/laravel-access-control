@@ -2,19 +2,14 @@
 
 namespace Lomkit\Access\Console;
 
-use Illuminate\Console\Concerns\CreatesMatchingTest;
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
-use InvalidArgumentException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-
 use Symfony\Component\Finder\Finder;
-use function Laravel\Prompts\confirm;
-use function Laravel\Prompts\select;
+
 use function Laravel\Prompts\multiselect;
 
 #[AsCommand(name: 'make:control')]
@@ -54,7 +49,8 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Resolve the fully-qualified path to the stub.
      *
-     * @param  string  $stub
+     * @param string $stub
+     *
      * @return string
      */
     protected function resolveStubPath($stub)
@@ -67,7 +63,8 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Get the default namespace for the class.
      *
-     * @param  string  $rootNamespace
+     * @param string $rootNamespace
+     *
      * @return string
      */
     protected function getDefaultNamespace($rootNamespace)
@@ -80,7 +77,8 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * Remove the base controller import if we are already in the base namespace.
      *
-     * @param  string  $name
+     * @param string $name
+     *
      * @return string
      */
     protected function buildClass($name)
@@ -102,15 +100,18 @@ class ControlMakeCommand extends GeneratorCommand
         }
 
         return str_replace(
-            array_keys($replace), array_values($replace), parent::buildClass($name)
+            array_keys($replace),
+            array_values($replace),
+            parent::buildClass($name)
         );
     }
 
     /**
      * Build the model replacement values.
      *
-     * @param  array  $replace
-     * @param  array  $perimeters
+     * @param array $replace
+     * @param array $perimeters
+     *
      * @return array
      */
     protected function buildPerimetersReplacements(array $replace, array $perimeters)
@@ -137,7 +138,7 @@ class ControlMakeCommand extends GeneratorCommand
 
         return array_merge($replace, [
             '{{ perimeters }}' => $perimetersImplementation,
-            '{{perimeters}}' => $perimetersImplementation,
+            '{{perimeters}}'   => $perimetersImplementation,
         ]);
     }
 
@@ -156,8 +157,9 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Interact further with the user if they were prompted for missing arguments.
      *
-     * @param  \Symfony\Component\Console\Input\InputInterface  $input
-     * @param  \Symfony\Component\Console\Output\OutputInterface  $output
+     * @param \Symfony\Component\Console\Input\InputInterface   $input
+     * @param \Symfony\Component\Console\Output\OutputInterface $output
+     *
      * @return void
      */
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output)

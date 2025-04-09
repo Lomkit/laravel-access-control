@@ -12,9 +12,9 @@ class StubsTest extends TestCase
 
         $this->assertEquals(
             [
-                '/app/src/Console/stubs/control.stub' => 'controller.stub',
-                '/app/src/Console/stubs/perimeter.plain.stub' => 'perimeter.plain.stub',
-                '/app/src/Console/stubs/perimeter.overlay.stub' => 'perimeter.overlay.stub'
+                '/app/src/Console/stubs/control.stub'           => 'controller.stub',
+                '/app/src/Console/stubs/perimeter.plain.stub'   => 'perimeter.plain.stub',
+                '/app/src/Console/stubs/perimeter.overlay.stub' => 'perimeter.overlay.stub',
             ],
             $event->stubs
         );

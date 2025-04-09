@@ -11,7 +11,7 @@ use Lomkit\Access\Console\PerimeterMakeCommand;
 class AccessServiceProvider extends ServiceProvider
 {
     protected array $devCommands = [
-        'ControlMake' => ControlMakeCommand::class,
+        'ControlMake'   => ControlMakeCommand::class,
         'PerimeterMake' => PerimeterMakeCommand::class,
     ];
 
@@ -45,7 +45,8 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Register the given commands.
      *
-     * @param  array  $commands
+     * @param array $commands
+     *
      * @return void
      */
     protected function registerCommands(array $commands)
@@ -64,9 +65,10 @@ class AccessServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the stubs on the default laravel stub publish command
+     * Register the stubs on the default laravel stub publish command.
      */
-    protected function registerStubs() {
+    protected function registerStubs()
+    {
         Event::listen(function (PublishingStubs $event) {
             $event->add(realpath(__DIR__.'/Console/stubs/control.stub'), 'controller.stub');
             $event->add(realpath(__DIR__.'/Console/stubs/perimeter.plain.stub'), 'perimeter.plain.stub');

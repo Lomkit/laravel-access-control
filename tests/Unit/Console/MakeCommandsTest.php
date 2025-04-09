@@ -2,7 +2,6 @@
 
 namespace Lomkit\Access\Tests\Unit\Console;
 
-use Illuminate\Support\Facades\Artisan;
 use Lomkit\Access\Tests\Unit\TestCase;
 
 class MakeCommandsTest extends TestCase
