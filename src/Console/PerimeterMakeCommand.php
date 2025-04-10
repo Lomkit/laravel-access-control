@@ -7,6 +7,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+
 use function Laravel\Prompts\confirm;
 
 #[AsCommand(name: 'make:perimeter')]
@@ -119,12 +120,12 @@ class PerimeterMakeCommand extends GeneratorCommand
      */
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output)
     {
-       if ($this->didReceiveOptions($input)) {
-           return;
-       }
+        if ($this->didReceiveOptions($input)) {
+            return;
+        }
 
-       if (confirm('Should this perimeter be an overlay?', false)) {
-           $input->setOption('overlay', true);
-       }
+        if (confirm('Should this perimeter be an overlay?', false)) {
+            $input->setOption('overlay', true);
+        }
     }
 }
