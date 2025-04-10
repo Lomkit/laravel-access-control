@@ -119,7 +119,7 @@ class ControlMakeCommand extends GeneratorCommand
         $perimetersImplementation = '';
 
         foreach ($perimeters as $perimeter) {
-            $perimeterClass = app_path('Access/Perimeters/'.$perimeter.'.php');
+            $perimeterClass = $this->rootNamespace().'Access\\Perimeters\\'.$perimeter.'.php';
 
             $perimetersImplementation .= <<<PERIMETER
                 \\n

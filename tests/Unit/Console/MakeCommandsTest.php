@@ -8,32 +8,32 @@ class MakeCommandsTest extends TestCase
 {
     public function test_make_plain_perimeter_command()
     {
-        @unlink(app_path('Access/Perimeters/Perimeter.php'));
+        @unlink(app_path('Access/Perimeters/TestPerimeter.php'));
 
         $this
-            ->artisan('make:perimeter', ['name' => 'Perimeter'])
+            ->artisan('make:perimeter', ['name' => 'TestPerimeter'])
             ->assertOk()
             ->run();
 
-        $this->assertFileExists(app_path('Access/Perimeters/Perimeter.php'));
-        $this->assertStringContainsString('class Perimeter extends Perimeter', file_get_contents(app_path('Access/Perimeters/Perimeter.php')));
+        $this->assertFileExists(app_path('Access/Perimeters/TestPerimeter.php'));
+        $this->assertStringContainsString('class TestPerimeter extends Perimeter', file_get_contents(app_path('Access/Perimeters/TestPerimeter.php')));
 
-        unlink(app_path('Access/Perimeters/Perimeter.php'));
+        unlink(app_path('Access/Perimeters/TestPerimeter.php'));
     }
 
     public function test_make_overlay_perimeter_command()
     {
-        @unlink(app_path('Access/Perimeters/Perimeter.php'));
+        @unlink(app_path('Access/Perimeters/TestPerimeter.php'));
 
         $this
-            ->artisan('make:perimeter', ['name' => 'Perimeter', '--overlay' => true])
+            ->artisan('make:perimeter', ['name' => 'TestPerimeter', '--overlay' => true])
             ->assertOk()
             ->run();
 
-        $this->assertFileExists(app_path('Access/Perimeters/Perimeter.php'));
-        $this->assertStringContainsString('class Perimeter extends OverlayPerimeter', file_get_contents(app_path('Access/Perimeters/Perimeter.php')));
+        $this->assertFileExists(app_path('Access/Perimeters/TestPerimeter.php'));
+        $this->assertStringContainsString('class TestPerimeter extends OverlayPerimeter', file_get_contents(app_path('Access/Perimeters/TestPerimeter.php')));
 
-        unlink(app_path('Access/Perimeters/Perimeter.php'));
+        unlink(app_path('Access/Perimeters/TestPerimeter.php'));
     }
 
     public function test_make_control_command()
@@ -88,7 +88,7 @@ class MakeCommandsTest extends TestCase
 
         $this->assertFileExists(app_path('Access/Controls/TestControl.php'));
         $this->assertStringContainsString('class TestControl', file_get_contents(app_path('Access/Controls/TestControl.php')));
-        $this->assertStringContainsString(app_path('Access/Perimeters/TestPerimeter.php').'::new()', file_get_contents(app_path('Access/Controls/TestControl.php')));
+        $this->assertStringContainsString('App\\Access\\Perimeters\\TestPerimeter.php::new()', file_get_contents(app_path('Access/Controls/TestControl.php')));
 
         unlink(app_path('Access/Perimeters/TestPerimeter.php'));
         unlink(app_path('Access/Perimeters/SecondTestPerimeter.php'));

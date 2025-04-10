@@ -4,6 +4,7 @@ namespace {{ namespace }};
 
 use {{ rootNamespace }}Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Lomkit\Access\Controls\Control;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -12,7 +13,7 @@ class {{ class }} extends Control
     /**
      * Retrieve the list of perimeter definitions for the current control.
      *
-     * @return array<Perimeter> An array of Perimeter objects.
+     * @return array<\Lomkit\Access\Perimeters\Perimeter> An array of Perimeter objects.
      */
     protected function perimeters(): array
     {
