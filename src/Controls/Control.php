@@ -30,7 +30,7 @@ class Control
     /**
      * Retrieve the list of perimeter definitions for the current control.
      *
-     * @return array<Perimeter> An array of Perimeter objects.
+     * @return array<\Lomkit\Access\Perimeters\Perimeter> An array of Perimeter objects.
      */
     protected function perimeters(): array
     {

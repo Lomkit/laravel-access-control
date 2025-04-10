@@ -7,7 +7,7 @@ use Lomkit\Access\Controls\Control;
 
 class ControlledPolicy
 {
-    //@TODO: what to do for other methods like attach ? It only has view / etc basic methods
+    //@TODO: what to do for other methods like attach / restore / force_delete ? It only has view / etc basic methods
 
     /**
      * The model class string.
@@ -95,6 +95,32 @@ class ControlledPolicy
      * @return bool True if deletion is permitted, false otherwise.
      */
     public function delete(Model $user, Model $model)
+    {
+        return $this->getControl()->should($user, __FUNCTION__, $model);
+    }
+
+    /**
+     * Determines if the specified user is authorized to restore the given model instance.
+     *
+     * @param Model $user  The user attempting the restoration.
+     * @param Model $model The model instance to be restored.
+     *
+     * @return bool True if restoration is permitted, false otherwise.
+     */
+    public function restore(Model $user, Model $model)
+    {
+        return $this->getControl()->should($user, __FUNCTION__, $model);
+    }
+
+    /**
+     * Determines if the specified user is authorized to force delete the given model instance.
+     *
+     * @param Model $user  The user attempting the force deletion.
+     * @param Model $model The model instance to be force deleted.
+     *
+     * @return bool True if force deletion is permitted, false otherwise.
+     */
+    public function forceDelete(Model $user, Model $model)
     {
         return $this->getControl()->should($user, __FUNCTION__, $model);
     }

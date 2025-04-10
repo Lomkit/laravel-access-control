@@ -1,5 +1,7 @@
 <?php
 
+namespace Lomkit\Access\Tests\Feature;
+
 use Illuminate\Support\Facades\Auth;
 use Lomkit\Access\Tests\Support\Models\Model;
 
@@ -138,7 +140,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
     }
 
-    public function test_control_should_not_delete_global_using_shared_overlayed_perimeter(): void
+    public function test_control_should_delete_using_shared_overlayed_perimeter(): void
     {
         Auth::user()->update(['should_shared' => true]);
         Auth::user()->update(['should_global' => true]);

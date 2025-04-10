@@ -2,10 +2,19 @@
 
 namespace Lomkit\Access;
 
+use Illuminate\Foundation\Events\PublishingStubs;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Lomkit\Access\Console\ControlMakeCommand;
+use Lomkit\Access\Console\PerimeterMakeCommand;
 
 class AccessServiceProvider extends ServiceProvider
 {
+    protected array $devCommands = [
+        'ControlMake'   => ControlMakeCommand::class,
+        'PerimeterMake' => PerimeterMakeCommand::class,
+    ];
+
     /**
      * Registers the service provider.
      *
@@ -13,6 +22,8 @@ class AccessServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->registerCommands($this->devCommands);
+
         $this->mergeConfigFrom(
             __DIR__.'/../config/access-control.php',
             'access-control'
@@ -27,6 +38,42 @@ class AccessServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->registerPublishing();
+
+        $this->registerStubs();
+    }
+
+    /**
+     * Register the given commands.
+     *
+     * @param array $commands
+     *
+     * @return void
+     */
+    protected function registerCommands(array $commands)
+    {
+        foreach ($commands as $commandName => $command) {
+            $method = "register{$commandName}Command";
+
+            if (method_exists($this, $method)) {
+                $this->{$method}();
+            } else {
+                $this->app->singleton($command);
+            }
+        }
+
+        $this->commands(array_values($commands));
+    }
+
+    /**
+     * Register the stubs on the default laravel stub publish command.
+     */
+    protected function registerStubs()
+    {
+        Event::listen(function (PublishingStubs $event) {
+            $event->add(realpath(__DIR__.'/Console/stubs/control.stub'), 'controller.stub');
+            $event->add(realpath(__DIR__.'/Console/stubs/perimeter.plain.stub'), 'perimeter.plain.stub');
+            $event->add(realpath(__DIR__.'/Console/stubs/perimeter.overlay.stub'), 'perimeter.overlay.stub');
+        });
     }
 
     /**
@@ -41,5 +88,15 @@ class AccessServiceProvider extends ServiceProvider
                 __DIR__.'/../config/access-control.php' => config_path('access-control.php'),
             ], 'access-control-config');
         }
+    }
+
+    /**
+     * Get the services provided by the provider.
+     *
+     * @return array
+     */
+    public function provides()
+    {
+        return array_values($this->devCommands);
     }
 }
