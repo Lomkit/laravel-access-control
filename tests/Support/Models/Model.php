@@ -14,6 +14,11 @@ class Model extends BaseModel
     use HasControl;
     use Searchable;
 
+    /**
+     * Creates a new instance of the model's factory.
+     *
+     * @return ModelFactory The factory instance for this model.
+     */
     protected static function newFactory()
     {
         return new ModelFactory();

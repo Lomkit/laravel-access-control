@@ -12,6 +12,13 @@ use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
 
 class ModelControl extends Control
 {
+    /**
+     * Defines and returns a set of access perimeters with associated permission and query logic.
+     *
+     * Each perimeter specifies conditions for access (allowed, should) and query modifications for both Eloquent and Laravel Scout builders, based on user and model attributes.
+     *
+     * @return array List of configured perimeter instances for access control.
+     */
     protected function perimeters(): array
     {
         $shouldCallback = function (Model $user, string $method, Model $model) {
