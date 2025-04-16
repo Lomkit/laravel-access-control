@@ -22,4 +22,16 @@ class Model extends BaseModel
     protected $fillable = [
         'id',
     ];
+
+    public function author() {
+        return $this->belongsTo(User::class, 'author_id');
+    }
+
+    public function client() {
+        return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function sharedWithUsers() {
+        return $this->belongsToMany(User::class, 'models_shared_with_users');
+    }
 }

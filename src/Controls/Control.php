@@ -49,14 +49,14 @@ class Control
     public function applies(Model $user, string $method, Model $model): bool
     {
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user)) {
+            if ($perimeter->applyAllowedCallback($user, $method)) {
                 // If the model doesn't exists, it means the method is not related to a model
                 // so we don't need to activate the should result since we can't compare an existing model
                 if (!$model->exists) {
                     return true;
                 }
 
-                $should = $perimeter->applyShouldCallback($user, $method, $model);
+                $should = $perimeter->applyShouldCallback($user, $model);
 
                 if (!$perimeter->overlays() || $should) {
                     return $should;
@@ -118,7 +118,7 @@ class Control
         };
 
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user)) {
+            if ($perimeter->applyAllowedCallback($user, 'view')) {
                 $query = $perimeter->applyQueryCallback($query, $user);
 
                 $noResultCallback = function ($query) {return $query; };
@@ -147,7 +147,7 @@ class Control
         };
 
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user)) {
+            if ($perimeter->applyAllowedCallback($user, 'view')) {
                 $query = $perimeter->applyScoutQueryCallback($query, $user);
 
                 $noResultCallback = function ($query) {return $query; };

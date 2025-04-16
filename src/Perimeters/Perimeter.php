@@ -22,8 +22,8 @@ class Perimeter
         // Default implementations that can be overridden
         $this->scoutQueryCallback = function (\Laravel\Scout\Builder $query, Model $user) { return $query; };
         $this->queryCallback = function (Builder $query, Model $user) { return $query; };
-        $this->shouldCallback = function (Model $user, string $method, Model $model) { return true; };
-        $this->allowedCallback = function (Model $user) { return true; };
+        $this->shouldCallback = function (Model $user, Model $model) { return true; };
+        $this->allowedCallback = function (Model $user, string $method, Model $model) { return true; };
     }
 
     /**
@@ -35,9 +35,9 @@ class Perimeter
      *
      * @return bool True if the condition applies; false otherwise.
      */
-    public function applyShouldCallback(Model $user, string $method, Model $model): bool
+    public function applyShouldCallback(Model $user, Model $model): bool
     {
-        return ($this->shouldCallback)($user, $method, $model);
+        return ($this->shouldCallback)($user, $model);
     }
 
     /**
@@ -73,9 +73,9 @@ class Perimeter
      *
      * @return bool True if the user is allowed; false otherwise.
      */
-    public function applyAllowedCallback(Model $user): bool
+    public function applyAllowedCallback(Model $user, string $method): bool
     {
-        return ($this->allowedCallback)($user);
+        return ($this->allowedCallback)($user, $method);
     }
 
     /**

@@ -3,6 +3,8 @@
 namespace Lomkit\Access\Tests\Feature;
 
 use Lomkit\Access\Tests\Support\Database\Factories\UserFactory;
+use Lomkit\Access\Tests\Support\Models\Client;
+use Lomkit\Access\Tests\Support\Models\User;
 use Lomkit\Access\Tests\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase
@@ -11,7 +13,10 @@ class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        $this->withAuthenticatedUser();
+        $user = UserFactory::new()
+            ->for(Client::factory())
+            ->createOne();
+        $this->withAuthenticatedUser($user);
     }
 
     protected function resolveAuthFactoryClass()
