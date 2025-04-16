@@ -34,8 +34,6 @@ class AccessServiceProvider extends ServiceProvider
 
     /**
      * Bootstrap any package services.
-     *
-     * @return void
      */
     public function boot()
     {
@@ -46,6 +44,9 @@ class AccessServiceProvider extends ServiceProvider
         $this->bootScoutBuilder();
     }
 
+    /**
+     * Registers a macro on Laravel Scout's Builder.
+     */
     protected function bootScoutBuilder(): void
     {
         if (class_exists(Builder::class)) {

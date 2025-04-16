@@ -14,6 +14,9 @@ class Perimeter
     protected Closure $shouldCallback;
     protected Closure $allowedCallback;
 
+    /**
+     * Initializes the Perimeter with default callbacks for access control and query customization.
+     */
     public function __construct()
     {
         // Default implementations that can be overridden
@@ -24,19 +27,27 @@ class Perimeter
     }
 
     /**
-     * Executes the should callback to determine if the access control condition is met.
+     * Determines if the access control condition should be applied for the given user, method, and model.
      *
-     * @param Model  $user   The user instance for which the check is performed.
-     * @param string $method The access control method or action being evaluated.
-     * @param Model  $model  The model instance related to the access check.
+     * @param Model  $user   The user being evaluated.
+     * @param string $method The access control action or method.
+     * @param Model  $model  The related model instance.
      *
-     * @return bool True if the callback validation passes; otherwise, false.
+     * @return bool True if the condition applies; false otherwise.
      */
     public function applyShouldCallback(Model $user, string $method, Model $model): bool
     {
         return ($this->shouldCallback)($user, $method, $model);
     }
 
+    /**
+     * Applies the configured Scout query callback to modify a Laravel Scout search query for a given user.
+     *
+     * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
+     * @param Model                  $user  The user model for whom the query is being modified.
+     *
+     * @return \Laravel\Scout\Builder The modified Scout query builder.
+     */
     public function applyScoutQueryCallback(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
         return ($this->scoutQueryCallback)($query, $user);
@@ -96,11 +107,11 @@ class Perimeter
     }
 
     /**
-     * Sets the query modification callback.
+     * Sets a custom callback to modify Eloquent query builders for access control.
      *
-     * @param Closure $queryCallback A callback that customizes the query logic.
+     * @param Closure $queryCallback Callback that receives and returns a query builder.
      *
-     * @return self Returns the current instance for method chaining.
+     * @return self The current Perimeter instance.
      */
     public function query(Closure $queryCallback): self
     {
@@ -109,6 +120,13 @@ class Perimeter
         return $this;
     }
 
+    /**
+     * Sets the callback used to modify Laravel Scout search queries for this perimeter.
+     *
+     * @param Closure $scoutQueryCallback Callback that receives a Scout query builder and user model, and returns a modified query builder.
+     *
+     * @return self
+     */
     public function scoutQuery(Closure $scoutQueryCallback): self
     {
         $this->scoutQueryCallback = $scoutQueryCallback;
