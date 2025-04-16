@@ -4,9 +4,7 @@ namespace Lomkit\Access\Tests\Support\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 use Lomkit\Access\Tests\Support\Database\Factories\ClientFactory;
-use Lomkit\Access\Tests\Support\Database\Factories\UserFactory;
 
 class Client extends Authenticatable
 {
@@ -26,11 +24,13 @@ class Client extends Authenticatable
         'name',
     ];
 
-    public function models() {
+    public function models()
+    {
         return $this->hasMany(Model::class, 'client_id');
     }
 
-    public function users() {
+    public function users()
+    {
         return $this->hasMany(User::class, 'client_id');
     }
 }

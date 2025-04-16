@@ -4,7 +4,6 @@ namespace Lomkit\Access\Tests\Feature;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Lomkit\Access\Tests\Support\Models\Client;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\User;
 

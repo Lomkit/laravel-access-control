@@ -47,15 +47,18 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
     ];
 
-    public function client() {
+    public function client()
+    {
         return $this->belongsTo(Client::class, 'client_id');
     }
 
-    public function models() {
+    public function models()
+    {
         return $this->hasMany(Model::class, 'author_id');
     }
 
-    public function sharedModels() {
+    public function sharedModels()
+    {
         return $this->belongsToMany(Model::class, 'models_shared_with_users');
     }
 }
