@@ -3,8 +3,10 @@
 namespace Lomkit\Access;
 
 use Illuminate\Foundation\Events\PublishingStubs;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Scout\Builder;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
 
@@ -40,6 +42,19 @@ class AccessServiceProvider extends ServiceProvider
         $this->registerPublishing();
 
         $this->registerStubs();
+
+        $this->bootScoutBuilder();
+    }
+
+    protected function bootScoutBuilder(): void
+    {
+        if (class_exists(Builder::class)) {
+            Builder::macro('controlled', function (Builder $builder) {
+                $control = $builder->model->newControl();
+
+                return $control->queried($builder, Auth::user());
+            });
+        }
     }
 
     /**

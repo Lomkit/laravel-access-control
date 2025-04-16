@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Perimeter
 {
+    protected Closure $scoutQueryCallback;
+
     protected Closure $queryCallback;
     protected Closure $shouldCallback;
     protected Closure $allowedCallback;
@@ -15,6 +17,7 @@ class Perimeter
     public function __construct()
     {
         // Default implementations that can be overridden
+        $this->scoutQueryCallback = function (\Laravel\Scout\Builder $query, Model $user) { return $query; };
         $this->queryCallback = function (Builder $query, Model $user) { return $query; };
         $this->shouldCallback = function (Model $user, string $method, Model $model) { return true; };
         $this->allowedCallback = function (Model $user) { return true; };
@@ -32,6 +35,11 @@ class Perimeter
     public function applyShouldCallback(Model $user, string $method, Model $model): bool
     {
         return ($this->shouldCallback)($user, $method, $model);
+    }
+
+    public function applyScoutQueryCallback(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
+    {
+        return ($this->scoutQueryCallback)($query, $user);
     }
 
     /**
@@ -97,6 +105,13 @@ class Perimeter
     public function query(Closure $queryCallback): self
     {
         $this->queryCallback = $queryCallback;
+
+        return $this;
+    }
+
+    public function scoutQuery(Closure $scoutQueryCallback): self
+    {
+        $this->scoutQueryCallback = $scoutQueryCallback;
 
         return $this;
     }

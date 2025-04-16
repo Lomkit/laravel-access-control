@@ -12,7 +12,7 @@ use Throwable;
 
 class Control
 {
-    // @TODO: scout queried
+    // @TODO: change readme image
     /**
      * The control name resolver.
      *
@@ -91,6 +91,19 @@ class Control
     }
 
     /**
+     * Modifies the scout query builder to enforce access control restrictions for a given user.
+     *
+     * @param \Laravel\Scout\Builder $query The scout query builder instance to modify.
+     * @param Model   $user  The user model used to determine applicable query control restrictions.
+     *
+     * @return Builder The modified query builder with access controls applied.
+     */
+    public function scoutQueried(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
+    {
+        return $this->applyScoutQueryControl($query, $user);
+    }
+
+    /**
      * Applies query modifications based on access control perimeters for the given user.
      *
      * @param Builder $query The query builder instance to be modified.
@@ -119,6 +132,28 @@ class Control
         return $noResultCallback($query);
     }
 
+    protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
+    {
+
+        $noResultCallback = function (\Laravel\Scout\Builder $query) {
+            return $this->noResultScoutQuery($query);
+        };
+
+        foreach ($this->perimeters() as $perimeter) {
+            if ($perimeter->applyAllowedCallback($user)) {
+                $query = $perimeter->applyScoutQueryCallback($query, $user);
+
+                $noResultCallback = function ($query) {return $query; };
+
+                if (!$perimeter->overlays()) {
+                    return $query;
+                }
+            }
+        }
+
+        return $noResultCallback($query);
+    }
+
     /**
      * Modifies the query builder to return no results.
      *
@@ -129,6 +164,11 @@ class Control
     protected function noResultQuery(Builder $query): Builder
     {
         return $query->whereRaw('0=1');
+    }
+
+    protected function noResultScoutQuery(\Laravel\Scout\Builder $query): \Laravel\Scout\Builder
+    {
+        return $query->where('__NOT_A_VALID_FIELD__', 0);
     }
 
     /**
