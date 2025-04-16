@@ -13,7 +13,7 @@ class Model extends BaseModel
     use HasFactory;
     use HasControl;
     use Searchable;
-    
+
     protected static function newFactory()
     {
         return new ModelFactory();
