@@ -31,9 +31,10 @@ class Perimeter
     /**
      * Determines if the access control condition should be applied for the given user, method, and model.
      *
-     * @param Model $user The user being evaluated.
+     * @param Model  $user   The user being evaluated.
      * @param string $method The access control action or method.
-     * @param Model $model The related model instance.
+     * @param Model  $model  The related model instance.
+     *
      * @return bool True if the condition applies; false otherwise.
      */
     public function applyShouldCallback(Model $user, string $method, Model $model): bool
@@ -45,7 +46,8 @@ class Perimeter
      * Applies the configured Scout query callback to modify a Laravel Scout search query for a given user.
      *
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
-     * @param Model $user The user model for whom the query is being modified.
+     * @param Model                  $user  The user model for whom the query is being modified.
+     *
      * @return \Laravel\Scout\Builder The modified Scout query builder.
      */
     public function applyScoutQueryCallback(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
@@ -110,6 +112,7 @@ class Perimeter
      * Sets a custom callback to modify Eloquent query builders for access control.
      *
      * @param Closure $queryCallback Callback that receives and returns a query builder.
+     *
      * @return self The current Perimeter instance.
      */
     public function query(Closure $queryCallback): self
@@ -123,6 +126,7 @@ class Perimeter
      * Sets the callback used to modify Laravel Scout search queries for this perimeter.
      *
      * @param Closure $scoutQueryCallback Callback that receives a Scout query builder and user model, and returns a modified query builder.
+     *
      * @return self
      */
     public function scoutQuery(Closure $scoutQueryCallback): self
