@@ -12,7 +12,7 @@ use Throwable;
 
 class Control
 {
-    // @TODO: scout queried
+    // @TODO: change readme image
     /**
      * The control name resolver.
      *
@@ -68,12 +68,12 @@ class Control
     }
 
     /**
-     * Modifies the query builder to enforce access control restrictions for a given user.
+     * Applies access control restrictions to an Eloquent query builder for the specified user.
      *
-     * @param Builder $query The query builder instance to modify.
-     * @param Model   $user  The user model used to determine applicable query control restrictions.
+     * @param Builder $query The Eloquent query builder to modify.
+     * @param Model   $user  The user for whom access control is enforced.
      *
-     * @return Builder The modified query builder with access controls applied.
+     * @return Builder The query builder with access control restrictions applied.
      */
     public function queried(Builder $query, Model $user): Builder
     {
@@ -91,12 +91,25 @@ class Control
     }
 
     /**
-     * Applies query modifications based on access control perimeters for the given user.
+     * Applies access control restrictions to a Laravel Scout query builder for the specified user.
      *
-     * @param Builder $query The query builder instance to be modified.
-     * @param Model   $user  The user model used to evaluate access control conditions.
+     * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
+     * @param Model                  $user  The user for whom access control is enforced.
      *
-     * @return Builder The query builder after applying access control modifications.
+     * @return \Laravel\Scout\Builder The query builder with access controls applied.
+     */
+    public function scoutQueried(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
+    {
+        return $this->applyScoutQueryControl($query, $user);
+    }
+
+    /**
+     * Modifies an Eloquent query builder to enforce access control rules for the specified user.
+     *
+     * @param Builder $query The Eloquent query builder to modify.
+     * @param Model   $user  The user for whom access control is evaluated.
+     *
+     * @return Builder The modified query builder reflecting access control restrictions.
      */
     protected function applyQueryControl(Builder $query, Model $user): Builder
     {
@@ -120,15 +133,56 @@ class Control
     }
 
     /**
-     * Modifies the query builder to return no results.
+     * Applies access control modifications to a Laravel Scout query builder based on defined perimeters.
      *
-     * @param Builder $query The query builder instance to modify.
+     * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
+     * @param Model                  $user  The user for whom access control is being enforced.
      *
-     * @return Builder The modified query builder that yields an empty result set.
+     * @return \Laravel\Scout\Builder The modified Scout query builder reflecting access control restrictions.
+     */
+    protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
+    {
+        $noResultCallback = function (\Laravel\Scout\Builder $query) {
+            return $this->noResultScoutQuery($query);
+        };
+
+        foreach ($this->perimeters() as $perimeter) {
+            if ($perimeter->applyAllowedCallback($user)) {
+                $query = $perimeter->applyScoutQueryCallback($query, $user);
+
+                $noResultCallback = function ($query) {return $query; };
+
+                if (!$perimeter->overlays()) {
+                    return $query;
+                }
+            }
+        }
+
+        return $noResultCallback($query);
+    }
+
+    /**
+     * Alters the Eloquent query builder to ensure no records are returned.
+     *
+     * @param Builder $query The Eloquent query builder to modify.
+     *
+     * @return Builder The query builder configured to yield no results.
      */
     protected function noResultQuery(Builder $query): Builder
     {
         return $query->whereRaw('0=1');
+    }
+
+    /**
+     * Modifies the Scout query builder to ensure no records are returned.
+     *
+     * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
+     *
+     * @return \Laravel\Scout\Builder The modified query builder that yields no results.
+     */
+    protected function noResultScoutQuery(\Laravel\Scout\Builder $query): \Laravel\Scout\Builder
+    {
+        return $query->where('__NOT_A_VALID_FIELD__', 0);
     }
 
     /**

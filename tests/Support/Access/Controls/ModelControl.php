@@ -14,7 +14,6 @@ class ModelControl extends Control
 {
     protected function perimeters(): array
     {
-        // @TODO: possible to extract the should callback to another method ??
         $shouldCallback = function (Model $user, string $method, Model $model) {
             return in_array($method, explode(',', $model->allowed_methods));
         };
@@ -27,6 +26,9 @@ class ModelControl extends Control
                 ->should(function (Model $user, string $method, Model $model) {
                     return in_array($method.'_shared', explode(',', $model->allowed_methods));
                 })
+                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
+                    return $query->where('is_shared', true);
+                })
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_shared', true);
                 }),
@@ -35,6 +37,9 @@ class ModelControl extends Control
                     return $user->should_global;
                 })
                 ->should($shouldCallback)
+                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
+                    return $query->where('is_global', true);
+                })
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_global', true);
                 }),
@@ -43,6 +48,9 @@ class ModelControl extends Control
                     return $user->should_client;
                 })
                 ->should($shouldCallback)
+                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
+                    return $query->where('is_client', true);
+                })
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_client', true);
                 }),
@@ -51,6 +59,9 @@ class ModelControl extends Control
                     return $user->should_own;
                 })
                 ->should($shouldCallback)
+                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
+                    return $query->where('is_own', true);
+                })
                 ->query(function (Builder $query, Model $user) {
                     return $query->orWhere('is_own', true);
                 }),

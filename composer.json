@@ -16,6 +16,7 @@
   },
   "require-dev": {
     "guzzlehttp/guzzle": "^6.0|^7.0",
+    "laravel/scout": "^10",
     "orchestra/testbench": "^9|^10",
     "phpunit/phpunit": "^11.0"
   },
