@@ -1,6 +1,5 @@
 <?php
 
-
 use Illuminate\Support\Facades\Auth;
 use Lomkit\Access\Tests\Support\Models\Model;
 

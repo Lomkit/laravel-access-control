@@ -94,7 +94,7 @@ class Control
      * Modifies the scout query builder to enforce access control restrictions for a given user.
      *
      * @param \Laravel\Scout\Builder $query The scout query builder instance to modify.
-     * @param Model   $user  The user model used to determine applicable query control restrictions.
+     * @param Model                  $user  The user model used to determine applicable query control restrictions.
      *
      * @return Builder The modified query builder with access controls applied.
      */
@@ -134,7 +134,6 @@ class Control
 
     protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
-
         $noResultCallback = function (\Laravel\Scout\Builder $query) {
             return $this->noResultScoutQuery($query);
         };
