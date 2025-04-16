@@ -33,7 +33,7 @@ class AccessServiceProvider extends ServiceProvider
     }
 
     /**
-     * Bootstraps package services, including publishing configuration, registering stubs, and extending Scout's builder with access control macros.
+     * Bootstrap any package services.
      */
     public function boot()
     {
@@ -45,9 +45,7 @@ class AccessServiceProvider extends ServiceProvider
     }
 
     /**
-     * Registers a macro on Laravel Scout's Builder to apply access control based on the authenticated user.
-     *
-     * If the Scout Builder class exists, adds a 'controlled' macro that scopes queries using the model's control logic and the current user.
+     * Registers a macro on Laravel Scout's Builder.
      */
     protected function bootScoutBuilder(): void
     {

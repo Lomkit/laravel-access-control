@@ -16,8 +16,6 @@ class Perimeter
 
     /**
      * Initializes the Perimeter with default callbacks for access control and query customization.
-     *
-     * By default, all callbacks either return their input unchanged or allow access, enabling further customization through setter methods.
      */
     public function __construct()
     {

@@ -70,8 +70,6 @@ class Control
     /**
      * Applies access control restrictions to an Eloquent query builder for the specified user.
      *
-     * Modifies the query to ensure that only records accessible to the user are returned, based on defined perimeters and configuration.
-     *
      * @param Builder $query The Eloquent query builder to modify.
      * @param Model   $user  The user for whom access control is enforced.
      *
@@ -108,8 +106,6 @@ class Control
     /**
      * Modifies an Eloquent query builder to enforce access control rules for the specified user.
      *
-     * Iterates through all defined perimeters, applying their query modifications if access is allowed. If no perimeter applies, the query is modified to return no results.
-     *
      * @param Builder $query The Eloquent query builder to modify.
      * @param Model   $user  The user for whom access control is evaluated.
      *
@@ -138,8 +134,6 @@ class Control
 
     /**
      * Applies access control modifications to a Laravel Scout query builder based on defined perimeters.
-     *
-     * Iterates through perimeters to determine if access should be granted for the user, applying perimeter-specific query modifications. If no perimeter applies, modifies the query to yield no results.
      *
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
      * @param Model                  $user  The user for whom access control is being enforced.
@@ -180,7 +174,7 @@ class Control
     }
 
     /**
-     * Modifies a Scout query builder to return no results by adding a condition on a non-existent field.
+     * Modifies the Scout query builder to ensure no records are returned.
      *
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
      *
