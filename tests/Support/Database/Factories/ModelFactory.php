@@ -30,7 +30,7 @@ class ModelFactory extends Factory
 
     public function sharedPerimeter(): Factory
     {
-        return $this->afterCreating(function(Model $model) {
+        return $this->afterCreating(function (Model $model) {
             $model->sharedWithUsers()->attach(Auth::user());
         });
     }

@@ -4,7 +4,6 @@ namespace Lomkit\Access\Tests\Feature;
 
 use Lomkit\Access\Tests\Support\Database\Factories\UserFactory;
 use Lomkit\Access\Tests\Support\Models\Client;
-use Lomkit\Access\Tests\Support\Models\User;
 use Lomkit\Access\Tests\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase

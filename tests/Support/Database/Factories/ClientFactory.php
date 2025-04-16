@@ -3,7 +3,6 @@
 namespace Lomkit\Access\Tests\Support\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 use Lomkit\Access\Tests\Support\Models\Client;
 use Lomkit\Access\Tests\Support\Models\User;
 
