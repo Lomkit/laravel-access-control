@@ -3,7 +3,9 @@
 namespace Lomkit\Access\Tests\Feature;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Tests\Support\Models\Model;
+use Lomkit\Access\Tests\Support\Models\User;
 
 class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
@@ -14,140 +16,164 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_should_view_any_using_client_perimeter(): void
     {
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('viewAny client models', function (User $user) {
+            return true;
+        });
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'viewAny', new Model()));
     }
 
     public function test_control_should_view_using_client_perimeter(): void
     {
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'view',
-            ]);
+            ->clientPerimeter()
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_not_view_using_client_perimeter(): void
     {
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('update client models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'create',
-            ]);
+            ->create();
 
         $this->assertFalse((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_create_using_client_perimeter(): void
     {
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('create global models', function (User $user) {
+            return true;
+        });
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'create', new Model()));
     }
 
     public function test_control_should_update_using_client_perimeter(): void
     {
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('update client models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'update',
-            ]);
+            ->clientPerimeter()
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'update', $model));
     }
 
     public function test_control_should_delete_using_client_perimeter(): void
     {
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('delete client models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'delete',
-            ]);
+            ->clientPerimeter()
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
     }
 
     public function test_control_should_view_any_using_global_perimeter(): void
     {
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('viewAny global models', function (User $user) {
+            return true;
+        });
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'viewAny', new Model()));
     }
 
     public function test_control_should_view_using_global_perimeter(): void
     {
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('view global models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'view',
-            ]);
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_not_view_using_global_perimeter(): void
     {
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'create',
-            ]);
+            ->create();
 
         $this->assertFalse((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_create_using_global_perimeter(): void
     {
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('create global models', function (User $user) {
+            return true;
+        });
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'create', new Model()));
     }
 
     public function test_control_should_update_using_global_perimeter(): void
     {
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('update global models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'update',
-            ]);
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'update', $model));
     }
 
     public function test_control_should_delete_using_global_perimeter(): void
     {
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('delete global models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'delete',
-            ]);
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
     }
 
     public function test_control_should_delete_global_using_shared_overlayed_perimeter(): void
     {
-        Auth::user()->update(['should_shared' => true]);
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('delete shared models', function (User $user) {
+            return true;
+        });
+        Gate::define('delete global models', function (User $user) {
+            return true;
+        });
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'delete',
-            ]);
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
     }
 
     public function test_control_should_delete_using_shared_overlayed_perimeter(): void
     {
-        Auth::user()->update(['should_shared' => true]);
-        Auth::user()->update(['should_global' => true]);
+        Gate::define('delete shared models', function (User $user) {
+            return true;
+        });
+        Gate::define('delete global models', function (User $user) {
+            return true;
+        });
+
         $model = Model::factory()
-            ->create([
-                'allowed_methods' => 'delete_shared',
-            ]);
+            ->create();
 
         $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
     }

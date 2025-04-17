@@ -26,10 +26,6 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'should_client',
-        'should_global',
-        'should_own',
-        'should_shared',
     ];
 
     /**
@@ -49,9 +45,20 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'should_shared'     => 'bool',
-        'should_global'     => 'bool',
-        'should_client'     => 'bool',
-        'should_own'        => 'bool',
     ];
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class, 'client_id');
+    }
+
+    public function models()
+    {
+        return $this->hasMany(Model::class, 'author_id');
+    }
+
+    public function sharedModels()
+    {
+        return $this->belongsToMany(Model::class, 'models_shared_with_users');
+    }
 }

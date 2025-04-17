@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Tests\Support\Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Facades\Auth;
 use Lomkit\Access\Tests\Support\Models\Model;
 
 class ModelFactory extends Factory
@@ -19,10 +20,23 @@ class ModelFactory extends Factory
         return [
             'name'      => fake()->name(),
             'number'    => fake()->numberBetween(-9999999, 9999999),
-            'is_shared' => false,
-            'is_global' => false,
-            'is_client' => false,
-            'is_own'    => false,
         ];
+    }
+
+    public function clientPerimeter(): Factory
+    {
+        return $this->for(Auth::user()->client);
+    }
+
+    public function sharedPerimeter(): Factory
+    {
+        return $this->afterCreating(function (Model $model) {
+            $model->sharedWithUsers()->attach(Auth::user());
+        });
+    }
+
+    public function ownPerimeter(): Factory
+    {
+        return $this->for(Auth::user(), 'author');
     }
 }

@@ -18,11 +18,8 @@ return new class() extends Migration {
             $table->string('string')->nullable();
             $table->string('unique')->unique()->nullable();
             $table->bigInteger('number');
-            $table->string('allowed_methods')->nullable();
-            $table->boolean('is_shared');
-            $table->boolean('is_global');
-            $table->boolean('is_client');
-            $table->boolean('is_own');
+            $table->foreignIdFor(\Lomkit\Access\Tests\Support\Models\User::class, 'author_id')->nullable()->constrained();
+            $table->foreignIdFor(\Lomkit\Access\Tests\Support\Models\Client::class, 'client_id')->nullable()->constrained();
             $table->timestamps();
         });
     }

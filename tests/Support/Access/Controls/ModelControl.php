@@ -14,56 +14,60 @@ class ModelControl extends Control
 {
     protected function perimeters(): array
     {
-        $shouldCallback = function (Model $user, string $method, Model $model) {
-            return in_array($method, explode(',', $model->allowed_methods));
-        };
-
         return [
             SharedPerimeter::new()
-                ->allowed(function (Model $user) {
-                    return $user->should_shared;
+                ->allowed(function (Model $user, string $method) {
+                    return $user->can(sprintf('%s shared models', $method));
                 })
-                ->should(function (Model $user, string $method, Model $model) {
-                    return in_array($method.'_shared', explode(',', $model->allowed_methods));
+                ->should(function (Model $user, Model $model) {
+                    return $model->sharedWithUsers()->where('id', $user->getKey())->exists();
                 })
                 ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query->where('is_shared', true);
+                    return $query->where('shared_with_users', $user->getKey());
                 })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhere('is_shared', true);
+                    return $query->orWhereHas('sharedWithUsers', function (Builder $query) use ($user) {
+                        return $query->where('id', $user->getKey());
+                    });
                 }),
             GlobalPerimeter::new()
-                ->allowed(function (Model $user) {
-                    return $user->should_global;
+                ->allowed(function (Model $user, string $method) {
+                    return $user->can(sprintf('%s global models', $method));
                 })
-                ->should($shouldCallback)
+                ->should(function (Model $user, Model $model) {
+                    return true;
+                })
                 ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query->where('is_global', true);
+                    return $query;
                 })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhere('is_global', true);
+                    return $query;
                 }),
             ClientPerimeter::new()
-                ->allowed(function (Model $user) {
-                    return $user->should_client;
+                ->allowed(function (Model $user, string $method) {
+                    return $user->can(sprintf('%s client models', $method));
                 })
-                ->should($shouldCallback)
+                ->should(function (Model $user, Model $model) {
+                    return $model->client()->is($user->client);
+                })
                 ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query->where('is_client', true);
+                    return $query->where('client_id', $user->client->getKey());
                 })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhere('is_client', true);
+                    return $query->orWhere('client_id', $user->client->getKey());
                 }),
             OwnPerimeter::new()
-                ->allowed(function (Model $user) {
-                    return $user->should_own;
+                ->allowed(function (Model $user, string $method) {
+                    return $user->can(sprintf('%s own models', $method));
                 })
-                ->should($shouldCallback)
+                ->should(function (Model $user, Model $model) {
+                    return $model->user()->is($user);
+                })
                 ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query->where('is_own', true);
+                    return $query->where('author_id', $user->getKey());
                 })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhere('is_own', true);
+                    return $query->orWhere('author_id', $user->getKey());
                 }),
         ];
     }

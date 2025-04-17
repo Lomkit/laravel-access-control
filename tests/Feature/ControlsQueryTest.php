@@ -3,7 +3,9 @@
 namespace Lomkit\Access\Tests\Feature;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Tests\Support\Models\Model;
+use Lomkit\Access\Tests\Support\Models\User;
 
 class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
@@ -21,13 +23,15 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_queried_using_client_perimeter(): void
     {
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
 
         Model::factory()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_client' => true])
+            ->clientPerimeter()
             ->count(50)
             ->create();
 
@@ -39,18 +43,22 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_queried_using_shared_overlayed_perimeter(): void
     {
-        Auth::user()->update(['should_shared' => true]);
-        Auth::user()->update(['should_client' => true]);
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+        Gate::define('view shared models', function (User $user) {
+            return true;
+        });
 
         Model::factory()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_shared' => true])
+            ->sharedPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_client' => true])
+            ->clientPerimeter()
             ->count(50)
             ->create();
 
@@ -62,19 +70,23 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_queried_using_shared_overlayed_perimeter_with_distant_perimeter(): void
     {
-        Auth::user()->update(['should_shared' => true]);
-        Auth::user()->update(['should_own' => true]);
+        Gate::define('view shared models', function (User $user) {
+            return true;
+        });
+        Gate::define('view own models', function (User $user) {
+            return true;
+        });
 
         Model::factory()
-            ->state(['is_client' => true])
+            ->clientPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_shared' => true])
+            ->sharedPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_own' => true])
+            ->ownPerimeter()
             ->count(50)
             ->create();
 
@@ -86,18 +98,20 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_queried_using_only_shared_overlayed_perimeter(): void
     {
-        Auth::user()->update(['should_shared' => true]);
+        Gate::define('view shared models', function (User $user) {
+            return true;
+        });
 
         Model::factory()
-            ->state(['is_client' => true])
+            ->clientPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_shared' => true])
+            ->sharedPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_own' => true])
+            ->ownPerimeter()
             ->count(50)
             ->create();
 
@@ -109,23 +123,28 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_queried_isolated(): void
     {
-        Auth::user()->update(['should_shared' => true]);
-        Auth::user()->update(['should_own' => true]);
+        Gate::define('view shared models', function (User $user) {
+            return true;
+        });
+        Gate::define('view own models', function (User $user) {
+            return true;
+        });
 
         Model::factory()
-            ->state(['is_client' => true])
+            ->clientPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_shared' => true, 'is_client' => true])
+            ->clientPerimeter()
+            ->sharedPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_own' => true])
+            ->ownPerimeter()
             ->count(50)
             ->create();
 
-        $query = Model::query()->where('is_client', true);
+        $query = Model::query()->where('client_id', Auth::user()->client->getKey());
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
 
         $this->assertEquals(50, $query->count());
@@ -135,23 +154,28 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     {
         config(['access-control.queries.isolated' => false]);
 
-        Auth::user()->update(['should_shared' => true]);
-        Auth::user()->update(['should_own' => true]);
+        Gate::define('view shared models', function (User $user) {
+            return true;
+        });
+        Gate::define('view own models', function (User $user) {
+            return true;
+        });
 
         Model::factory()
-            ->state(['is_client' => true])
+            ->clientPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_shared' => true, 'is_client' => true])
+            ->clientPerimeter()
+            ->sharedPerimeter()
             ->count(50)
             ->create();
         Model::factory()
-            ->state(['is_own' => true])
+            ->ownPerimeter()
             ->count(50)
             ->create();
 
-        $query = Model::query()->where('is_client', true);
+        $query = Model::query()->where('client_id', Auth::user()->client->getKey());
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
 
         $this->assertEquals(150, $query->count());
