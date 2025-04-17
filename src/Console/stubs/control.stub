@@ -17,6 +17,8 @@ class {{ class }} extends Control
      */
     protected function perimeters(): array
     {
-        return [{{ perimeters }}];
+        return [
+            {{ perimeters }}
+        ];
     }
 }

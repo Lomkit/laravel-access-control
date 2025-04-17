@@ -122,8 +122,7 @@ class ControlMakeCommand extends GeneratorCommand
             $perimeterClass = $this->rootNamespace().'Access\\Perimeters\\'.$perimeter;
 
             $perimetersImplementation .= <<<PERIMETER
-                \\n
-                $perimeterClass::new()
+            $perimeterClass::new()
                     ->should(function (Model \$user, string \$method, Model \$model) {
                         return true;
                     })
@@ -132,7 +131,7 @@ class ControlMakeCommand extends GeneratorCommand
                     })
                     ->query(function (Builder \$query, Model \$user) {
                         return \$query;
-                    }),\\n
+                    }),
             PERIMETER;
         }
 
