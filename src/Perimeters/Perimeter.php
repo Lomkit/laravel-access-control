@@ -23,7 +23,7 @@ class Perimeter
         $this->scoutQueryCallback = function (\Laravel\Scout\Builder $query, Model $user) { return $query; };
         $this->queryCallback = function (Builder $query, Model $user) { return $query; };
         $this->shouldCallback = function (Model $user, Model $model) { return true; };
-        $this->allowedCallback = function (Model $user, string $method, Model $model) { return true; };
+        $this->allowedCallback = function (Model $user, string $method) { return true; };
     }
 
     /**
