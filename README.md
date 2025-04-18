@@ -46,7 +46,7 @@ class PostControl extends Control
         // ...
 ```
 
-Then setup your policy:
+Then set up your policy:
 
 ```php
 class PostPolicy extends ControlledPolicy
