@@ -30,9 +30,6 @@ class PostControl extends Control
                 ->should(function (Model $user, Model $model) {
                     return true;
                 })
-                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query;
-                })
                 ->query(function (Builder $query, Model $user) {
                     return $query;
                 }),
@@ -43,11 +40,8 @@ class PostControl extends Control
                 ->should(function (Model $user, Model $model) {
                     return $model->client()->is($user->client);
                 })
-                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query->where('client_id', $user->client->getKey());
-                })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhere('client_id', $user->client->getKey());
+                    return $query->where('client_id', $user->client->getKey());
                 }),
         // ...
 ```
@@ -55,7 +49,7 @@ class PostControl extends Control
 Then setup your policy:
 
 ```php
-    class PostPolicy extends ControlledPolicy
+class PostPolicy extends ControlledPolicy
 {
     protected string $model = Post::class;
 }

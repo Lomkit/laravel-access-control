@@ -123,10 +123,10 @@ class ControlMakeCommand extends GeneratorCommand
 
             $perimetersImplementation .= <<<PERIMETER
             $perimeterClass::new()
-                    ->should(function (Model \$user, string \$method, Model \$model) {
+                    ->allowed(function (Model \$user, string \$method) {
                         return true;
                     })
-                    ->allowed(function (Model \$user) {
+                    ->should(function (Model \$user, Model \$model) {
                         return true;
                     })
                     ->query(function (Builder \$query, Model \$user) {
