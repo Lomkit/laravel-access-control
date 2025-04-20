@@ -86,7 +86,7 @@ class AccessServiceProvider extends ServiceProvider
     protected function registerStubs()
     {
         Event::listen(function (PublishingStubs $event) {
-            $event->add(realpath(__DIR__.'/Console/stubs/control.stub'), 'controller.stub');
+            $event->add(realpath(__DIR__.'/Console/stubs/control.stub'), 'control.stub');
             $event->add(realpath(__DIR__.'/Console/stubs/perimeter.plain.stub'), 'perimeter.plain.stub');
             $event->add(realpath(__DIR__.'/Console/stubs/perimeter.overlay.stub'), 'perimeter.overlay.stub');
         });
