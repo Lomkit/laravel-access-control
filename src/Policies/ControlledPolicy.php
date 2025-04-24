@@ -45,7 +45,7 @@ class ControlledPolicy
      */
     public function viewAny(Model $user)
     {
-        return $this->getControl()->should($user, __FUNCTION__, new ($this->getModel()));
+        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getModel()));
     }
 
     /**
@@ -58,7 +58,7 @@ class ControlledPolicy
      */
     public function view(Model $user, Model $model)
     {
-        return $this->getControl()->should($user, __FUNCTION__, $model);
+        return $this->getControl()->applies($user, __FUNCTION__, $model);
     }
 
     /**
@@ -70,7 +70,7 @@ class ControlledPolicy
      */
     public function create(Model $user)
     {
-        return $this->getControl()->should($user, __FUNCTION__, new ($this->getModel()));
+        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getModel()));
     }
 
     /**
@@ -83,7 +83,7 @@ class ControlledPolicy
      */
     public function update(Model $user, Model $model)
     {
-        return $this->getControl()->should($user, __FUNCTION__, $model);
+        return $this->getControl()->applies($user, __FUNCTION__, $model);
     }
 
     /**
@@ -96,7 +96,7 @@ class ControlledPolicy
      */
     public function delete(Model $user, Model $model)
     {
-        return $this->getControl()->should($user, __FUNCTION__, $model);
+        return $this->getControl()->applies($user, __FUNCTION__, $model);
     }
 
     /**
@@ -109,7 +109,7 @@ class ControlledPolicy
      */
     public function restore(Model $user, Model $model)
     {
-        return $this->getControl()->should($user, __FUNCTION__, $model);
+        return $this->getControl()->applies($user, __FUNCTION__, $model);
     }
 
     /**
@@ -122,6 +122,6 @@ class ControlledPolicy
      */
     public function forceDelete(Model $user, Model $model)
     {
-        return $this->getControl()->should($user, __FUNCTION__, $model);
+        return $this->getControl()->applies($user, __FUNCTION__, $model);
     }
 }
