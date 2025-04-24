@@ -2,7 +2,6 @@
 
 namespace {{ namespace }};
 
-use {{ rootNamespace }}Http\Controllers\Controller;
 use Lomkit\Access\Perimeters\OverlayPerimeter;
 
 class {{ class }} extends OverlayPerimeter

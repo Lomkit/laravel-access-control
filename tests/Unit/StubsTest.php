@@ -12,7 +12,7 @@ class StubsTest extends TestCase
 
         $this->assertEquals(
             [
-                realpath(__DIR__.'/../../src/Console/stubs/control.stub')           => 'controller.stub',
+                realpath(__DIR__.'/../../src/Console/stubs/control.stub')           => 'control.stub',
                 realpath(__DIR__.'/../../src/Console/stubs/perimeter.plain.stub')   => 'perimeter.plain.stub',
                 realpath(__DIR__.'/../../src/Console/stubs/perimeter.overlay.stub') => 'perimeter.overlay.stub',
             ],

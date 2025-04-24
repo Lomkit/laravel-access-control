@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model as BaseModel;
 use Laravel\Scout\Searchable;
 use Lomkit\Access\Controls\HasControl;
+use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Database\Factories\ModelFactory;
 
 class Model extends BaseModel
@@ -13,6 +14,8 @@ class Model extends BaseModel
     use HasFactory;
     use HasControl;
     use Searchable;
+
+    public static $control = ModelControl::class;
 
     protected static function newFactory()
     {
