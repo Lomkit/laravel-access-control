@@ -234,6 +234,13 @@ class Control
      */
     public static function resolveControlName(string $modelName): string
     {
+        // @TODO: The auto guess here is strange, we specify the models / controls everywhere, is there a better way of doing this ? (In policies guess the model as Laravel is doing ?)
+        // @TODO: Discussed with Lucas G
+
+        if (method_exists($modelName, 'control')) {
+            return $modelName::control()::class;
+        }
+
         $resolver = static::$controlNameResolver ?? function (string $modelName) {
             $appNamespace = static::appNamespace();
 

@@ -2,7 +2,6 @@
 
 namespace {{ namespace }};
 
-use {{ rootNamespace }}Http\Controllers\Controller;
 use Lomkit\Access\Perimeters\Perimeter;
 
 class {{ class }} extends Perimeter

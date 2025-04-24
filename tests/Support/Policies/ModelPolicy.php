@@ -2,8 +2,8 @@
 
 namespace Lomkit\Access\Tests\Support\Policies;
 
-use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Policies\ControlledPolicy;
+use Lomkit\Access\Tests\Support\Models\Model;
 
 class ModelPolicy extends ControlledPolicy
 {
