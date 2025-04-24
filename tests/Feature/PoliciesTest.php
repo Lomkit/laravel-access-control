@@ -88,7 +88,7 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         $this->assertTrue($policy->restore($user, $model));
     }
 
-    public function test_policies_calls_force_delete_methoforceDeleted_properly(): void
+    public function test_policies_calls_force_delete_method_properly(): void
     {
         Gate::define('forceDelete global models', function (User $user) {
             return true;
