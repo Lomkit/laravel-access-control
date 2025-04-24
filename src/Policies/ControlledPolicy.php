@@ -27,7 +27,7 @@ class ControlledPolicy
             return $this->model;
         }
 
-        return "App\\Models\\" . str_replace('Policy', '', class_basename(static::class));
+        return 'App\\Models\\'.str_replace('Policy', '', class_basename(static::class));
     }
 
     /**
