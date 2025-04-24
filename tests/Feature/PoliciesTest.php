@@ -5,7 +5,6 @@ namespace Lomkit\Access\Tests\Feature;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\User;
-use Mockery;
 
 class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
 {
