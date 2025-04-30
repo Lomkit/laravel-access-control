@@ -91,10 +91,9 @@ class ControlMakeCommand extends GeneratorCommand
         $replace = $this->buildPerimetersReplacements($replace, $this->option('perimeters'));
 
         if ($baseControlExists) {
-            $replace["use {$controlNamespace}\Control;\n"] = '';
+            $replace['use Lomkit\Access\Controls\Control;'] = '';
         } else {
-            $replace[' extends Control'] = '';
-            $replace["use {$rootNamespace}Access\Controls\Control;\n"] = '';
+            $replace["use {$controlNamespace}\Control;\n"] = '';
         }
 
         return str_replace(
