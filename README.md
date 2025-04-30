@@ -46,6 +46,15 @@ class PostControl extends Control
         // ...
 ```
 
+Specify the control in your model:
+
+```php
+class Post extends Model
+{
+    use HasControl;
+}
+```
+
 Then set up your policy:
 
 ```php

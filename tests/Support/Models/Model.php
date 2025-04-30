@@ -15,7 +15,7 @@ class Model extends BaseModel
     use HasControl;
     use Searchable;
 
-    public static $control = ModelControl::class;
+    protected static string $control = ModelControl::class;
 
     protected static function newFactory()
     {
