@@ -33,6 +33,6 @@ trait HasControl
      */
     protected static function newControl(): ?Control
     {
-        return static::$control::new() ?? null;
+        return property_exists(static::class, 'control') ? static::$control::new() : null;
     }
 }
