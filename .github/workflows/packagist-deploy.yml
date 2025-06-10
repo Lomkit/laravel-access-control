@@ -14,6 +14,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Remove unnecessary files and directories for deployment
+        run: |
+          rm -rf .github/
+          rm -rf tests/
+          rm -rf .gitignore
+          rm -rf phpunit.xml
       - uses: mnavarrocarter/packagist-update@v1.0.0
         with:
           username: "GautierDele"
