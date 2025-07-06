@@ -4,6 +4,7 @@ namespace Lomkit\Access\Console;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -11,6 +12,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\Finder;
 
 use function Laravel\Prompts\multiselect;
+use function Laravel\Prompts\select;
 
 #[AsCommand(name: 'make:control')]
 class ControlMakeCommand extends GeneratorCommand
@@ -41,7 +43,7 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * @return string
      */
-    protected function getStub()
+    protected function getStub(): string
     {
         return $this->resolveStubPath('/stubs/control.stub');
     }
@@ -53,7 +55,7 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * @return string
      */
-    protected function resolveStubPath($stub)
+    protected function resolveStubPath($stub): string
     {
         return file_exists($customPath = $this->laravel->basePath(trim($stub, '/')))
                         ? $customPath
@@ -67,7 +69,7 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * @return string
      */
-    protected function getDefaultNamespace($rootNamespace)
+    protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Access\Controls';
     }
@@ -79,7 +81,7 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * @return string
      */
-    protected function buildClass($name)
+    protected function buildClass($name): string
     {
         $rootNamespace = $this->rootNamespace();
         $controlNamespace = $this->getNamespace($name);
@@ -89,6 +91,10 @@ class ControlMakeCommand extends GeneratorCommand
         $baseControlExists = file_exists($this->getPath("{$rootNamespace}Access\Controls\Control"));
 
         $replace = $this->buildPerimetersReplacements($replace, $this->option('perimeters'));
+
+        if ($this->option('model')) {
+            $replace = $this->buildModelReplacements($replace);
+        }
 
         if ($baseControlExists) {
             $replace['use Lomkit\Access\Controls\Control;'] = '';
@@ -101,6 +107,30 @@ class ControlMakeCommand extends GeneratorCommand
             array_values($replace),
             parent::buildClass($name)
         );
+    }
+
+    /**
+     * Build the model replacement values.
+     *
+     * @param array $replace
+     *
+     * @return array
+     */
+    protected function buildModelReplacements(array $replace): array
+    {
+        $modelClass = $this->parseModel($this->option('model'));
+
+        return array_merge($replace, [
+            'DummyFullModelClass'   => $modelClass,
+            '{{ namespacedModel }}' => $modelClass,
+            '{{namespacedModel}}'   => $modelClass,
+            'DummyModelClass'       => class_basename($modelClass),
+            '{{ model }}'           => class_basename($modelClass),
+            '{{model}}'             => class_basename($modelClass),
+            'DummyModelVariable'    => lcfirst(class_basename($modelClass)),
+            '{{ modelVariable }}'   => lcfirst(class_basename($modelClass)),
+            '{{modelVariable}}'     => lcfirst(class_basename($modelClass)),
+        ]);
     }
 
     /**
@@ -148,6 +178,7 @@ class ControlMakeCommand extends GeneratorCommand
     {
         return [
             ['perimeters', 'p', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'The perimeters that the control relies on'],
+            ['model', 'm', InputOption::VALUE_REQUIRED, 'The model the control relies on'],
         ];
     }
 
@@ -164,13 +195,27 @@ class ControlMakeCommand extends GeneratorCommand
         if ($this->didReceiveOptions($input)) {
             return;
         }
-        $perimeters = multiselect(
-            'What perimeters should this control apply to? (Optional)',
-            $this->possiblePerimeters(),
-        );
 
-        if ($perimeters) {
-            $input->setOption('perimeters', $perimeters);
+        if (!empty($this->possiblePerimeters())) {
+            $perimeters = multiselect(
+                'What perimeters should this control apply to? (Optional)',
+                $this->possiblePerimeters(),
+            );
+
+            if ($perimeters) {
+                $input->setOption('perimeters', $perimeters);
+            }
+        }
+
+        if (!empty($this->possibleModels())) {
+            $model = select(
+                'What model should this control apply to? (Optional)',
+                $this->possibleModels(),
+            );
+
+            if ($model) {
+                $input->setOption('model', $model);
+            }
         }
     }
 
@@ -188,5 +233,23 @@ class ControlMakeCommand extends GeneratorCommand
             ->sort()
             ->values()
             ->all();
+    }
+
+    /**
+     * Get the fully-qualified model class name.
+     *
+     * @param string $model
+     *
+     * @throws \InvalidArgumentException
+     *
+     * @return string
+     */
+    protected function parseModel(string $model): string
+    {
+        if (preg_match('([^A-Za-z0-9_/\\\\])', $model)) {
+            throw new InvalidArgumentException('Model name contains invalid characters.');
+        }
+
+        return $this->qualifyModel($model);
     }
 }

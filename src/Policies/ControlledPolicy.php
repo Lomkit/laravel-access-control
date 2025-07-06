@@ -12,19 +12,9 @@ class ControlledPolicy
     /**
      * The model class string.
      *
-     * @var string
+     * @var class-string<Control>
      */
-    protected string $model = '';
-
-    /**
-     * Returns the fully qualified model class name associated with this policy.
-     *
-     * @return string The fully qualified class name of the model.
-     */
-    protected function getModel(): string
-    {
-        return $this->model;
-    }
+    protected string $control;
 
     /**
      * Retrieves the control instance associated with the current model.
@@ -33,7 +23,7 @@ class ControlledPolicy
      */
     protected function getControl(): Control
     {
-        return Control::controlForModel($this->getModel());
+        return new $this->control();
     }
 
     /**
@@ -45,7 +35,7 @@ class ControlledPolicy
      */
     public function viewAny(Model $user)
     {
-        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getModel()));
+        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getControl()->getModel()));
     }
 
     /**
@@ -70,7 +60,7 @@ class ControlledPolicy
      */
     public function create(Model $user)
     {
-        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getModel()));
+        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getControl()->getModel()));
     }
 
     /**

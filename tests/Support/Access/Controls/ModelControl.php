@@ -12,6 +12,8 @@ use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
 
 class ModelControl extends Control
 {
+    protected string $model = \Lomkit\Access\Tests\Support\Models\Model::class;
+
     protected function perimeters(): array
     {
         return [

@@ -6,7 +6,9 @@ use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Lomkit\Access\Access;
 use Lomkit\Access\AccessServiceProvider;
+use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase
@@ -16,6 +18,11 @@ class TestCase extends BaseTestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        (new Access())
+            ->addControls([
+                new ModelControl(),
+            ]);
     }
 
     /**
