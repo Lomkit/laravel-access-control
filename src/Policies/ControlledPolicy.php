@@ -3,7 +3,6 @@
 namespace Lomkit\Access\Policies;
 
 use Illuminate\Database\Eloquent\Model;
-use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 
 class ControlledPolicy
@@ -24,7 +23,7 @@ class ControlledPolicy
      */
     protected function getControl(): Control
     {
-        return new $this->control;
+        return new $this->control();
     }
 
     /**

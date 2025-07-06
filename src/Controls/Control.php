@@ -31,7 +31,7 @@ class Control
     }
 
     /**
-     * Return the control current model
+     * Return the control current model.
      *
      * @return string
      */
