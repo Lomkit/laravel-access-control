@@ -31,6 +31,16 @@ class Control
     }
 
     /**
+     * Return the control current model
+     *
+     * @return string
+     */
+    public function getModel(): string
+    {
+        return $this->model;
+    }
+
+    /**
      * Retrieve the list of perimeter definitions for the current control.
      *
      * @return array<\Lomkit\Access\Perimeters\Perimeter> An array of Perimeter objects.

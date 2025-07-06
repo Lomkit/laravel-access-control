@@ -54,7 +54,7 @@ class HasControlScope implements Scope
     {
         $builder->macro('controlled', function (Builder $builder) {
             /** @var Control $control */
-            $control = $builder->getModel()::control();
+            $control = $builder->getModel()->newControl();
 
             return $control->queried($builder, Auth::user());
         });
