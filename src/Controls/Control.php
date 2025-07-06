@@ -81,7 +81,7 @@ class Control
             return $this->applyQueryControl($query, $user);
         };
 
-        if (config('access-control.queries.isolated')) {
+        if (config('access-control.queries.isolate_parent_query')) {
             return $query->where(function (Builder $query) use ($user, $callback) {
                 $callback($query, $user);
             });
@@ -119,7 +119,15 @@ class Control
 
         foreach ($this->perimeters() as $perimeter) {
             if ($perimeter->applyAllowedCallback($user, 'view')) {
-                $query = $perimeter->applyQueryCallback($query, $user);
+
+                if (config('access-control.queries.isolate_perimeter_queries')) {
+                    $query = $query->orWhere(function (Builder $query) use ($user, $perimeter) {
+                        $perimeter->applyQueryCallback($query, $user);
+                    });
+                } else {
+                    $perimeter->applyQueryCallback($query, $user);
+                }
+
 
                 $noResultCallback = function ($query) {return $query; };
 

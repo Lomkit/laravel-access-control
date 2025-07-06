@@ -26,7 +26,7 @@ class ModelControl extends Control
                     return $query->where('shared_with_users', $user->getKey());
                 })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhereHas('sharedWithUsers', function (Builder $query) use ($user) {
+                    return $query->whereHas('sharedWithUsers', function (Builder $query) use ($user) {
                         return $query->where('id', $user->getKey());
                     });
                 }),
@@ -54,7 +54,7 @@ class ModelControl extends Control
                     return $query->where('client_id', $user->client->getKey());
                 })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhere('client_id', $user->client->getKey());
+                    return $query->where('client_id', $user->client->getKey());
                 }),
             OwnPerimeter::new()
                 ->allowed(function (Model $user, string $method) {
@@ -67,7 +67,7 @@ class ModelControl extends Control
                     return $query->where('author_id', $user->getKey());
                 })
                 ->query(function (Builder $query, Model $user) {
-                    return $query->orWhere('author_id', $user->getKey());
+                    return $query->where('author_id', $user->getKey());
                 }),
         ];
     }
