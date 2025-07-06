@@ -12,20 +12,22 @@ use Throwable;
 
 class Control
 {
-    // @TODO: change readme image
     /**
-     * The control name resolver.
-     *
-     * @var callable
+     * The model the control refers to.
+     * @var class-string<Model>
      */
-    protected static $controlNameResolver;
+    protected string $model;
 
     /**
-     * The default namespace where control reside.
+     * Does the given model match with the current one
      *
-     * @var string
+     * @param class-string<Model> $model
+     * @return bool
      */
-    public static $namespace = 'App\\Access\\Controls\\';
+    public function isModel(string $model): bool
+    {
+        return $model === $this->model;
+    }
 
     /**
      * Retrieve the list of perimeter definitions for the current control.
@@ -192,34 +194,6 @@ class Control
     }
 
     /**
-     * Specify the callback that should be invoked to guess control names.
-     *
-     * @param callable(class-string<\Illuminate\Database\Eloquent\Model>): class-string<\Lomkit\Access\Controls\Control> $callback
-     *
-     * @return void
-     */
-    public static function guessControlNamesUsing(callable $callback): void
-    {
-        static::$controlNameResolver = $callback;
-    }
-
-    /**
-     * Get a new control instance for the given model name.
-     *
-     * @template TClass of \Illuminate\Database\Eloquent\Model
-     *
-     * @param class-string<TClass> $modelName
-     *
-     * @return \Lomkit\Access\Controls\Control<TClass>
-     */
-    public static function controlForModel(string $modelName): self
-    {
-        $control = static::resolveControlName($modelName);
-
-        return $control::new();
-    }
-
-    /**
      * Creates a new instance of the control.
      *
      * @return static A newly created control instance.
@@ -227,37 +201,6 @@ class Control
     public static function new(): self
     {
         return new static();
-    }
-
-    /**
-     * Resolve the control name for a given model.
-     *
-     * @template TClass of \Illuminate\Database\Eloquent\Model
-     *
-     * @param class-string<TClass> $modelName The fully qualified model class name.
-     *
-     * @return class-string<\Lomkit\Access\Controls\Control<TClass>> The fully qualified control class name corresponding to the model.
-     */
-    public static function resolveControlName(string $modelName): string
-    {
-        // @TODO: The auto guess here is strange, we specify the models / controls everywhere, is there a better way of doing this ? (In policies guess the model as Laravel is doing ?)
-        // @TODO: Discussed with Lucas G
-
-        if (property_exists($modelName, 'control')) {
-            return $modelName::control()::class;
-        }
-
-        $resolver = static::$controlNameResolver ?? function (string $modelName) {
-            $appNamespace = static::appNamespace();
-
-            $modelName = Str::startsWith($modelName, $appNamespace.'Models\\')
-                ? Str::after($modelName, $appNamespace.'Models\\')
-                : Str::after($modelName, $appNamespace);
-
-            return static::$namespace.$modelName.'Control';
-        };
-
-        return $resolver($modelName);
     }
 
     /**

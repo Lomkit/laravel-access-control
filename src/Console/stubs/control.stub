@@ -9,6 +9,12 @@ use Illuminate\Database\Eloquent\Builder;
 
 class {{ class }} extends Control
 {
+     /**
+      * The model the control refers to.
+      * @var class-string<Model>
+      */
+     protected string $model = {{ namespacedModel }};
+
     /**
      * Retrieve the list of perimeter definitions for the current control.
      *

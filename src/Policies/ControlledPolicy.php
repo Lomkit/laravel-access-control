@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Policies;
 
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 
 class ControlledPolicy
@@ -14,7 +15,7 @@ class ControlledPolicy
      *
      * @var string
      */
-    protected string $model = '';
+    protected string $model;
 
     /**
      * Returns the fully qualified model class name associated with this policy.
@@ -33,7 +34,7 @@ class ControlledPolicy
      */
     protected function getControl(): Control
     {
-        return Control::controlForModel($this->getModel());
+        return Access::controlForModel($this->model);
     }
 
     /**

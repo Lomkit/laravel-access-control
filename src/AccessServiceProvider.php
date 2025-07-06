@@ -30,6 +30,8 @@ class AccessServiceProvider extends ServiceProvider
             __DIR__.'/../config/access-control.php',
             'access-control'
         );
+
+        $this->registerAccessControls();
     }
 
     /**
@@ -90,6 +92,18 @@ class AccessServiceProvider extends ServiceProvider
             $event->add(realpath(__DIR__.'/Console/stubs/perimeter.plain.stub'), 'perimeter.plain.stub');
             $event->add(realpath(__DIR__.'/Console/stubs/perimeter.overlay.stub'), 'perimeter.overlay.stub');
         });
+    }
+
+    /**
+     * Register the default paths controls.
+     *
+     * @return void
+     */
+    private function registerAccessControls(): void
+    {
+        $access = new Access();
+
+        $access->discoverControls($access->discoverControlsWithin());
     }
 
     /**

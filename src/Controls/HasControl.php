@@ -2,6 +2,8 @@
 
 namespace Lomkit\Access\Controls;
 
+use Lomkit\Access\Access;
+
 trait HasControl
 {
     /**
@@ -15,24 +17,12 @@ trait HasControl
     }
 
     /**
-     * Retrieves a control instance for the model.
-     *
-     * @return Control The control instance for the model.
-     */
-    public static function control()
-    {
-        $control = static::newControl() ?? Control::controlForModel(static::class);
-
-        return $control;
-    }
-
-    /**
      * Attempts to create a new control instance.
      *
      * @return Control|null The newly created control instance, or null if creation was unsuccessful.
      */
     protected static function newControl(): ?Control
     {
-        return property_exists(static::class, 'control') ? static::$control::new() : null;
+        return Access::controlForModel(static::class);
     }
 }
