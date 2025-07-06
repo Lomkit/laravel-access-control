@@ -6,7 +6,6 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 use Lomkit\Access\Perimeters\Perimeter;
 use Throwable;
 
@@ -14,14 +13,16 @@ class Control
 {
     /**
      * The model the control refers to.
+     *
      * @var class-string<Model>
      */
     protected string $model;
 
     /**
-     * Does the given model match with the current one
+     * Does the given model match with the current one.
      *
      * @param class-string<Model> $model
+     *
      * @return bool
      */
     public function isModel(string $model): bool

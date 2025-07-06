@@ -11,7 +11,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\Finder;
 
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\select;
 
@@ -113,7 +112,8 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Build the model replacement values.
      *
-     * @param  array  $replace
+     * @param array $replace
+     *
      * @return array
      */
     protected function buildModelReplacements(array $replace): array
@@ -121,15 +121,15 @@ class ControlMakeCommand extends GeneratorCommand
         $modelClass = $this->parseModel($this->option('model'));
 
         return array_merge($replace, [
-            'DummyFullModelClass' => $modelClass,
+            'DummyFullModelClass'   => $modelClass,
             '{{ namespacedModel }}' => $modelClass,
-            '{{namespacedModel}}' => $modelClass,
-            'DummyModelClass' => class_basename($modelClass),
-            '{{ model }}' => class_basename($modelClass),
-            '{{model}}' => class_basename($modelClass),
-            'DummyModelVariable' => lcfirst(class_basename($modelClass)),
-            '{{ modelVariable }}' => lcfirst(class_basename($modelClass)),
-            '{{modelVariable}}' => lcfirst(class_basename($modelClass)),
+            '{{namespacedModel}}'   => $modelClass,
+            'DummyModelClass'       => class_basename($modelClass),
+            '{{ model }}'           => class_basename($modelClass),
+            '{{model}}'             => class_basename($modelClass),
+            'DummyModelVariable'    => lcfirst(class_basename($modelClass)),
+            '{{ modelVariable }}'   => lcfirst(class_basename($modelClass)),
+            '{{modelVariable}}'     => lcfirst(class_basename($modelClass)),
         ]);
     }
 
@@ -238,10 +238,11 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Get the fully-qualified model class name.
      *
-     * @param  string  $model
-     * @return string
+     * @param string $model
      *
      * @throws \InvalidArgumentException
+     *
+     * @return string
      */
     protected function parseModel(string $model): string
     {

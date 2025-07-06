@@ -19,9 +19,9 @@ class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        (new Access)
+        (new Access())
             ->addControls([
-                new ModelControl
+                new ModelControl(),
             ]);
     }
 

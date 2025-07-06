@@ -3,7 +3,6 @@
 namespace Lomkit\Access;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Foundation\Events\DiscoverEvents;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Lomkit\Access\Controls\Control;
@@ -14,7 +13,6 @@ use Symfony\Component\Finder\Finder;
 
 class Access
 {
-
     /**
      * The default path where control reside.
      *
@@ -23,7 +21,8 @@ class Access
     public static array $controlDiscoveryPaths;
 
     /**
-     * The registered controls
+     * The registered controls.
+     *
      * @var Control[]
      */
     protected static array $controls;
@@ -32,6 +31,7 @@ class Access
      * Add multiple control to access.
      *
      * @param Control[] $controls
+     *
      * @return Access
      */
     public function addControls(array $controls): static
@@ -58,9 +58,10 @@ class Access
     }
 
     /**
-     * Get the control instance for the given model
+     * Get the control instance for the given model.
      *
      * @param Model|class-string<Model> $model
+     *
      * @return Control|null
      */
     public static function controlForModel(Model|string $model): ?Control
@@ -79,9 +80,9 @@ class Access
     }
 
     /**
-     * Discover controls for a given path
+     * Discover controls for a given path.
      *
-     * @var string[] $paths
+     * @var string[]
      */
     public function discoverControls(array $paths): self
     {
@@ -90,7 +91,7 @@ class Access
                 return glob($directory, GLOB_ONLYDIR);
             })
             ->reject(function ($directory) {
-                return ! is_dir($directory);
+                return !is_dir($directory);
             })
             ->each(function ($directory) {
                 $controls = Finder::create()->files()->in($directory);
@@ -104,7 +105,7 @@ class Access
                         continue;
                     }
 
-                    if (! $control->isInstantiable()) {
+                    if (!$control->isInstantiable()) {
                         continue;
                     }
 
@@ -130,13 +131,13 @@ class Access
     /**
      * Extract the class name from the given file path.
      *
-     * @param  SplFileInfo  $file
-     * @param  string  $basePath
+     * @param SplFileInfo $file
+     * @param string      $basePath
+     *
      * @return string
      */
     protected function classFromFile(SplFileInfo $file, string $basePath)
     {
-
         $class = trim(Str::replaceFirst($basePath, '', $file->getRealPath()), DIRECTORY_SEPARATOR);
 
         return ucfirst(Str::camel(str_replace(
