@@ -14,9 +14,18 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $this->assertFalse((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'create', new Model()));
     }
 
+    public function test_control_should_view_any_using_client_perimeter_with_changed_view_any_method_configuration(): void
+    {
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
+        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'viewAny', new Model()));
+    }
+
     public function test_control_should_view_any_using_client_perimeter(): void
     {
-        Gate::define('viewAny client models', function (User $user) {
+        Gate::define('view client models', function (User $user) {
             return true;
         });
 
@@ -85,7 +94,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_should_view_any_using_global_perimeter(): void
     {
-        Gate::define('viewAny global models', function (User $user) {
+        Gate::define('view global models', function (User $user) {
             return true;
         });
 

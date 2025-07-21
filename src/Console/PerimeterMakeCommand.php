@@ -104,7 +104,7 @@ class PerimeterMakeCommand extends GeneratorCommand
     protected function getOptions()
     {
         return [
-            ['overlay', 'o', InputOption::VALUE_OPTIONAL, 'Indicates if the perimeter overlays'],
+            ['overlay', 'o', InputOption::VALUE_NONE, 'Indicates if the perimeter overlays'],
         ];
     }
 

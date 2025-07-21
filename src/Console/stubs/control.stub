@@ -13,7 +13,7 @@ class {{ class }} extends Control
       * The model the control refers to.
       * @var class-string<Model>
       */
-     protected string $model = {{ namespacedModel }}::class;
+     protected string $model = \{{ namespacedModel }}::class;
 
     /**
      * Retrieve the list of perimeter definitions for the current control.
