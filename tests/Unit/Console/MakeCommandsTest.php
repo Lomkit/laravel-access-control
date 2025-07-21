@@ -109,7 +109,7 @@ class MakeCommandsTest extends TestCase
 
         $this->assertFileExists(app_path('Access/Controls/TestControl.php'));
         $this->assertStringContainsString('class TestControl', file_get_contents(app_path('Access/Controls/TestControl.php')));
-        $this->assertStringContainsString('protected string $model = App\Models\User::class;', file_get_contents(app_path('Access/Controls/TestControl.php')));
+        $this->assertStringContainsString('protected string $model = \App\Models\User::class;', file_get_contents(app_path('Access/Controls/TestControl.php')));
 
         unlink(app_path('Models/User.php'));
         unlink(app_path('Models/Post.php'));

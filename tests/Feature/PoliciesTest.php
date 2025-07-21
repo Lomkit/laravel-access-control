@@ -24,7 +24,7 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
 
     public function test_policies_calls_view_any_method_properly(): void
     {
-        Gate::define('viewAny global models', function (User $user) {
+        Gate::define('view global models', function (User $user) {
             return true;
         });
         $user = \Illuminate\Support\Facades\Auth::user();

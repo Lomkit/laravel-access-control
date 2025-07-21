@@ -61,9 +61,12 @@ class Control
      */
     public function applies(Model $user, string $method, Model $model): bool
     {
+        // If the method is viewAny, we check instead if he has any 'view' right on different perimeters
+        $appliesMethod = config(sprintf('access-control.methods.%s', $method)) ?? $method;
+
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user, $method)) {
-                // If the model doesn't exists, it means the method is not related to a model
+            if ($perimeter->applyAllowedCallback($user, $appliesMethod)) {
+                // If the model doesn't exist, it means the method is not related to a model
                 // so we don't need to activate the should result since we can't compare an existing model
                 if (!$model->exists) {
                     return true;
