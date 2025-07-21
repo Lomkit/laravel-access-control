@@ -20,12 +20,12 @@ return [
     |
     */
     'methods' => [
-        'viewAny' => 'view',
-        'view' => 'view',
-        'create' => 'create',
-        'update' => 'update',
-        'delete' => 'delete',
-        'restore' => 'restore',
+        'viewAny'     => 'view',
+        'view'        => 'view',
+        'create'      => 'create',
+        'update'      => 'update',
+        'delete'      => 'delete',
+        'restore'     => 'restore',
         'forceDelete' => 'forceDelete',
-    ]
+    ],
 ];
