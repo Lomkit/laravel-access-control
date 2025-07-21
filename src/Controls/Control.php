@@ -134,7 +134,7 @@ class Control
         };
 
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user, 'view')) {
+            if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
                 if (config('access-control.queries.isolate_perimeter_queries')) {
                     $query = $query->orWhere(function (Builder $query) use ($user, $perimeter) {
                         $perimeter->applyQueryCallback($query, $user);
@@ -169,7 +169,7 @@ class Control
         };
 
         foreach ($this->perimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user, 'view')) {
+            if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
                 $query = $perimeter->applyScoutQueryCallback($query, $user);
 
                 $noResultCallback = function ($query) {return $query; };
