@@ -1,10 +1,6 @@
 <?php
 
-
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Tests\Support\Models\Model;
-use Lomkit\Access\Tests\Support\Models\User;
 
 class ControlsScopeTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
