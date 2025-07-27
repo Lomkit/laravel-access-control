@@ -21,7 +21,7 @@ trait HasControl
      *
      * @return Control|null The newly created control instance, or null if creation was unsuccessful.
      */
-    protected function newControl(): ?Control
+    public function newControl(): ?Control
     {
         return Access::controlForModel(static::class);
     }
