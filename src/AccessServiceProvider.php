@@ -52,10 +52,10 @@ class AccessServiceProvider extends ServiceProvider
     protected function bootScoutBuilder(): void
     {
         if (class_exists(Builder::class)) {
-            Builder::macro('controlled', function (Builder $builder) {
-                $control = $builder->model->newControl();
+            Builder::macro('controlled', function () {
+                $control = $this->model->newControl();
 
-                return $control->queried($builder, Auth::user());
+                return $control->scoutQueried($this, Auth::user());
             });
         }
     }
