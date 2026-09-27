@@ -84,4 +84,17 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         $this->assertEquals(['shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
     }
+
+    public function test_control_scout_queried_without_authenticated_user_returns_no_results(): void
+    {
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
+        Auth::logout();
+
+        $query = Model::search()->controlled();
+
+        $this->assertEquals(['__NOT_A_VALID_FIELD__' => 0], $this->whereMap($query));
+    }
 }

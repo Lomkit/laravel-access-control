@@ -216,4 +216,43 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         $this->assertEquals(50, $query->count());
     }
+
+    public function test_control_queried_without_authenticated_user_returns_no_rows(): void
+    {
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
+        Model::factory()
+            ->clientPerimeter()
+            ->count(50)
+            ->create();
+
+        Auth::logout();
+
+        $query = Model::query();
+        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+
+        $this->assertEquals(0, $query->count());
+    }
+
+    public function test_control_queried_enabled_by_default_without_authenticated_user_returns_no_rows(): void
+    {
+        config(['access-control.queries.enabled_by_default' => true]);
+
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
+        Model::factory()
+            ->clientPerimeter()
+            ->count(50)
+            ->create();
+
+        Auth::logout();
+
+        $query = Model::query();
+
+        $this->assertEquals(0, $query->count());
+    }
 }

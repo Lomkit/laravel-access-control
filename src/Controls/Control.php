@@ -86,13 +86,17 @@ class Control
     /**
      * Applies access control restrictions to an Eloquent query builder for the specified user.
      *
-     * @param Builder $query The Eloquent query builder to modify.
-     * @param Model   $user  The user for whom access control is enforced.
+     * @param Builder    $query The Eloquent query builder to modify.
+     * @param Model|null $user  The user for whom access control is enforced; if null, the query yields no results.
      *
      * @return Builder The query builder with access control restrictions applied.
      */
-    public function queried(Builder $query, Model $user): Builder
+    public function queried(Builder $query, ?Model $user): Builder
     {
+        if (is_null($user)) {
+            return $this->noResultQuery($query);
+        }
+
         $callback = function (Builder $query, Model $user) {
             return $this->applyQueryControl($query, $user);
         };
@@ -110,12 +114,16 @@ class Control
      * Applies access control restrictions to a Laravel Scout query builder for the specified user.
      *
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
-     * @param Model                  $user  The user for whom access control is enforced.
+     * @param Model|null             $user  The user for whom access control is enforced; if null, the query yields no results.
      *
      * @return \Laravel\Scout\Builder The query builder with access controls applied.
      */
-    public function scoutQueried(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
+    public function scoutQueried(\Laravel\Scout\Builder $query, ?Model $user): \Laravel\Scout\Builder
     {
+        if (is_null($user)) {
+            return $this->noResultScoutQuery($query);
+        }
+
         return $this->applyScoutQueryControl($query, $user);
     }
 

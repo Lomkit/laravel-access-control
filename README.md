@@ -71,3 +71,5 @@ App\Models\Post::controlled()->get() // Apply the Control to the query
 
 $user->can('view', App\Models\Post::first()) // Check if the user can view the post according to the policy
 ```
+
+A controlled query run without an authenticated user returns no rows.
