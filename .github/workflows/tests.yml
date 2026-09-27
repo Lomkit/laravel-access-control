@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         php-version: [ '8.2', '8.3', '8.4', '8.5' ]
-        laravel-version: [ '^11.0', '^12.0', '^13.0' ]
+        laravel-version: [ '^12.0', '^13.0' ]
         database: [ 'sqlite', 'mysql', 'pgsql' ]
         exclude:
           - php-version: '8.2'
@@ -45,7 +45,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -58,7 +58,7 @@ jobs:
 
       - name: Cache Composer packages
         id: composer-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           path: vendor
           key: ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-version }}-${{ hashFiles('**/composer.lock') }}

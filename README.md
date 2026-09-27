@@ -5,7 +5,7 @@
 Laravel Access Control allows you to fully secure your application in two key areas: Policies and Queries. Manage everything in one place!
 ## Requirements
 
-PHP 8.2+ and Laravel 11+
+PHP 8.2+ and Laravel 12+
 
 ## Documentation, Installation, and Usage Instructions
 
@@ -71,3 +71,5 @@ App\Models\Post::controlled()->get() // Apply the Control to the query
 
 $user->can('view', App\Models\Post::first()) // Check if the user can view the post according to the policy
 ```
+
+A controlled query run without an authenticated user returns no rows.
