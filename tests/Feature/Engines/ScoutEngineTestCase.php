@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Feature\Engines;
 
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Scout\Builder;
@@ -26,16 +27,14 @@ abstract class ScoutEngineTestCase extends TestCase
     /**
      * Configure the Scout driver under test.
      *
-     * @param \Illuminate\Foundation\Application $app
+     * @param  Application  $app
      */
     abstract protected function configureDriver($app): void;
 
     /**
      * Prepare the index before models are indexed.
      */
-    protected function prepareIndex(string $index): void
-    {
-    }
+    protected function prepareIndex(string $index): void {}
 
     protected function setUp(): void
     {
@@ -46,7 +45,7 @@ abstract class ScoutEngineTestCase extends TestCase
         parent::setUp();
 
         $this->beforeApplicationDestroyed(function () {
-            app(EngineManager::class)->engine()->deleteIndex((new SearchableModel())->searchableAs());
+            app(EngineManager::class)->engine()->deleteIndex((new SearchableModel)->searchableAs());
         });
     }
 
@@ -75,7 +74,7 @@ abstract class ScoutEngineTestCase extends TestCase
      */
     protected function indexSearchableModels(): void
     {
-        $this->prepareIndex((new SearchableModel())->searchableAs());
+        $this->prepareIndex((new SearchableModel)->searchableAs());
 
         SearchableModel::forceCreate(['name' => 'alpha', 'number' => 1, 'client_id' => Auth::user()->client->getKey()]);
         SearchableModel::forceCreate(['name' => 'beta', 'number' => 2, 'client_id' => Auth::user()->client->getKey()]);

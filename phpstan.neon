@@ -1,0 +1,17 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+    - vendor/tomasvotruba/type-coverage/config/extension.neon
+
+parameters:
+    paths:
+        - src
+        # Analyses the HasControl trait through a model that uses it
+        - tests/Support/Registry/Models/Post.php
+    level: 10
+    phpVersion: 80200
+    type_coverage:
+        return: 100
+        param: 100
+        property: 100
+        constant: 100

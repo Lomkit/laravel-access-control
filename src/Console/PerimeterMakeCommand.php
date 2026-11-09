@@ -36,10 +36,8 @@ class PerimeterMakeCommand extends GeneratorCommand
 
     /**
      * Get the stub file for the generator.
-     *
-     * @return string
      */
-    protected function getStub()
+    protected function getStub(): string
     {
         $stub = null;
 
@@ -54,12 +52,8 @@ class PerimeterMakeCommand extends GeneratorCommand
 
     /**
      * Resolve the fully-qualified path to the stub.
-     *
-     * @param string $stub
-     *
-     * @return string
      */
-    protected function resolveStubPath($stub)
+    protected function resolveStubPath(string $stub): string
     {
         return file_exists($customPath = $this->laravel->basePath(trim($stub, '/')))
                         ? $customPath
@@ -69,39 +63,19 @@ class PerimeterMakeCommand extends GeneratorCommand
     /**
      * Get the default namespace for the class.
      *
-     * @param string $rootNamespace
-     *
-     * @return string
+     * @param  string  $rootNamespace
      */
-    protected function getDefaultNamespace($rootNamespace)
+    protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Access\Perimeters';
     }
 
     /**
-     * Build the class with the given name.
-     *
-     * @param string $name
-     *
-     * @return string
-     */
-    protected function buildClass($name)
-    {
-        $replace = [];
-
-        return str_replace(
-            array_keys($replace),
-            array_values($replace),
-            parent::buildClass($name)
-        );
-    }
-
-    /**
      * Get the console command options.
      *
-     * @return array
+     * @return list<array{string, string, int, string}>
      */
-    protected function getOptions()
+    protected function getOptions(): array
     {
         return [
             ['overlay', 'o', InputOption::VALUE_NONE, 'Indicates if the perimeter overlays'],
@@ -110,13 +84,8 @@ class PerimeterMakeCommand extends GeneratorCommand
 
     /**
      * Interact further with the user if they were prompted for missing arguments.
-     *
-     * @param \Symfony\Component\Console\Input\InputInterface   $input
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
-     *
-     * @return void
      */
-    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output)
+    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
     {
         if ($this->didReceiveOptions($input)) {
             return;

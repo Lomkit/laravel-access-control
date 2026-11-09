@@ -7,7 +7,7 @@ use Lomkit\Access\Tests\Support\Models\SearchableUncontrolledModel;
 use Lomkit\Access\Tests\Support\Models\UncontrolledModel;
 use PHPUnit\Framework\Attributes\Group;
 
-class ControlsMissingControlTest extends \Lomkit\Access\Tests\Feature\TestCase
+class ControlsMissingControlTest extends TestCase
 {
     public function test_controlled_query_without_control_throws(): void
     {

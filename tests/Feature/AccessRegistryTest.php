@@ -37,8 +37,6 @@ class AccessRegistryTest extends TestCase
 
     /**
      * Get the directory holding the registry control fixtures.
-     *
-     * @return string
      */
     protected function controlsPath(): string
     {
@@ -49,8 +47,8 @@ class AccessRegistryTest extends TestCase
     {
         $this->assertInstanceOf(PostControl::class, Access::controlForModel(Post::class));
         $this->assertInstanceOf(AdminPostControl::class, Access::controlForModel(AdminPost::class));
-        $this->assertInstanceOf(PostControl::class, (new Post())->newControl());
-        $this->assertInstanceOf(AdminPostControl::class, (new AdminPost())->newControl());
+        $this->assertInstanceOf(PostControl::class, (new Post)->newControl());
+        $this->assertInstanceOf(AdminPostControl::class, (new AdminPost)->newControl());
         $this->assertSame(Post::class, Access::control(PostControl::class)->getModel());
         $this->assertSame(AdminPost::class, Access::control(AdminPostControl::class)->getModel());
     }

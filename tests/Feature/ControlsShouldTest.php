@@ -4,14 +4,15 @@ namespace Lomkit\Access\Tests\Feature;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\User;
 
-class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
+class ControlsShouldTest extends TestCase
 {
     public function test_control_with_no_perimeter_passing(): void
     {
-        $this->assertFalse((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'create', new Model()));
+        $this->assertFalse((new ModelControl)->applies(Auth::user(), 'create', new Model));
     }
 
     public function test_control_should_view_any_using_client_perimeter_with_changed_view_any_method_configuration(): void
@@ -20,7 +21,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'viewAny', new Model()));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'viewAny', new Model));
     }
 
     public function test_control_should_view_any_using_client_perimeter(): void
@@ -29,7 +30,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'viewAny', new Model()));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'viewAny', new Model));
     }
 
     public function test_control_should_view_using_client_perimeter(): void
@@ -42,7 +43,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->clientPerimeter()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_not_view_using_client_perimeter(): void
@@ -54,7 +55,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $model = Model::factory()
             ->create();
 
-        $this->assertFalse((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
+        $this->assertFalse((new ModelControl)->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_create_using_client_perimeter(): void
@@ -63,7 +64,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'create', new Model()));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'create', new Model));
     }
 
     public function test_control_should_update_using_client_perimeter(): void
@@ -76,7 +77,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->clientPerimeter()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'update', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'update', $model));
     }
 
     public function test_control_should_delete_using_client_perimeter(): void
@@ -89,7 +90,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->clientPerimeter()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'delete', $model));
     }
 
     public function test_control_should_view_any_using_global_perimeter(): void
@@ -98,7 +99,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'viewAny', new Model()));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'viewAny', new Model));
     }
 
     public function test_control_should_view_using_global_perimeter(): void
@@ -110,7 +111,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $model = Model::factory()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_not_view_using_global_perimeter(): void
@@ -122,7 +123,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $model = Model::factory()
             ->create();
 
-        $this->assertFalse((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'view', $model));
+        $this->assertFalse((new ModelControl)->applies(Auth::user(), 'view', $model));
     }
 
     public function test_control_should_create_using_global_perimeter(): void
@@ -131,7 +132,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'create', new Model()));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'create', new Model));
     }
 
     public function test_control_should_update_using_global_perimeter(): void
@@ -143,7 +144,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $model = Model::factory()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'update', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'update', $model));
     }
 
     public function test_control_should_delete_using_global_perimeter(): void
@@ -155,7 +156,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $model = Model::factory()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'delete', $model));
     }
 
     public function test_control_should_delete_global_using_shared_overlayed_perimeter(): void
@@ -169,7 +170,7 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $model = Model::factory()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'delete', $model));
     }
 
     public function test_control_should_delete_using_shared_overlayed_perimeter(): void
@@ -184,6 +185,6 @@ class ControlsShouldTest extends \Lomkit\Access\Tests\Feature\TestCase
         $model = Model::factory()
             ->create();
 
-        $this->assertTrue((new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->applies(Auth::user(), 'delete', $model));
+        $this->assertTrue((new ModelControl)->applies(Auth::user(), 'delete', $model));
     }
 }

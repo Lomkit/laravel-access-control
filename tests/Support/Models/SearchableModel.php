@@ -18,8 +18,8 @@ class SearchableModel extends Model
     public function toSearchableArray(): array
     {
         return [
-            'id'        => (string) $this->getKey(),
-            'name'      => $this->name,
+            'id' => (string) $this->getKey(),
+            'name' => $this->name,
             'client_id' => $this->client_id,
         ];
     }

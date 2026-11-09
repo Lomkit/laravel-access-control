@@ -12,7 +12,7 @@ class Client extends Authenticatable
 
     protected static function newFactory()
     {
-        return new ClientFactory();
+        return new ClientFactory;
     }
 
     /**

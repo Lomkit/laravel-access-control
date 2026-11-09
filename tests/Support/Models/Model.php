@@ -10,14 +10,14 @@ use Lomkit\Access\Tests\Support\Database\Factories\ModelFactory;
 
 class Model extends BaseModel
 {
-    use HasFactory;
     use HasControl;
+    use HasFactory;
 
     protected static string $control = ModelControl::class;
 
     protected static function newFactory()
     {
-        return new ModelFactory();
+        return new ModelFactory;
     }
 
     protected $fillable = [

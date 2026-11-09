@@ -4,8 +4,10 @@ namespace Lomkit\Access\Tests;
 
 use Illuminate\Config\Repository;
 use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
+use Illuminate\Support\ServiceProvider;
 use Lomkit\Access\Access;
 use Lomkit\Access\AccessServiceProvider;
 use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
@@ -20,10 +22,10 @@ class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        (new Access())
+        (new Access)
             ->addControls([
-                new ModelControl(),
-                new SearchableModelControl(),
+                new ModelControl,
+                new SearchableModelControl,
             ]);
     }
 
@@ -34,7 +36,7 @@ class TestCase extends BaseTestCase
      */
     protected function refreshTestDatabase()
     {
-        if (!RefreshDatabaseState::$migrated) {
+        if (! RefreshDatabaseState::$migrated) {
             $this->artisan('migrate', ['--path' => __DIR__.'/Support/Database/migrations', '--realpath' => true]);
 
             $this->app[Kernel::class]->setArtisan(null);
@@ -60,15 +62,14 @@ class TestCase extends BaseTestCase
     /**
      * Define environment setup.
      *
-     * @param \Illuminate\Foundation\Application $app
-     *
+     * @param  Application  $app
      * @return void
      */
     protected function defineEnvironment($app)
     {
         tap($app->make('config'), function (Repository $config) {
             $config->set('auth.guards.web', [
-                'driver'   => 'session',
+                'driver' => 'session',
                 'provider' => 'users',
             ]);
         });
@@ -77,9 +78,8 @@ class TestCase extends BaseTestCase
     /**
      * Get package providers.
      *
-     * @param \Illuminate\Foundation\Application $app
-     *
-     * @return array<int, class-string<\Illuminate\Support\ServiceProvider>>
+     * @param  Application  $app
+     * @return array<int, class-string<ServiceProvider>>
      */
     protected function getPackageProviders($app)
     {

@@ -19,7 +19,7 @@ class PerimeterCallbacksTest extends TestCase
     /**
      * Build a control over the test model with the given perimeters.
      *
-     * @param array<Perimeter> $perimeters
+     * @param  array<Perimeter>  $perimeters
      */
     protected function control(array $perimeters): Control
     {
@@ -27,9 +27,7 @@ class PerimeterCallbacksTest extends TestCase
         {
             protected string $model = ControlledModel::class;
 
-            public function __construct(private array $declaredPerimeters)
-            {
-            }
+            public function __construct(private array $declaredPerimeters) {}
 
             protected function perimeters(): array
             {
@@ -50,7 +48,7 @@ class PerimeterCallbacksTest extends TestCase
         $this->expectException(MissingPerimeterCallbackException::class);
         $this->expectExceptionMessage(sprintf('The [%s] perimeter has no [allowed] callback.', ClientPerimeter::class));
 
-        $control->applies(Auth::user(), 'create', new ControlledModel());
+        $control->applies(Auth::user(), 'create', new ControlledModel);
     }
 
     public function test_missing_allowed_callback_throws_when_queried(): void
@@ -159,8 +157,8 @@ class PerimeterCallbacksTest extends TestCase
                 ->scoutQuery(fn (\Laravel\Scout\Builder $query, Model $user) => $query),
         ]);
 
-        $this->assertTrue($control->applies(Auth::user(), 'create', new ControlledModel()));
-        $this->assertTrue($control->applies(Auth::user(), 'viewAny', new ControlledModel()));
+        $this->assertTrue($control->applies(Auth::user(), 'create', new ControlledModel));
+        $this->assertTrue($control->applies(Auth::user(), 'viewAny', new ControlledModel));
     }
 
     public function test_perimeter_without_any_callback_throws_on_each_use(): void
@@ -168,9 +166,9 @@ class PerimeterCallbacksTest extends TestCase
         $perimeter = Perimeter::new();
 
         foreach ([
-            'allowed'    => fn () => $perimeter->applyAllowedCallback(Auth::user(), 'view'),
-            'should'     => fn () => $perimeter->applyShouldCallback(Auth::user(), new ControlledModel()),
-            'query'      => fn () => $perimeter->applyQueryCallback(ControlledModel::query(), Auth::user()),
+            'allowed' => fn () => $perimeter->applyAllowedCallback(Auth::user(), 'view'),
+            'should' => fn () => $perimeter->applyShouldCallback(Auth::user(), new ControlledModel),
+            'query' => fn () => $perimeter->applyQueryCallback(ControlledModel::query(), Auth::user()),
         ] as $callback => $apply) {
             try {
                 $apply();

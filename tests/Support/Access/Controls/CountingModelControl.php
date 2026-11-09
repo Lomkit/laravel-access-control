@@ -2,6 +2,8 @@
 
 namespace Lomkit\Access\Tests\Support\Access\Controls;
 
+use Lomkit\Access\Perimeters\Perimeter;
+
 class CountingModelControl extends ModelControl
 {
     /**
@@ -12,7 +14,7 @@ class CountingModelControl extends ModelControl
     /**
      * Retrieve the list of perimeter definitions, counting each build.
      *
-     * @return array<\Lomkit\Access\Perimeters\Perimeter>
+     * @return array<Perimeter>
      */
     protected function perimeters(): array
     {

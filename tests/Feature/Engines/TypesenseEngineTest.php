@@ -23,13 +23,13 @@ class TypesenseEngineTest extends ScoutEngineTestCase
     {
         $app['config']->set('scout.typesense.client-settings', [
             'api_key' => getenv('TYPESENSE_API_KEY'),
-            'nodes'   => [[
-                'host'     => getenv('TYPESENSE_HOST'),
-                'port'     => getenv('TYPESENSE_PORT') ?: '8108',
+            'nodes' => [[
+                'host' => getenv('TYPESENSE_HOST'),
+                'port' => getenv('TYPESENSE_PORT') ?: '8108',
                 'protocol' => getenv('TYPESENSE_PROTOCOL') ?: 'http',
             ]],
             'connection_timeout_seconds' => 2,
-            'num_retries'                => 0,
+            'num_retries' => 0,
         ]);
         $app['config']->set('scout.typesense.model-settings', [
             SearchableModel::class => [
