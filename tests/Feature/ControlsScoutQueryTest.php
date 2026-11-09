@@ -2,10 +2,12 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Lomkit\Access\Tests\Support\Models\Model;
+use Lomkit\Access\Tests\Support\Models\SearchableModel;
 use Lomkit\Access\Tests\Support\Models\User;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 
+#[Group('scout')]
 class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
     /**
@@ -62,9 +64,9 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     {
         config(['scout.driver' => $engine]);
 
-        Model::forceCreate(['name' => 'alpha', 'number' => 1, 'client_id' => Auth::user()->client->getKey()]);
-        Model::forceCreate(['name' => 'beta', 'number' => 2, 'client_id' => Auth::user()->client->getKey()]);
-        Model::forceCreate(['name' => 'gamma', 'number' => 3]);
+        SearchableModel::forceCreate(['name' => 'alpha', 'number' => 1, 'client_id' => Auth::user()->client->getKey()]);
+        SearchableModel::forceCreate(['name' => 'beta', 'number' => 2, 'client_id' => Auth::user()->client->getKey()]);
+        SearchableModel::forceCreate(['name' => 'gamma', 'number' => 3]);
     }
 
     /**
@@ -88,7 +90,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
     public function test_control_scout_query_with_no_perimeter_passing(): void
     {
-        $query = Model::search();
+        $query = SearchableModel::search();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
         $this->assertNoResultScoutQuery($query);
@@ -100,7 +102,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $query = Model::search();
+        $query = SearchableModel::search();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['client_id' => Auth::user()->client->getKey()], $this->whereMap($query));
@@ -116,7 +118,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $query = Model::search();
+        $query = SearchableModel::search();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['client_id' => Auth::user()->client->getKey(), 'shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
@@ -131,7 +133,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $query = Model::search();
+        $query = SearchableModel::search();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['shared_with_users' => Auth::user()->getKey(), 'author_id' => Auth::user()->getKey()], $this->whereMap($query));
@@ -143,7 +145,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $query = Model::search();
+        $query = SearchableModel::search();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
@@ -157,7 +159,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         Auth::logout();
 
-        $query = Model::search()->controlled();
+        $query = SearchableModel::search()->controlled();
 
         $this->assertNoResultScoutQuery($query);
     }
@@ -167,7 +169,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     {
         $this->seedSearchableModels($engine);
 
-        $this->assertScoutQueryReturnsNothing(Model::search()->controlled());
+        $this->assertScoutQueryReturnsNothing(SearchableModel::search()->controlled());
     }
 
     #[DataProvider('databaseEngines')]
@@ -181,7 +183,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         Auth::logout();
 
-        $this->assertScoutQueryReturnsNothing(Model::search()->controlled());
+        $this->assertScoutQueryReturnsNothing(SearchableModel::search()->controlled());
     }
 
     #[DataProvider('databaseEngines')]
@@ -189,7 +191,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     {
         $this->seedSearchableModels($engine);
 
-        $query = Model::search();
+        $query = SearchableModel::search();
         $query->controlled();
 
         $this->assertScoutQueryReturnsNothing($query);
@@ -200,7 +202,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     {
         $this->seedSearchableModels($engine);
 
-        $query = Model::search()->controlled()->where('client_id', Auth::user()->client->getKey());
+        $query = SearchableModel::search()->controlled()->where('client_id', Auth::user()->client->getKey());
 
         $this->assertScoutQueryReturnsNothing($query);
     }
@@ -214,9 +216,9 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         $this->seedSearchableModels($engine);
 
-        $models = Model::search()->controlled()->get();
+        $models = SearchableModel::search()->controlled()->get();
 
         $this->assertEqualsCanonicalizing(['alpha', 'beta'], $models->pluck('name')->all());
-        $this->assertSame(2, Model::search()->controlled()->paginate(10)->total());
+        $this->assertSame(2, SearchableModel::search()->controlled()->paginate(10)->total());
     }
 }

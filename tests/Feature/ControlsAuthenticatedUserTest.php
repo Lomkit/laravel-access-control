@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Access;
 use Lomkit\Access\Tests\Support\Access\Controls\ControlledUserControl;
 use Lomkit\Access\Tests\Support\Models\ControlledUser;
-use Lomkit\Access\Tests\Support\Models\Model;
+use Lomkit\Access\Tests\Support\Models\SearchableModel;
+use PHPUnit\Framework\Attributes\Group;
 
 class ControlsAuthenticatedUserTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
@@ -105,6 +106,7 @@ class ControlsAuthenticatedUserTest extends \Lomkit\Access\Tests\Feature\TestCas
         }
     }
 
+    #[Group('scout')]
     public function test_scout_controlled_query_resolves_a_controlled_user_from_the_session(): void
     {
         Gate::define('view own models', function (ControlledUser $user) {
@@ -115,7 +117,7 @@ class ControlsAuthenticatedUserTest extends \Lomkit\Access\Tests\Feature\TestCas
 
         $this->authenticateThroughSession($user);
 
-        $query = Model::search()->controlled();
+        $query = SearchableModel::search()->controlled();
 
         $this->assertEquals(['author_id' => $user->getKey()], $this->whereMap($query));
     }

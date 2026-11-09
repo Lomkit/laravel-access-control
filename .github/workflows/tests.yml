@@ -2,12 +2,19 @@ name: tests
 
 on:
   push:
-    branches: [ main, next ]
-  pull_request:
     branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build:
+  tests:
 
     runs-on: ubuntu-latest
 
@@ -16,32 +23,84 @@ jobs:
       matrix:
         php-version: [ '8.2', '8.3', '8.4', '8.5' ]
         laravel-version: [ '^12.0', '^13.0' ]
-        database: [ 'sqlite', 'mysql', 'pgsql' ]
+        database: [ 'sqlite' ]
+        dependencies: [ 'highest' ]
+        scout: [ 'installed' ]
         exclude:
+          # Laravel 13 requires PHP 8.3
           - php-version: '8.2'
             laravel-version: '^13.0'
+        include:
+          # Database drivers only need covering once, on the newest versions
+          - php-version: '8.5'
+            laravel-version: '^13.0'
+            database: 'mysql'
+            dependencies: 'highest'
+            scout: 'installed'
+          - php-version: '8.5'
+            laravel-version: '^13.0'
+            database: 'pgsql'
+            dependencies: 'highest'
+            scout: 'installed'
+          # The oldest versions allowed by composer.json
+          - php-version: '8.2'
+            laravel-version: '^12.0'
+            database: 'sqlite'
+            dependencies: 'lowest'
+            scout: 'installed'
+          # laravel/scout is only a dev dependency: the package must work without it
+          - php-version: '8.2'
+            laravel-version: '^12.0'
+            database: 'sqlite'
+            dependencies: 'highest'
+            scout: 'absent'
+          # The Scout tests against real Meilisearch and Typesense servers
+          - php-version: '8.5'
+            laravel-version: '^13.0'
+            database: 'sqlite'
+            dependencies: 'highest'
+            scout: 'engines'
 
-    name: Tests on PHP ${{ matrix.php-version }} with Laravel ${{ matrix.laravel-version }} and ${{ matrix.database }}
+    name: PHP ${{ matrix.php-version }} - Laravel ${{ matrix.laravel-version }} - ${{ matrix.database }} - ${{ matrix.dependencies }} - scout ${{ matrix.scout }}
 
     services:
+      # An empty image skips the service, so each job only starts the services it uses
       mysql:
-        image: mysql:8
+        image: ${{ matrix.database == 'mysql' && 'mysql:8' || '' }}
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: yes
-          MYSQL_DATABASE: rest
+          MYSQL_DATABASE: access
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+        options: --tmpfs /var/lib/mysql --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
       pgsql:
-        image: postgres:16
+        image: ${{ matrix.database == 'pgsql' && 'postgres:16' || '' }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: rest
+          POSTGRES_DB: access
         ports:
           - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+        options: --tmpfs /var/lib/postgresql/data --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+      meilisearch:
+        image: ${{ matrix.scout == 'engines' && 'getmeili/meilisearch:v1.55.0' || '' }}
+        env:
+          MEILI_MASTER_KEY: lac-ci-master-key
+          MEILI_NO_ANALYTICS: 'true'
+        ports:
+          - 7700:7700
+        options: --health-cmd "curl -sf http://127.0.0.1:7700/health" --health-interval 5s --health-timeout 3s --health-retries 12
+
+      # The image has no curl or wget: the step "Wait for Typesense" polls /health from the runner
+      typesense:
+        image: ${{ matrix.scout == 'engines' && 'typesense/typesense:30.1' || '' }}
+        env:
+          TYPESENSE_API_KEY: lac-ci-api-key
+          TYPESENSE_DATA_DIR: /tmp
+        ports:
+          - 8108:8108
 
     steps:
       - name: Checkout
@@ -53,44 +112,104 @@ jobs:
           php-version: ${{ matrix.php-version }}
           coverage: none
 
-      - name: Validate composer.json and composer.lock
-        run: composer validate
+      - name: Validate composer.json
+        run: composer validate --strict
 
-      - name: Cache Composer packages
+      - name: Require Laravel ${{ matrix.laravel-version }}
+        run: composer require "laravel/framework:${{ matrix.laravel-version }}" --no-update --no-interaction
+
+      - name: Remove Laravel Scout
+        if: matrix.scout == 'absent'
+        run: composer remove --dev laravel/scout --no-update --no-interaction
+
+      - name: Add the search engine clients
+        if: matrix.scout == 'engines'
+        run: |
+          composer config allow-plugins.php-http/discovery true
+          composer require --dev --no-update --no-interaction "meilisearch/meilisearch-php:^1.17" "typesense/typesense-php:^4.9.3"
+
+      # Composer skips releases with security advisories, which would raise the lowest versions above composer.json
+      - name: Allow releases with security advisories
+        if: matrix.dependencies == 'lowest'
+        run: composer config audit.block-insecure false
+
+      - name: Get Composer cache directory
         id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      # Only downloaded archives are cached; dependencies are resolved on every run,
+      # so new releases and composer.json changes are always picked up
+      - name: Cache Composer downloads
         uses: actions/cache@v6
         with:
-          path: vendor
-          key: ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-version }}-${{ hashFiles('**/composer.lock') }}
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-version }}-${{ matrix.dependencies }}-${{ matrix.scout }}-${{ hashFiles('composer.json') }}
           restore-keys: |
-            ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-version }}-
+            ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-version }}-${{ matrix.dependencies }}-${{ matrix.scout }}-
 
       - name: Install dependencies
-        if: steps.composer-cache.outputs.cache-hit != 'true'
-        run: composer require laravel/framework:${{ matrix.laravel-version }} -W --prefer-dist --no-progress
+        run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.dependencies == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
 
-      - name: Run test suite with Sqlite
-        if: matrix.database == 'sqlite'
+      - name: Check that Laravel Scout is absent
+        if: matrix.scout == 'absent'
+        run: test ! -d vendor/laravel/scout
+
+      - name: Run test suite with SQLite
+        if: matrix.database == 'sqlite' && matrix.scout == 'installed'
         run: vendor/bin/phpunit
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
+
+      - name: Turn off the durability of MySQL
+        if: matrix.database == 'mysql'
+        run: mysql --host 127.0.0.1 --port ${{ job.services.mysql.ports['3306'] }} --user root --execute "SET GLOBAL innodb_flush_log_at_trx_commit = 0; SET GLOBAL sync_binlog = 0"
 
       - name: Run test suite with MySQL
         if: matrix.database == 'mysql'
         run: vendor/bin/phpunit
         env:
           DB_CONNECTION: mysql
-          DB_PORT: ${{ job.services.mysql.ports[3306] }}
-          DB_DATABASE: rest
+          DB_PORT: ${{ job.services.mysql.ports['3306'] }}
+          DB_DATABASE: access
           DB_USERNAME: root
+
+      - name: Turn off the durability of PostgreSQL
+        if: matrix.database == 'pgsql'
+        run: psql --host 127.0.0.1 --port ${{ job.services.pgsql.ports['5432'] }} --username postgres --command "ALTER SYSTEM SET fsync = off" --command "ALTER SYSTEM SET synchronous_commit = off" --command "ALTER SYSTEM SET full_page_writes = off" --command "SELECT pg_reload_conf()"
+        env:
+          PGPASSWORD: postgres
 
       - name: Run test suite with PostgreSQL
         if: matrix.database == 'pgsql'
         run: vendor/bin/phpunit
         env:
           DB_CONNECTION: pgsql
-          DB_PORT: ${{ job.services.pgsql.ports[5432] }}
-          DB_DATABASE: rest
+          DB_PORT: ${{ job.services.pgsql.ports['5432'] }}
+          DB_DATABASE: access
           DB_USERNAME: postgres
           DB_PASSWORD: postgres
+
+      - name: Run test suite without Laravel Scout
+        if: matrix.scout == 'absent'
+        run: vendor/bin/phpunit --exclude-group scout
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+
+      - name: Wait for Typesense
+        if: matrix.scout == 'engines'
+        run: curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-all-errors "http://127.0.0.1:${{ job.services.typesense.ports['8108'] }}/health"
+
+      - name: Run the search engine tests
+        if: matrix.scout == 'engines'
+        run: vendor/bin/phpunit --group meilisearch --group typesense --fail-on-skipped --fail-on-empty-test-suite
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          MEILISEARCH_HOST: http://127.0.0.1:${{ job.services.meilisearch.ports['7700'] }}
+          MEILISEARCH_KEY: lac-ci-master-key
+          TYPESENSE_HOST: 127.0.0.1
+          TYPESENSE_PORT: ${{ job.services.typesense.ports['8108'] }}
+          TYPESENSE_PROTOCOL: http
+          TYPESENSE_API_KEY: lac-ci-api-key

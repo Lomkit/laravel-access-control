@@ -3,7 +3,9 @@
 namespace Lomkit\Access\Tests\Feature;
 
 use Lomkit\Access\Exceptions\MissingControlException;
+use Lomkit\Access\Tests\Support\Models\SearchableUncontrolledModel;
 use Lomkit\Access\Tests\Support\Models\UncontrolledModel;
+use PHPUnit\Framework\Attributes\Group;
 
 class ControlsMissingControlTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
@@ -24,12 +26,13 @@ class ControlsMissingControlTest extends \Lomkit\Access\Tests\Feature\TestCase
         UncontrolledModel::query()->get();
     }
 
+    #[Group('scout')]
     public function test_scout_controlled_query_without_control_throws(): void
     {
         $this->expectException(MissingControlException::class);
-        $this->expectExceptionMessage(sprintf('No control is registered for the [%s] model.', UncontrolledModel::class));
+        $this->expectExceptionMessage(sprintf('No control is registered for the [%s] model.', SearchableUncontrolledModel::class));
 
-        UncontrolledModel::search()->controlled();
+        SearchableUncontrolledModel::search()->controlled();
     }
 
     public function test_uncontrolled_query_without_control_does_not_throw(): void

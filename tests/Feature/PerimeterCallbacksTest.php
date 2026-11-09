@@ -11,6 +11,8 @@ use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter;
 use Lomkit\Access\Tests\Support\Models\Model as ControlledModel;
+use Lomkit\Access\Tests\Support\Models\SearchableModel;
+use PHPUnit\Framework\Attributes\Group;
 
 class PerimeterCallbacksTest extends TestCase
 {
@@ -93,6 +95,7 @@ class PerimeterCallbacksTest extends TestCase
         $this->assertEquals(0, $control->queried(ControlledModel::query(), Auth::user())->count());
     }
 
+    #[Group('scout')]
     public function test_missing_scout_query_callback_throws_when_scout_queried(): void
     {
         $control = $this->control([
@@ -105,7 +108,7 @@ class PerimeterCallbacksTest extends TestCase
         $this->expectException(MissingPerimeterCallbackException::class);
         $this->expectExceptionMessage(sprintf('The [%s] perimeter has no [scoutQuery] callback.', ClientPerimeter::class));
 
-        $control->scoutQueried(ControlledModel::search(), Auth::user());
+        $control->scoutQueried(SearchableModel::search(), Auth::user());
     }
 
     public function test_missing_scout_query_callback_does_not_affect_eloquent_queries(): void
@@ -168,7 +171,6 @@ class PerimeterCallbacksTest extends TestCase
             'allowed'    => fn () => $perimeter->applyAllowedCallback(Auth::user(), 'view'),
             'should'     => fn () => $perimeter->applyShouldCallback(Auth::user(), new ControlledModel()),
             'query'      => fn () => $perimeter->applyQueryCallback(ControlledModel::query(), Auth::user()),
-            'scoutQuery' => fn () => $perimeter->applyScoutQueryCallback(ControlledModel::search(), Auth::user()),
         ] as $callback => $apply) {
             try {
                 $apply();
@@ -178,5 +180,14 @@ class PerimeterCallbacksTest extends TestCase
                 $this->assertStringContainsString(sprintf('The [%s] perimeter has no [%s] callback.', Perimeter::class, $callback), $exception->getMessage());
             }
         }
+    }
+
+    #[Group('scout')]
+    public function test_perimeter_without_any_callback_throws_when_scout_queried(): void
+    {
+        $this->expectException(MissingPerimeterCallbackException::class);
+        $this->expectExceptionMessage(sprintf('The [%s] perimeter has no [scoutQuery] callback.', Perimeter::class));
+
+        Perimeter::new()->applyScoutQueryCallback(SearchableModel::search(), Auth::user());
     }
 }
