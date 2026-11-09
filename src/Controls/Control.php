@@ -51,6 +51,23 @@ class Control
     }
 
     /**
+     * The perimeters of this control, built once per instance.
+     *
+     * @var array<\Lomkit\Access\Perimeters\Perimeter>|null
+     */
+    private ?array $resolvedPerimeters = null;
+
+    /**
+     * Get the perimeters of this control, building them on first use.
+     *
+     * @return array<\Lomkit\Access\Perimeters\Perimeter>
+     */
+    public function getPerimeters(): array
+    {
+        return $this->resolvedPerimeters ??= $this->perimeters();
+    }
+
+    /**
      * Determines if the control applies based on the user's permissions and model state.
      *
      * @param Model  $user   The user whose permissions are evaluated.
@@ -64,7 +81,7 @@ class Control
         // If the method is viewAny, we check instead if he has any 'view' right on different perimeters
         $appliesMethod = config(sprintf('access-control.methods.%s', $method)) ?? $method;
 
-        foreach ($this->perimeters() as $perimeter) {
+        foreach ($this->getPerimeters() as $perimeter) {
             if ($perimeter->applyAllowedCallback($user, $appliesMethod)) {
                 // If the model doesn't exist, it means the method is not related to a model
                 // so we don't need to activate the should result since we can't compare an existing model
@@ -97,17 +114,10 @@ class Control
             return $this->noResultQuery($query);
         }
 
-        $callback = function (Builder $query, Model $user) {
-            return $this->applyQueryControl($query, $user);
-        };
-
-        if (config('access-control.queries.isolate_parent_query')) {
-            return $query->where(function (Builder $query) use ($user, $callback) {
-                $callback($query, $user);
-            });
-        }
-
-        return $callback($query, $user);
+        // The perimeters are grouped in one nested where so their "or" never leaks into the caller's constraints
+        return $query->where(function (Builder $query) use ($user) {
+            $this->applyQueryControl($query, $user);
+        });
     }
 
     /**
@@ -141,15 +151,12 @@ class Control
             return $this->noResultQuery($query);
         };
 
-        foreach ($this->perimeters() as $perimeter) {
+        foreach ($this->getPerimeters() as $perimeter) {
             if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
-                if (config('access-control.queries.isolate_perimeter_queries')) {
-                    $query = $query->orWhere(function (Builder $query) use ($user, $perimeter) {
-                        $perimeter->applyQueryCallback($query, $user);
-                    });
-                } else {
+                // Each perimeter gets its own group so overlaid perimeters add up instead of narrowing each other
+                $query->orWhere(function (Builder $query) use ($user, $perimeter) {
                     $perimeter->applyQueryCallback($query, $user);
-                }
+                });
 
                 $noResultCallback = function ($query) {return $query; };
 
@@ -176,7 +183,7 @@ class Control
             return $this->noResultScoutQuery($query);
         };
 
-        foreach ($this->perimeters() as $perimeter) {
+        foreach ($this->getPerimeters() as $perimeter) {
             if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
                 $query = $perimeter->applyScoutQueryCallback($query, $user);
 
