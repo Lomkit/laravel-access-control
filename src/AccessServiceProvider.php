@@ -3,7 +3,6 @@
 namespace Lomkit\Access;
 
 use Illuminate\Foundation\Events\PublishingStubs;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\Builder;
@@ -11,6 +10,7 @@ use Lomkit\Access\Console\AccessCacheCommand;
 use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
+use Lomkit\Access\Controls\HasControlScope;
 
 class AccessServiceProvider extends ServiceProvider
 {
@@ -64,7 +64,7 @@ class AccessServiceProvider extends ServiceProvider
             Builder::macro('controlled', function () {
                 $control = $this->model->newControl();
 
-                return $control->scoutQueried($this, Auth::user());
+                return $control->scoutQueried($this, HasControlScope::resolveUser());
             });
         }
     }

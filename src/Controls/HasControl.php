@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Controls;
 
 use Lomkit\Access\Access;
+use Lomkit\Access\Exceptions\MissingControlException;
 
 trait HasControl
 {
@@ -17,12 +18,14 @@ trait HasControl
     }
 
     /**
-     * Attempts to create a new control instance.
+     * Get the control registered for the model.
      *
-     * @return Control|null The newly created control instance, or null if creation was unsuccessful.
+     * @throws MissingControlException When no control is registered for the model.
+     *
+     * @return Control The control instance of the model.
      */
-    public function newControl(): ?Control
+    public function newControl(): Control
     {
-        return Access::controlForModel(static::class);
+        return Access::controlForModel(static::class) ?? throw MissingControlException::forModel(static::class);
     }
 }
