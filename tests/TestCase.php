@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Lomkit\Access\Access;
 use Lomkit\Access\AccessServiceProvider;
 use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
+use Lomkit\Access\Tests\Support\Access\Controls\SearchableModelControl;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase
@@ -22,6 +23,7 @@ class TestCase extends BaseTestCase
         (new Access())
             ->addControls([
                 new ModelControl(),
+                new SearchableModelControl(),
             ]);
     }
 
