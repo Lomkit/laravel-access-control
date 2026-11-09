@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access;
 
+use Illuminate\Console\Command;
 use Illuminate\Foundation\Events\PublishingStubs;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
@@ -10,15 +11,19 @@ use Lomkit\Access\Console\AccessCacheCommand;
 use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
+use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Controls\HasControlScope;
+use Lomkit\Access\Exceptions\MissingControlException;
 
 class AccessServiceProvider extends ServiceProvider
 {
+    /** @var array<string, class-string<Command>> */
     protected array $commands = [
         'AccessCache' => AccessCacheCommand::class,
         'AccessClear' => AccessClearCommand::class,
     ];
 
+    /** @var array<string, class-string<Command>> */
     protected array $devCommands = [
         'ControlMake' => ControlMakeCommand::class,
         'PerimeterMake' => PerimeterMakeCommand::class,
@@ -26,10 +31,8 @@ class AccessServiceProvider extends ServiceProvider
 
     /**
      * Registers the service provider.
-     *
-     * @return void
      */
-    public function register()
+    public function register(): void
     {
         $this->registerCommands($this->commands);
 
@@ -44,7 +47,7 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Bootstrap any package services.
      */
-    public function boot()
+    public function boot(): void
     {
         $this->registerPublishing();
 
@@ -62,7 +65,10 @@ class AccessServiceProvider extends ServiceProvider
     {
         if (class_exists(Builder::class)) {
             Builder::macro('controlled', function () {
-                $control = $this->model->newControl();
+                $model = $this->model;
+
+                /** @var Control $control */
+                $control = method_exists($model, 'newControl') ? $model->newControl() : throw MissingControlException::forModel($model::class);
 
                 return $control->scoutQueried($this, HasControlScope::resolveUser());
             });
@@ -72,10 +78,9 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Register the given commands.
      *
-     *
-     * @return void
+     * @param  array<string, class-string<Command>>  $commands
      */
-    protected function registerCommands(array $commands)
+    protected function registerCommands(array $commands): void
     {
         foreach ($commands as $commandName => $command) {
             $method = "register{$commandName}Command";
@@ -93,12 +98,12 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Register the stubs on the default laravel stub publish command.
      */
-    protected function registerStubs()
+    protected function registerStubs(): void
     {
         Event::listen(function (PublishingStubs $event) {
-            $event->add(realpath(__DIR__.'/Console/stubs/control.stub'), 'control.stub');
-            $event->add(realpath(__DIR__.'/Console/stubs/perimeter.plain.stub'), 'perimeter.plain.stub');
-            $event->add(realpath(__DIR__.'/Console/stubs/perimeter.overlay.stub'), 'perimeter.overlay.stub');
+            $event->add(__DIR__.'/Console/stubs/control.stub', 'control.stub');
+            $event->add(__DIR__.'/Console/stubs/perimeter.plain.stub', 'perimeter.plain.stub');
+            $event->add(__DIR__.'/Console/stubs/perimeter.overlay.stub', 'perimeter.overlay.stub');
         });
     }
 
@@ -115,10 +120,8 @@ class AccessServiceProvider extends ServiceProvider
 
     /**
      * Register the package's publishable resources.
-     *
-     * @return void
      */
-    private function registerPublishing()
+    private function registerPublishing(): void
     {
         if ($this->app->runningInConsole()) {
             $this->publishes([
@@ -130,9 +133,9 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Get the services provided by the provider.
      *
-     * @return array
+     * @return list<class-string<Command>>
      */
-    public function provides()
+    public function provides(): array
     {
         return [
             ...array_values($this->commands),

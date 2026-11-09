@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Perimeters\Perimeter;
 use Throwable;
 
+/** @phpstan-consistent-constructor */
 class Control
 {
     /**
@@ -30,6 +31,8 @@ class Control
 
     /**
      * Return the control current model.
+     *
+     * @return class-string<Model>
      */
     public function getModel(): string
     {
@@ -74,6 +77,7 @@ class Control
     public function applies(Model $user, string $method, Model $model): bool
     {
         // If the method is viewAny, we check instead if he has any 'view' right on different perimeters
+        /** @var string $appliesMethod */
         $appliesMethod = config(sprintf('access-control.methods.%s', $method)) ?? $method;
 
         foreach ($this->getPerimeters() as $perimeter) {
@@ -98,9 +102,11 @@ class Control
     /**
      * Applies access control restrictions to an Eloquent query builder for the specified user.
      *
-     * @param  Builder  $query  The Eloquent query builder to modify.
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query  The Eloquent query builder to modify.
      * @param  Model|null  $user  The user for whom access control is enforced; if null, the query yields no results.
-     * @return Builder The query builder with access control restrictions applied.
+     * @return Builder<TModel> The query builder with access control restrictions applied.
      */
     public function queried(Builder $query, ?Model $user): Builder
     {
@@ -117,9 +123,11 @@ class Control
     /**
      * Applies access control restrictions to a Laravel Scout query builder for the specified user.
      *
-     * @param  \Laravel\Scout\Builder  $query  The Scout query builder to modify.
+     * @template TModel of Model
+     *
+     * @param  \Laravel\Scout\Builder<TModel>  $query  The Scout query builder to modify.
      * @param  Model|null  $user  The user for whom access control is enforced; if null, the query yields no results.
-     * @return \Laravel\Scout\Builder The query builder with access controls applied.
+     * @return \Laravel\Scout\Builder<TModel> The query builder with access controls applied.
      */
     public function scoutQueried(\Laravel\Scout\Builder $query, ?Model $user): \Laravel\Scout\Builder
     {
@@ -133,9 +141,11 @@ class Control
     /**
      * Modifies an Eloquent query builder to enforce access control rules for the specified user.
      *
-     * @param  Builder  $query  The Eloquent query builder to modify.
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query  The Eloquent query builder to modify.
      * @param  Model  $user  The user for whom access control is evaluated.
-     * @return Builder The modified query builder reflecting access control restrictions.
+     * @return Builder<TModel> The modified query builder reflecting access control restrictions.
      */
     protected function applyQueryControl(Builder $query, Model $user): Builder
     {
@@ -143,14 +153,17 @@ class Control
             return $this->noResultQuery($query);
         };
 
+        /** @var string $viewMethod */
+        $viewMethod = config('access-control.methods.view');
+
         foreach ($this->getPerimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
+            if ($perimeter->applyAllowedCallback($user, $viewMethod)) {
                 // Each perimeter gets its own group so overlaid perimeters add up instead of narrowing each other
                 $query->orWhere(function (Builder $query) use ($user, $perimeter) {
                     $perimeter->applyQueryCallback($query, $user);
                 });
 
-                $noResultCallback = function ($query) {
+                $noResultCallback = function (Builder $query): Builder {
                     return $query;
                 };
 
@@ -169,16 +182,21 @@ class Control
      * Scout only combines constraints with "and": when several perimeters apply (an overlay perimeter followed by another one),
      * their constraints narrow each other instead of adding up as they do in an Eloquent query.
      *
-     * @param  \Laravel\Scout\Builder  $query  The Scout query builder to modify.
+     * @template TModel of Model
+     *
+     * @param  \Laravel\Scout\Builder<TModel>  $query  The Scout query builder to modify.
      * @param  Model  $user  The user for whom access control is being enforced.
-     * @return \Laravel\Scout\Builder The modified Scout query builder reflecting access control restrictions.
+     * @return \Laravel\Scout\Builder<TModel> The modified Scout query builder reflecting access control restrictions.
      */
     protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
+        /** @var string $viewMethod */
+        $viewMethod = config('access-control.methods.view');
+
         $perimeters = [];
 
         foreach ($this->getPerimeters() as $perimeter) {
-            if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
+            if ($perimeter->applyAllowedCallback($user, $viewMethod)) {
                 $perimeters[] = $perimeter;
 
                 if (! $perimeter->overlays()) {
@@ -201,8 +219,10 @@ class Control
     /**
      * Alters the Eloquent query builder to ensure no records are returned.
      *
-     * @param  Builder  $query  The Eloquent query builder to modify.
-     * @return Builder The query builder configured to yield no results.
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query  The Eloquent query builder to modify.
+     * @return Builder<TModel> The query builder configured to yield no results.
      */
     protected function noResultQuery(Builder $query): Builder
     {
@@ -216,8 +236,10 @@ class Control
      * queried and nothing depends on a filter the engine may reject. The database and collection engines hand it their
      * Eloquent query instead, which is constrained to match nothing.
      *
-     * @param  \Laravel\Scout\Builder  $query  The Scout query builder to modify.
-     * @return \Laravel\Scout\Builder The modified query builder that yields no results.
+     * @template TModel of Model
+     *
+     * @param  \Laravel\Scout\Builder<TModel>  $query  The Scout query builder to modify.
+     * @return \Laravel\Scout\Builder<TModel> The modified query builder that yields no results.
      */
     protected function noResultScoutQuery(\Laravel\Scout\Builder $query): \Laravel\Scout\Builder
     {

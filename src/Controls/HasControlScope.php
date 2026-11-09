@@ -2,12 +2,13 @@
 
 namespace Lomkit\Access\Controls;
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
 use Illuminate\Support\Facades\Auth;
+use Lomkit\Access\Exceptions\MissingControlException;
 
+/** @implements Scope<Model> */
 class HasControlScope implements Scope
 {
     /**
@@ -15,7 +16,7 @@ class HasControlScope implements Scope
      *
      * @var string[]
      */
-    protected $extensions = ['controlled', 'uncontrolled'];
+    protected array $extensions = ['controlled', 'uncontrolled'];
 
     /**
      * Whether the authenticated user is being resolved.
@@ -29,9 +30,9 @@ class HasControlScope implements Scope
      * model may itself be controlled, which would resolve the user again while the
      * guard has not stored it yet.
      *
-     * @return Authenticatable|null The authenticated user, or null when there is none.
+     * @return Model|null The authenticated user, or null when there is none.
      */
-    public static function resolveUser(): ?Authenticatable
+    public static function resolveUser(): ?Model
     {
         $wasResolvingUser = static::$resolvingUser;
 
@@ -57,23 +58,23 @@ class HasControlScope implements Scope
     /**
      * Applies access control to the query builder.
      *
-     * @param  Builder  $builder  The Eloquent query builder instance.
+     * @param  Builder<covariant Model>  $builder  The Eloquent query builder instance.
      * @param  Model  $model  The related model instance (unused in this method).
      */
     public function apply(Builder $builder, Model $model): void
     {
         if (config('access-control.queries.enabled_by_default', false)) {
-            $builder->controlled();
+            /** @var Builder<Model> $builder */
+            $this->controlled($builder);
         }
     }
 
     /**
      * Extend the query builder with the needed functions.
      *
-     *
-     * @return void
+     * @param  Builder<Model>  $builder
      */
-    public function extend(Builder $builder)
+    public function extend(Builder $builder): void
     {
         foreach ($this->extensions as $extension) {
             $this->{"add{$extension}"}($builder);
@@ -83,32 +84,50 @@ class HasControlScope implements Scope
     /**
      * Registers the "controlled" macro on the query builder.
      *
-     * @param  Builder  $builder  The query builder instance to extend.
+     * @param  Builder<Model>  $builder  The query builder instance to extend.
      */
     protected function addControlled(Builder $builder): void
     {
-        $builder->macro('controlled', function (Builder $builder) {
-            if (HasControlScope::retrievingUser()) {
-                return $builder;
-            }
+        $scope = $this;
 
-            /** @var Control $control */
-            $control = $builder->getModel()->newControl();
-
-            return $control->queried($builder, HasControlScope::resolveUser());
+        $builder->macro('controlled', function (Builder $builder) use ($scope) {
+            return $scope->controlled($builder);
         });
     }
 
     /**
      * Registers the "uncontrolled" macro on the query builder.
      *
-     * @param  Builder  $builder  The query builder instance to extend.
-     * @return void
+     * @param  Builder<Model>  $builder  The query builder instance to extend.
      */
-    protected function addUncontrolled(Builder $builder)
+    protected function addUncontrolled(Builder $builder): void
     {
-        $builder->macro('uncontrolled', function (Builder $builder) {
-            return $builder->withoutGlobalScope($this);
+        $scope = $this;
+
+        $builder->macro('uncontrolled', function (Builder $builder) use ($scope) {
+            return $builder->withoutGlobalScope($scope);
         });
+    }
+
+    /**
+     * Applies the control of the builder's model for the authenticated user.
+     *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $builder  The query builder to control.
+     * @return Builder<TModel> The controlled query builder.
+     */
+    protected function controlled(Builder $builder): Builder
+    {
+        if (static::retrievingUser()) {
+            return $builder;
+        }
+
+        $model = $builder->getModel();
+
+        /** @var Control $control */
+        $control = method_exists($model, 'newControl') ? $model->newControl() : throw MissingControlException::forModel($model::class);
+
+        return $control->queried($builder, static::resolveUser());
     }
 }

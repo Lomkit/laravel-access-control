@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 
+/** @phpstan-consistent-constructor */
 class Perimeter
 {
     // No callback has a default: a callback the perimeter needs but does not declare throws instead of granting access
@@ -22,7 +23,6 @@ class Perimeter
      * Determines if the access control condition should be applied for the given user, method, and model.
      *
      * @param  Model  $user  The user being evaluated.
-     * @param  string  $method  The access control action or method.
      * @param  Model  $model  The related model instance.
      * @return bool True if the condition applies; false otherwise.
      *
@@ -30,6 +30,7 @@ class Perimeter
      */
     public function applyShouldCallback(Model $user, Model $model): bool
     {
+        /** @var Closure(Model, Model): bool $callback */
         $callback = $this->shouldCallback ?? throw MissingPerimeterCallbackException::for($this, 'should');
 
         return $callback($user, $model);
@@ -38,14 +39,17 @@ class Perimeter
     /**
      * Applies the configured Scout query callback to modify a Laravel Scout search query for a given user.
      *
-     * @param  \Laravel\Scout\Builder  $query  The Scout query builder to modify.
+     * @template TModel of Model
+     *
+     * @param  \Laravel\Scout\Builder<TModel>  $query  The Scout query builder to modify.
      * @param  Model  $user  The user model for whom the query is being modified.
-     * @return \Laravel\Scout\Builder The modified Scout query builder.
+     * @return \Laravel\Scout\Builder<TModel> The modified Scout query builder.
      *
      * @throws MissingPerimeterCallbackException If the perimeter does not declare a Scout query callback.
      */
     public function applyScoutQueryCallback(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
+        /** @var Closure(\Laravel\Scout\Builder<TModel>, Model): \Laravel\Scout\Builder<TModel> $callback */
         $callback = $this->scoutQueryCallback ?? throw MissingPerimeterCallbackException::for($this, 'scoutQuery');
 
         return $callback($query, $user);
@@ -54,14 +58,17 @@ class Perimeter
     /**
      * Applies the registered query callback to modify the query builder based on the user's context.
      *
-     * @param  Builder  $query  The query builder instance to be customized.
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query  The query builder instance to be customized.
      * @param  Model  $user  The user model providing context for the query modification.
-     * @return Builder The modified query builder.
+     * @return Builder<TModel> The modified query builder.
      *
      * @throws MissingPerimeterCallbackException If the perimeter does not declare a query callback.
      */
     public function applyQueryCallback(Builder $query, Model $user): Builder
     {
+        /** @var Closure(Builder<TModel>, Model): Builder<TModel> $callback */
         $callback = $this->queryCallback ?? throw MissingPerimeterCallbackException::for($this, 'query');
 
         return $callback($query, $user);
@@ -71,12 +78,14 @@ class Perimeter
      * Executes the allowed callback to check user access.
      *
      * @param  Model  $user  The user model instance to evaluate for access.
+     * @param  string  $method  The access control action or method.
      * @return bool True if the user is allowed; false otherwise.
      *
      * @throws MissingPerimeterCallbackException If the perimeter does not declare an allowed callback.
      */
     public function applyAllowedCallback(Model $user, string $method): bool
     {
+        /** @var Closure(Model, string): bool $callback */
         $callback = $this->allowedCallback ?? throw MissingPerimeterCallbackException::for($this, 'allowed');
 
         return $callback($user, $method);

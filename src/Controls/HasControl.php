@@ -9,17 +9,14 @@ trait HasControl
 {
     /**
      * Boot the has control trait for a model.
-     *
-     * @return void
      */
-    public static function bootHasControl()
+    public static function bootHasControl(): void
     {
         static::addGlobalScope(new HasControlScope);
     }
 
     /**
      * Get the control registered for the model.
-     *
      *
      * @return Control The control instance of the model.
      *

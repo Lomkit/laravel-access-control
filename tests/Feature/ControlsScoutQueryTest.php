@@ -1,14 +1,16 @@
 <?php
 
+namespace Lomkit\Access\Tests\Feature;
+
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Scout\Builder;
-use Lomkit\Access\Tests\Feature\TestCase;
 use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Models\SearchableModel;
 use Lomkit\Access\Tests\Support\Models\User;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use stdClass;
 
 #[Group('scout')]
 class ControlsScoutQueryTest extends TestCase

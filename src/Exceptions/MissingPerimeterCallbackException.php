@@ -5,6 +5,7 @@ namespace Lomkit\Access\Exceptions;
 use LogicException;
 use Lomkit\Access\Perimeters\Perimeter;
 
+/** @phpstan-consistent-constructor */
 class MissingPerimeterCallbackException extends LogicException
 {
     /**

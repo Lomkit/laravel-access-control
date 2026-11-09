@@ -8,10 +8,10 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Lomkit\Access\Controls\Control;
 use ReflectionClass;
-use ReflectionException;
 use SplFileInfo;
 use Symfony\Component\Finder\Finder;
 
+/** @phpstan-consistent-constructor */
 class Access
 {
     /**
@@ -113,23 +113,24 @@ class Access
      */
     public static function discoverControlClasses(array $paths): array
     {
-        return (new Collection($paths))
+        return array_values((new Collection($paths))
             ->flatMap(fn (string $directory) => glob($directory, GLOB_ONLYDIR) ?: [])
             ->filter(fn (string $directory) => is_dir($directory))
             ->flatMap(fn (string $directory) => iterator_to_array(Finder::create()->files()->name('*.php')->in($directory), false))
             ->map(function (SplFileInfo $file) {
-                try {
-                    $class = new ReflectionClass(static::classFromFile($file));
-                } catch (ReflectionException) {
+                $name = static::classFromFile($file);
+
+                if (! class_exists($name)) {
                     return null;
                 }
+
+                $class = new ReflectionClass($name);
 
                 return $class->isInstantiable() && $class->isSubclassOf(Control::class) ? $class->getName() : null;
             })
             ->filter()
             ->unique()
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -165,6 +166,7 @@ class Access
 
         $access = new static;
 
+        /** @var list<class-string<Control>> $classes */
         $classes = is_file(static::cachePath())
             ? require static::cachePath()
             : static::discoverControlClasses($access->discoverControlsWithin());

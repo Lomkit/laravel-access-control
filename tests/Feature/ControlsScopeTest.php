@@ -1,7 +1,8 @@
 <?php
 
+namespace Lomkit\Access\Tests\Feature;
+
 use Lomkit\Access\Controls\HasControlScope;
-use Lomkit\Access\Tests\Feature\TestCase;
 use Lomkit\Access\Tests\Support\Models\Model;
 
 class ControlsScopeTest extends TestCase

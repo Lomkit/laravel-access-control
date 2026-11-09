@@ -5,6 +5,7 @@ namespace Lomkit\Access\Exceptions;
 use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
+/** @phpstan-consistent-constructor */
 class MissingControlException extends LogicException
 {
     /**

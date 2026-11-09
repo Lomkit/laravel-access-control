@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\Finder\SplFileInfo;
 
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\select;
@@ -48,10 +49,8 @@ class ControlMakeCommand extends GeneratorCommand
 
     /**
      * Resolve the fully-qualified path to the stub.
-     *
-     * @param  string  $stub
      */
-    protected function resolveStubPath($stub): string
+    protected function resolveStubPath(string $stub): string
     {
         return file_exists($customPath = $this->laravel->basePath(trim($stub, '/')))
                         ? $customPath
@@ -78,11 +77,15 @@ class ControlMakeCommand extends GeneratorCommand
         $rootNamespace = $this->rootNamespace();
         $controlNamespace = $this->getNamespace($name);
 
+        /** @var array<string, string> $replace */
         $replace = [];
 
         $baseControlExists = file_exists($this->getPath("{$rootNamespace}Access\Controls\Control"));
 
-        $replace = $this->buildPerimetersReplacements($replace, $this->option('perimeters'));
+        /** @var list<string> $perimeters */
+        $perimeters = $this->option('perimeters');
+
+        $replace = $this->buildPerimetersReplacements($replace, $perimeters);
 
         if ($this->option('model')) {
             $replace = $this->buildModelReplacements($replace);
@@ -103,10 +106,16 @@ class ControlMakeCommand extends GeneratorCommand
 
     /**
      * Build the model replacement values.
+     *
+     * @param  array<string, string>  $replace
+     * @return array<string, string>
      */
     protected function buildModelReplacements(array $replace): array
     {
-        $modelClass = $this->parseModel($this->option('model'));
+        /** @var string $model */
+        $model = $this->option('model');
+
+        $modelClass = $this->parseModel($model);
 
         return array_merge($replace, [
             'DummyFullModelClass' => $modelClass,
@@ -124,10 +133,11 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Build the model replacement values.
      *
-     *
-     * @return array
+     * @param  array<string, string>  $replace
+     * @param  list<string>  $perimeters
+     * @return array<string, string>
      */
-    protected function buildPerimetersReplacements(array $replace, array $perimeters)
+    protected function buildPerimetersReplacements(array $replace, array $perimeters): array
     {
         $perimetersImplementation = '';
 
@@ -162,9 +172,9 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Get the console command options.
      *
-     * @return array
+     * @return list<array{string, string, int, string}>
      */
-    protected function getOptions()
+    protected function getOptions(): array
     {
         return [
             ['perimeters', 'p', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'The perimeters that the control relies on'],
@@ -174,11 +184,8 @@ class ControlMakeCommand extends GeneratorCommand
 
     /**
      * Interact further with the user if they were prompted for missing arguments.
-     *
-     *
-     * @return void
      */
-    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output)
+    protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
     {
         if ($this->didReceiveOptions($input)) {
             return;
@@ -195,10 +202,10 @@ class ControlMakeCommand extends GeneratorCommand
             }
         }
 
-        if (! empty($this->possibleModels())) {
+        if (! empty($this->possibleModelNames())) {
             $model = select(
                 'What model should this control apply to? (Optional)',
-                $this->possibleModels(),
+                $this->possibleModelNames(),
             );
 
             if ($model) {
@@ -208,16 +215,34 @@ class ControlMakeCommand extends GeneratorCommand
     }
 
     /**
+     * Get a list of possible perimeter names.
+     *
+     * @return array<int, string>
+     */
+    protected function possiblePerimeters(): array
+    {
+        return $this->classNamesIn(is_dir(app_path('Access/Perimeters')) ? app_path('Access/Perimeters') : app_path());
+    }
+
+    /**
      * Get a list of possible model names.
      *
      * @return array<int, string>
      */
-    protected function possiblePerimeters()
+    protected function possibleModelNames(): array
     {
-        $perimetersPath = is_dir(app_path('Access/Perimeters')) ? app_path('Access/Perimeters') : app_path();
+        return $this->classNamesIn(is_dir(app_path('Models')) ? app_path('Models') : app_path());
+    }
 
-        return (new Collection(Finder::create()->files()->depth(0)->in($perimetersPath)))
-            ->map(fn ($file) => $file->getBasename('.php'))
+    /**
+     * Get the names of the classes at the root of the given directory.
+     *
+     * @return array<int, string>
+     */
+    private function classNamesIn(string $directory): array
+    {
+        return (new Collection(Finder::create()->files()->depth(0)->in($directory)))
+            ->map(fn (SplFileInfo $file): string => $file->getBasename('.php'))
             ->sort()
             ->values()
             ->all();
