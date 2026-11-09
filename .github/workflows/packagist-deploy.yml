@@ -1,20 +1,26 @@
 name: Packagist Deploy
 
+# The repository has no Packagist webhook: this workflow is what tells Packagist about a new release
 on:
   release:
-    types: [created]
+    types: [ published ]
+
+permissions: {}
 
 jobs:
-  build:
+  update:
 
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
+
+    name: Update the package on Packagist
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: mnavarrocarter/packagist-update@v1.0.0
-        with:
-          username: "GautierDele"
-          api_token: ${{ secrets.PACKAGIST_TOKEN }}
+      - name: Ask Packagist to update the package
+        run: >-
+          curl --fail-with-body --silent --show-error --request POST
+          --header 'Content-Type: application/json'
+          --data '{"repository":{"url":"https://packagist.org/packages/lomkit/laravel-access-control"}}'
+          "https://packagist.org/api/update-package?username=${PACKAGIST_USERNAME}&apiToken=${PACKAGIST_TOKEN}"
+        env:
+          PACKAGIST_USERNAME: GautierDele
+          PACKAGIST_TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
