@@ -5,26 +5,16 @@ namespace Lomkit\Access\Perimeters;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 
 class Perimeter
 {
-    protected Closure $scoutQueryCallback;
+    // No callback has a default: a callback the perimeter needs but does not declare throws instead of granting access
+    protected ?Closure $scoutQueryCallback = null;
 
-    protected Closure $queryCallback;
-    protected Closure $shouldCallback;
-    protected Closure $allowedCallback;
-
-    /**
-     * Initializes the Perimeter with default callbacks for access control and query customization.
-     */
-    public function __construct()
-    {
-        // Default implementations that can be overridden
-        $this->scoutQueryCallback = function (\Laravel\Scout\Builder $query, Model $user) { return $query; };
-        $this->queryCallback = function (Builder $query, Model $user) { return $query; };
-        $this->shouldCallback = function (Model $user, Model $model) { return true; };
-        $this->allowedCallback = function (Model $user, string $method) { return true; };
-    }
+    protected ?Closure $queryCallback = null;
+    protected ?Closure $shouldCallback = null;
+    protected ?Closure $allowedCallback = null;
 
     /**
      * Determines if the access control condition should be applied for the given user, method, and model.
@@ -33,11 +23,15 @@ class Perimeter
      * @param string $method The access control action or method.
      * @param Model  $model  The related model instance.
      *
+     * @throws MissingPerimeterCallbackException If the perimeter does not declare a should callback.
+     *
      * @return bool True if the condition applies; false otherwise.
      */
     public function applyShouldCallback(Model $user, Model $model): bool
     {
-        return ($this->shouldCallback)($user, $model);
+        $callback = $this->shouldCallback ?? throw MissingPerimeterCallbackException::for($this, 'should');
+
+        return $callback($user, $model);
     }
 
     /**
@@ -46,11 +40,15 @@ class Perimeter
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
      * @param Model                  $user  The user model for whom the query is being modified.
      *
+     * @throws MissingPerimeterCallbackException If the perimeter does not declare a Scout query callback.
+     *
      * @return \Laravel\Scout\Builder The modified Scout query builder.
      */
     public function applyScoutQueryCallback(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
-        return ($this->scoutQueryCallback)($query, $user);
+        $callback = $this->scoutQueryCallback ?? throw MissingPerimeterCallbackException::for($this, 'scoutQuery');
+
+        return $callback($query, $user);
     }
 
     /**
@@ -59,11 +57,15 @@ class Perimeter
      * @param Builder $query The query builder instance to be customized.
      * @param Model   $user  The user model providing context for the query modification.
      *
+     * @throws MissingPerimeterCallbackException If the perimeter does not declare a query callback.
+     *
      * @return Builder The modified query builder.
      */
     public function applyQueryCallback(Builder $query, Model $user): Builder
     {
-        return ($this->queryCallback)($query, $user);
+        $callback = $this->queryCallback ?? throw MissingPerimeterCallbackException::for($this, 'query');
+
+        return $callback($query, $user);
     }
 
     /**
@@ -71,11 +73,15 @@ class Perimeter
      *
      * @param Model $user The user model instance to evaluate for access.
      *
+     * @throws MissingPerimeterCallbackException If the perimeter does not declare an allowed callback.
+     *
      * @return bool True if the user is allowed; false otherwise.
      */
     public function applyAllowedCallback(Model $user, string $method): bool
     {
-        return ($this->allowedCallback)($user, $method);
+        $callback = $this->allowedCallback ?? throw MissingPerimeterCallbackException::for($this, 'allowed');
+
+        return $callback($user, $method);
     }
 
     /**
