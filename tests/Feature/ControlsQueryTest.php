@@ -150,10 +150,8 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         $this->assertEquals(50, $query->count());
     }
 
-    public function test_control_queried_not_parent_isolated(): void
+    public function test_control_queried_never_widens_the_caller_constraints(): void
     {
-        config(['access-control.queries.isolate_parent_query' => false]);
-
         Gate::define('view shared models', function (User $user) {
             return true;
         });
@@ -174,44 +172,13 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->ownPerimeter()
             ->count(50)
             ->create();
+
+        config([
+            'access-control.queries.isolate_parent_query'      => false,
+            'access-control.queries.isolate_perimeter_queries' => false,
+        ]);
 
         $query = Model::query()->where('client_id', Auth::user()->client->getKey());
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
-
-        $this->assertEquals(150, $query->count());
-    }
-
-    public function test_control_queried_not_perimeter_isolated(): void
-    {
-        config(['access-control.queries.isolate_perimeter_queries' => false]);
-
-        Gate::define('view shared models', function (User $user) {
-            return true;
-        });
-        Gate::define('view own models', function (User $user) {
-            return true;
-        });
-
-        Model::factory()
-            ->clientPerimeter()
-            ->count(50)
-            ->create();
-        Model::factory()
-            ->clientPerimeter()
-            ->sharedPerimeter()
-            ->count(50)
-            ->create();
-        Model::factory()
-            ->ownPerimeter()
-            ->sharedPerimeter()
-            ->count(50)
-            ->create();
-        Model::factory()
-            ->ownPerimeter()
-            ->count(50)
-            ->create();
-
-        $query = Model::query();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
 
         $this->assertEquals(50, $query->count());
