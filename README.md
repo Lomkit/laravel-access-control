@@ -13,13 +13,15 @@ See the [documentation](https://laravel-access-control.lomkit.com) for detailed 
 
 ## What it does
 
-You first need to define the perimeters concerned by your applications.
+You first need to define the perimeters concerned by your applications (`php artisan make:perimeter`, in `app/Access/Perimeters`).
 
-Create the model control:
+Create the model control (`php artisan make:control`). Controls are discovered in `app/Access/Controls`:
 
 ```php
 class PostControl extends Control
 {
+    protected string $model = Post::class;
+
     protected function perimeters(): array
     {
         return [
@@ -43,10 +45,13 @@ class PostControl extends Control
                 ->query(function (Builder $query, Model $user) {
                     return $query->where('client_id', $user->client->getKey());
                 }),
-        // ...
+            // ...
+        ];
+    }
+}
 ```
 
-Specify the control in your model:
+Add the `HasControl` trait to your model, it resolves the control whose `$model` matches:
 
 ```php
 class Post extends Model
@@ -60,7 +65,7 @@ Then set up your policy:
 ```php
 class PostPolicy extends ControlledPolicy
 {
-    protected string $model = Post::class;
+    protected string $control = PostControl::class;
 }
 ```
 

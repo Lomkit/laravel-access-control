@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Policies;
 
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 
 class ControlledPolicy
@@ -10,20 +11,20 @@ class ControlledPolicy
     //@TODO: what to do for other methods like attach / restore / force_delete ? It only has view / etc basic methods
 
     /**
-     * The model class string.
+     * The control class the policy relies on.
      *
      * @var class-string<Control>
      */
     protected string $control;
 
     /**
-     * Retrieves the control instance associated with the current model.
+     * Retrieves the registered instance of the policy control.
      *
-     * @return Control The control instance for the current model.
+     * @return Control The control instance, registered in Access when needed.
      */
     protected function getControl(): Control
     {
-        return new $this->control();
+        return Access::control($this->control);
     }
 
     /**
