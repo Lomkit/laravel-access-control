@@ -6,6 +6,7 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Exceptions\CombinedScoutPerimetersException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Throwable;
 
@@ -172,30 +173,38 @@ class Control
     /**
      * Applies access control modifications to a Laravel Scout query builder based on defined perimeters.
      *
+     * Scout only combines constraints with "and", so perimeters an Eloquent query would combine with "or" are refused.
+     *
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
      * @param Model                  $user  The user for whom access control is being enforced.
+     *
+     * @throws CombinedScoutPerimetersException When several perimeters apply to the query.
      *
      * @return \Laravel\Scout\Builder The modified Scout query builder reflecting access control restrictions.
      */
     protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
-        $noResultCallback = function (\Laravel\Scout\Builder $query) {
-            return $this->noResultScoutQuery($query);
-        };
+        $perimeters = [];
 
         foreach ($this->getPerimeters() as $perimeter) {
             if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
-                $query = $perimeter->applyScoutQueryCallback($query, $user);
-
-                $noResultCallback = function ($query) {return $query; };
+                $perimeters[] = $perimeter;
 
                 if (!$perimeter->overlays()) {
-                    return $query;
+                    break;
                 }
             }
         }
 
-        return $noResultCallback($query);
+        if ($perimeters === []) {
+            return $this->noResultScoutQuery($query);
+        }
+
+        if (count($perimeters) > 1) {
+            throw CombinedScoutPerimetersException::for($this, $perimeters);
+        }
+
+        return $perimeters[0]->applyScoutQueryCallback($query, $user);
     }
 
     /**
@@ -213,13 +222,34 @@ class Control
     /**
      * Modifies the Scout query builder to ensure no records are returned.
      *
+     * Scout hands the search callback the engine client and uses what it returns as the raw results, so the engine is never
+     * queried and nothing depends on a filter the engine may reject. The database and collection engines hand it their
+     * Eloquent query instead, which is constrained to match nothing.
+     *
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
      *
      * @return \Laravel\Scout\Builder The modified query builder that yields no results.
      */
     protected function noResultScoutQuery(\Laravel\Scout\Builder $query): \Laravel\Scout\Builder
     {
-        return $query->where('__NOT_A_VALID_FIELD__', 0);
+        $query->callback = static function (mixed $search): mixed {
+            if ($search instanceof Builder) {
+                return $search->whereRaw('0=1');
+            }
+
+            // An empty page in the raw shape of each engine: Algolia, Meilisearch, Typesense and Turbopuffer
+            return [
+                'hits'               => [],
+                'nbHits'             => 0,
+                'totalHits'          => 0,
+                'estimatedTotalHits' => 0,
+                'found'              => 0,
+                'rows'               => [],
+                'total'              => 0,
+            ];
+        };
+
+        return $query;
     }
 
     /**
