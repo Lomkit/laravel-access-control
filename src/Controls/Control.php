@@ -6,7 +6,6 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Lomkit\Access\Exceptions\CombinedScoutPerimetersException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Throwable;
 
@@ -173,12 +172,11 @@ class Control
     /**
      * Applies access control modifications to a Laravel Scout query builder based on defined perimeters.
      *
-     * Scout only combines constraints with "and", so perimeters an Eloquent query would combine with "or" are refused.
+     * Scout only combines constraints with "and": when several perimeters apply (an overlay perimeter followed by another one),
+     * their constraints narrow each other instead of adding up as they do in an Eloquent query.
      *
      * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
      * @param Model                  $user  The user for whom access control is being enforced.
-     *
-     * @throws CombinedScoutPerimetersException When several perimeters apply to the query.
      *
      * @return \Laravel\Scout\Builder The modified Scout query builder reflecting access control restrictions.
      */
@@ -200,11 +198,11 @@ class Control
             return $this->noResultScoutQuery($query);
         }
 
-        if (count($perimeters) > 1) {
-            throw CombinedScoutPerimetersException::for($this, $perimeters);
+        foreach ($perimeters as $perimeter) {
+            $query = $perimeter->applyScoutQueryCallback($query, $user);
         }
 
-        return $perimeters[0]->applyScoutQueryCallback($query, $user);
+        return $query;
     }
 
     /**

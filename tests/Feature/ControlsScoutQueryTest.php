@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
-use Lomkit\Access\Exceptions\CombinedScoutPerimetersException;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\User;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -117,10 +116,10 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $this->expectException(CombinedScoutPerimetersException::class);
-        $this->expectExceptionMessage('The [Lomkit\Access\Tests\Support\Access\Controls\ModelControl] control applies the [Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter, Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter] perimeters to a Scout query');
+        $query = Model::search();
+        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
-        (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried(Model::search(), Auth::user());
+        $this->assertEquals(['client_id' => Auth::user()->client->getKey(), 'shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
     }
 
     public function test_control_scout_queried_using_shared_overlayed_perimeter_with_distant_perimeter(): void
@@ -132,31 +131,10 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             return true;
         });
 
-        $this->expectException(CombinedScoutPerimetersException::class);
-        $this->expectExceptionMessage('[Lomkit\Access\Tests\Support\Access\Perimeters\SharedPerimeter, Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter]');
-
-        (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried(Model::search(), Auth::user());
-    }
-
-    public function test_control_scout_queried_with_combined_perimeters_leaves_the_query_untouched(): void
-    {
-        Gate::define('view client models', function (User $user) {
-            return true;
-        });
-        Gate::define('view shared models', function (User $user) {
-            return true;
-        });
-
         $query = Model::search();
+        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
-        try {
-            (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
-
-            $this->fail('Combined perimeters should be refused for a Scout query.');
-        } catch (CombinedScoutPerimetersException) {
-            $this->assertEquals([], $this->whereMap($query));
-            $this->assertNull($query->callback);
-        }
+        $this->assertEquals(['shared_with_users' => Auth::user()->getKey(), 'author_id' => Auth::user()->getKey()], $this->whereMap($query));
     }
 
     public function test_control_scout_queried_using_only_shared_overlayed_perimeter(): void
