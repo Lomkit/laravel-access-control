@@ -33,7 +33,7 @@ Perimeter::new()
     ->scoutQuery(fn (\Laravel\Scout\Builder $q, Model $user) => $q->where('client_id', $user->client_id));
 ```
 
-- OverlayPerimeter: combines additively with other perimeters via OR instead of short-circuiting. Useful when several grants should stack (e.g. a user is both in the `client` perimeter and a `shared with me` perimeter). Example usage:
+- OverlayPerimeter: combines additively with other perimeters via OR instead of short-circuiting. In a Scout query the engine can only combine constraints with AND, so combined perimeters narrow each other there (see the pitfalls). Useful when several grants should stack (e.g. a user is both in the `client` perimeter and a `shared with me` perimeter). Example usage:
 
 ```php
 use Lomkit\Access\Perimeters\OverlayPerimeter;
@@ -128,9 +128,10 @@ return [
 
 ## Common pitfalls to flag when reviewing or writing code
 
-  - No perimeter matches → query is forced to `0=1` (Eloquent) or an impossible field (Scout). Empty results after wiring control usually mean no `allowed()` returned true.
+  - No perimeter matches → query is forced to `0=1` (Eloquent), or the search returns an empty page without querying the engine (Scout). Empty results after wiring control usually mean no `allowed()` returned true.
   - Order matters for non-overlay perimeters: the first match short-circuits. Put admin grants first, or make them overlays.
   - `should` is skipped for `viewAny`/`create` — use `allowed` for creation-time gates.
+  - Scout cannot combine perimeters with OR: when an overlay perimeter and another perimeter both apply, their `scoutQuery` constraints are joined with AND, so a search returns fewer records than the Eloquent query. Search through a single perimeter, or denormalize the access into one indexed field (e.g. a `visible_to` array) and filter on it.
   - `scoutQuery` cannot run `whereHas`/`orWhereNotNull`; denormalize into the indexed payload.
   - `enabled_by_default: true` also scopes tests and seeders — wrap fixtures in `->uncontrolled()` or disable it in `phpunit.xml`.
   - Controls may execute `allowed()` twice in `index`-style endpoints (policy + `controlled()` macro); cache it on the user if expensive.

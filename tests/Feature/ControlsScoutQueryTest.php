@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\User;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 {
@@ -23,12 +24,74 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         return $wheres;
     }
 
+    /**
+     * Assert the Scout query yields nothing without relying on a filter the engine may reject.
+     */
+    protected function assertNoResultScoutQuery(\Laravel\Scout\Builder $query): void
+    {
+        $this->assertEquals([], $this->whereMap($query));
+        $this->assertNotNull($query->callback);
+
+        // Search engines receive their client and get back an empty page in their own raw shape
+        $results = ($query->callback)(new stdClass(), '', []);
+
+        $this->assertSame([], $results['hits']);
+        $this->assertSame([], $results['rows']);
+        $this->assertSame(0, $results['nbHits']);
+        $this->assertSame(0, $results['totalHits']);
+        $this->assertSame(0, $results['found']);
+    }
+
+    /**
+     * The Scout engines that run against the test database.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function databaseEngines(): array
+    {
+        return [
+            'database'   => ['database'],
+            'collection' => ['collection'],
+        ];
+    }
+
+    /**
+     * Index three models: two of the authenticated user's client and one of another client.
+     */
+    protected function seedSearchableModels(string $engine): void
+    {
+        config(['scout.driver' => $engine]);
+
+        Model::forceCreate(['name' => 'alpha', 'number' => 1, 'client_id' => Auth::user()->client->getKey()]);
+        Model::forceCreate(['name' => 'beta', 'number' => 2, 'client_id' => Auth::user()->client->getKey()]);
+        Model::forceCreate(['name' => 'gamma', 'number' => 3]);
+    }
+
+    /**
+     * Assert the Scout query returns nothing through every way of reading it.
+     */
+    protected function assertScoutQueryReturnsNothing(\Laravel\Scout\Builder $query): void
+    {
+        $this->assertCount(0, $query->get());
+        $this->assertCount(0, $query->keys());
+        $this->assertSame(0, $query->raw()['total']);
+        $this->assertSame(0, iterator_count($query->cursor()));
+
+        $paginator = $query->paginate(10);
+        $this->assertCount(0, $paginator->items());
+        $this->assertSame(0, $paginator->total());
+
+        $simplePaginator = $query->simplePaginate(10);
+        $this->assertCount(0, $simplePaginator->items());
+        $this->assertFalse($simplePaginator->hasMorePages());
+    }
+
     public function test_control_scout_query_with_no_perimeter_passing(): void
     {
         $query = Model::search();
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
-        $this->assertEquals(['__NOT_A_VALID_FIELD__' => 0], $this->whereMap($query));
+        $this->assertNoResultScoutQuery($query);
     }
 
     public function test_control_scout_queried_using_client_perimeter(): void
@@ -41,6 +104,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['client_id' => Auth::user()->client->getKey()], $this->whereMap($query));
+        $this->assertNull($query->callback);
     }
 
     public function test_control_scout_queried_using_shared_overlayed_perimeter(): void
@@ -95,6 +159,64 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         $query = Model::search()->controlled();
 
-        $this->assertEquals(['__NOT_A_VALID_FIELD__' => 0], $this->whereMap($query));
+        $this->assertNoResultScoutQuery($query);
+    }
+
+    #[DataProvider('databaseEngines')]
+    public function test_controlled_scout_query_with_no_perimeter_passing_returns_nothing(string $engine): void
+    {
+        $this->seedSearchableModels($engine);
+
+        $this->assertScoutQueryReturnsNothing(Model::search()->controlled());
+    }
+
+    #[DataProvider('databaseEngines')]
+    public function test_controlled_scout_query_without_authenticated_user_returns_nothing(string $engine): void
+    {
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
+        $this->seedSearchableModels($engine);
+
+        Auth::logout();
+
+        $this->assertScoutQueryReturnsNothing(Model::search()->controlled());
+    }
+
+    #[DataProvider('databaseEngines')]
+    public function test_controlled_scout_query_returns_nothing_without_reassigning_the_builder(string $engine): void
+    {
+        $this->seedSearchableModels($engine);
+
+        $query = Model::search();
+        $query->controlled();
+
+        $this->assertScoutQueryReturnsNothing($query);
+    }
+
+    #[DataProvider('databaseEngines')]
+    public function test_controlled_scout_query_with_no_perimeter_passing_ignores_later_constraints(string $engine): void
+    {
+        $this->seedSearchableModels($engine);
+
+        $query = Model::search()->controlled()->where('client_id', Auth::user()->client->getKey());
+
+        $this->assertScoutQueryReturnsNothing($query);
+    }
+
+    #[DataProvider('databaseEngines')]
+    public function test_controlled_scout_query_using_client_perimeter_returns_client_models(string $engine): void
+    {
+        Gate::define('view client models', function (User $user) {
+            return true;
+        });
+
+        $this->seedSearchableModels($engine);
+
+        $models = Model::search()->controlled()->get();
+
+        $this->assertEqualsCanonicalizing(['alpha', 'beta'], $models->pluck('name')->all());
+        $this->assertSame(2, Model::search()->controlled()->paginate(10)->total());
     }
 }
