@@ -1,8 +1,10 @@
 <?php
 
+use Lomkit\Access\Controls\HasControlScope;
+use Lomkit\Access\Tests\Feature\TestCase;
 use Lomkit\Access\Tests\Support\Models\Model;
 
-class ControlsScopeTest extends \Lomkit\Access\Tests\Feature\TestCase
+class ControlsScopeTest extends TestCase
 {
     public function test_control_controlled_scope(): void
     {
@@ -23,6 +25,6 @@ class ControlsScopeTest extends \Lomkit\Access\Tests\Feature\TestCase
 
         $query = Model::uncontrolled();
 
-        $this->assertContains(\Lomkit\Access\Controls\HasControlScope::class, $query->removedScopes());
+        $this->assertContains(HasControlScope::class, $query->removedScopes());
     }
 }

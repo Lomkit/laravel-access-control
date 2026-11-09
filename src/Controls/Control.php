@@ -21,9 +21,7 @@ class Control
     /**
      * Does the given model match with the current one.
      *
-     * @param class-string<Model> $model
-     *
-     * @return bool
+     * @param  class-string<Model>  $model
      */
     public function isModel(string $model): bool
     {
@@ -32,8 +30,6 @@ class Control
 
     /**
      * Return the control current model.
-     *
-     * @return string
      */
     public function getModel(): string
     {
@@ -43,7 +39,7 @@ class Control
     /**
      * Retrieve the list of perimeter definitions for the current control.
      *
-     * @return array<\Lomkit\Access\Perimeters\Perimeter> An array of Perimeter objects.
+     * @return array<Perimeter> An array of Perimeter objects.
      */
     protected function perimeters(): array
     {
@@ -53,14 +49,14 @@ class Control
     /**
      * The perimeters of this control, built once per instance.
      *
-     * @var array<\Lomkit\Access\Perimeters\Perimeter>|null
+     * @var array<Perimeter>|null
      */
     private ?array $resolvedPerimeters = null;
 
     /**
      * Get the perimeters of this control, building them on first use.
      *
-     * @return array<\Lomkit\Access\Perimeters\Perimeter>
+     * @return array<Perimeter>
      */
     public function getPerimeters(): array
     {
@@ -70,10 +66,9 @@ class Control
     /**
      * Determines if the control applies based on the user's permissions and model state.
      *
-     * @param Model  $user   The user whose permissions are evaluated.
-     * @param string $method The action or method to verify.
-     * @param Model  $model  The target model; if it does not exist, the control applies by default.
-     *
+     * @param  Model  $user  The user whose permissions are evaluated.
+     * @param  string  $method  The action or method to verify.
+     * @param  Model  $model  The target model; if it does not exist, the control applies by default.
      * @return bool True if the control applies to the user and model; otherwise, false.
      */
     public function applies(Model $user, string $method, Model $model): bool
@@ -85,13 +80,13 @@ class Control
             if ($perimeter->applyAllowedCallback($user, $appliesMethod)) {
                 // If the model doesn't exist, it means the method is not related to a model
                 // so we don't need to activate the should result since we can't compare an existing model
-                if (!$model->exists) {
+                if (! $model->exists) {
                     return true;
                 }
 
                 $should = $perimeter->applyShouldCallback($user, $model);
 
-                if (!$perimeter->overlays() || $should) {
+                if (! $perimeter->overlays() || $should) {
                     return $should;
                 }
             }
@@ -103,9 +98,8 @@ class Control
     /**
      * Applies access control restrictions to an Eloquent query builder for the specified user.
      *
-     * @param Builder    $query The Eloquent query builder to modify.
-     * @param Model|null $user  The user for whom access control is enforced; if null, the query yields no results.
-     *
+     * @param  Builder  $query  The Eloquent query builder to modify.
+     * @param  Model|null  $user  The user for whom access control is enforced; if null, the query yields no results.
      * @return Builder The query builder with access control restrictions applied.
      */
     public function queried(Builder $query, ?Model $user): Builder
@@ -123,9 +117,8 @@ class Control
     /**
      * Applies access control restrictions to a Laravel Scout query builder for the specified user.
      *
-     * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
-     * @param Model|null             $user  The user for whom access control is enforced; if null, the query yields no results.
-     *
+     * @param  \Laravel\Scout\Builder  $query  The Scout query builder to modify.
+     * @param  Model|null  $user  The user for whom access control is enforced; if null, the query yields no results.
      * @return \Laravel\Scout\Builder The query builder with access controls applied.
      */
     public function scoutQueried(\Laravel\Scout\Builder $query, ?Model $user): \Laravel\Scout\Builder
@@ -140,9 +133,8 @@ class Control
     /**
      * Modifies an Eloquent query builder to enforce access control rules for the specified user.
      *
-     * @param Builder $query The Eloquent query builder to modify.
-     * @param Model   $user  The user for whom access control is evaluated.
-     *
+     * @param  Builder  $query  The Eloquent query builder to modify.
+     * @param  Model  $user  The user for whom access control is evaluated.
      * @return Builder The modified query builder reflecting access control restrictions.
      */
     protected function applyQueryControl(Builder $query, Model $user): Builder
@@ -158,9 +150,11 @@ class Control
                     $perimeter->applyQueryCallback($query, $user);
                 });
 
-                $noResultCallback = function ($query) {return $query; };
+                $noResultCallback = function ($query) {
+                    return $query;
+                };
 
-                if (!$perimeter->overlays()) {
+                if (! $perimeter->overlays()) {
                     return $query;
                 }
             }
@@ -175,9 +169,8 @@ class Control
      * Scout only combines constraints with "and": when several perimeters apply (an overlay perimeter followed by another one),
      * their constraints narrow each other instead of adding up as they do in an Eloquent query.
      *
-     * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
-     * @param Model                  $user  The user for whom access control is being enforced.
-     *
+     * @param  \Laravel\Scout\Builder  $query  The Scout query builder to modify.
+     * @param  Model  $user  The user for whom access control is being enforced.
      * @return \Laravel\Scout\Builder The modified Scout query builder reflecting access control restrictions.
      */
     protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
@@ -188,7 +181,7 @@ class Control
             if ($perimeter->applyAllowedCallback($user, config('access-control.methods.view'))) {
                 $perimeters[] = $perimeter;
 
-                if (!$perimeter->overlays()) {
+                if (! $perimeter->overlays()) {
                     break;
                 }
             }
@@ -208,8 +201,7 @@ class Control
     /**
      * Alters the Eloquent query builder to ensure no records are returned.
      *
-     * @param Builder $query The Eloquent query builder to modify.
-     *
+     * @param  Builder  $query  The Eloquent query builder to modify.
      * @return Builder The query builder configured to yield no results.
      */
     protected function noResultQuery(Builder $query): Builder
@@ -224,8 +216,7 @@ class Control
      * queried and nothing depends on a filter the engine may reject. The database and collection engines hand it their
      * Eloquent query instead, which is constrained to match nothing.
      *
-     * @param \Laravel\Scout\Builder $query The Scout query builder to modify.
-     *
+     * @param  \Laravel\Scout\Builder  $query  The Scout query builder to modify.
      * @return \Laravel\Scout\Builder The modified query builder that yields no results.
      */
     protected function noResultScoutQuery(\Laravel\Scout\Builder $query): \Laravel\Scout\Builder
@@ -237,13 +228,13 @@ class Control
 
             // An empty page in the raw shape of each engine: Algolia, Meilisearch, Typesense and Turbopuffer
             return [
-                'hits'               => [],
-                'nbHits'             => 0,
-                'totalHits'          => 0,
+                'hits' => [],
+                'nbHits' => 0,
+                'totalHits' => 0,
                 'estimatedTotalHits' => 0,
-                'found'              => 0,
-                'rows'               => [],
-                'total'              => 0,
+                'found' => 0,
+                'rows' => [],
+                'total' => 0,
             ];
         };
 
@@ -257,7 +248,7 @@ class Control
      */
     public static function new(): self
     {
-        return new static();
+        return new static;
     }
 
     /**

@@ -40,8 +40,6 @@ class ControlMakeCommand extends GeneratorCommand
 
     /**
      * Get the stub file for the generator.
-     *
-     * @return string
      */
     protected function getStub(): string
     {
@@ -51,9 +49,7 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Resolve the fully-qualified path to the stub.
      *
-     * @param string $stub
-     *
-     * @return string
+     * @param  string  $stub
      */
     protected function resolveStubPath($stub): string
     {
@@ -65,9 +61,7 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Get the default namespace for the class.
      *
-     * @param string $rootNamespace
-     *
-     * @return string
+     * @param  string  $rootNamespace
      */
     protected function getDefaultNamespace($rootNamespace): string
     {
@@ -77,9 +71,7 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Build the class with the given name.
      *
-     * @param string $name
-     *
-     * @return string
+     * @param  string  $name
      */
     protected function buildClass($name): string
     {
@@ -111,33 +103,27 @@ class ControlMakeCommand extends GeneratorCommand
 
     /**
      * Build the model replacement values.
-     *
-     * @param array $replace
-     *
-     * @return array
      */
     protected function buildModelReplacements(array $replace): array
     {
         $modelClass = $this->parseModel($this->option('model'));
 
         return array_merge($replace, [
-            'DummyFullModelClass'   => $modelClass,
+            'DummyFullModelClass' => $modelClass,
             '{{ namespacedModel }}' => $modelClass,
-            '{{namespacedModel}}'   => $modelClass,
-            'DummyModelClass'       => class_basename($modelClass),
-            '{{ model }}'           => class_basename($modelClass),
-            '{{model}}'             => class_basename($modelClass),
-            'DummyModelVariable'    => lcfirst(class_basename($modelClass)),
-            '{{ modelVariable }}'   => lcfirst(class_basename($modelClass)),
-            '{{modelVariable}}'     => lcfirst(class_basename($modelClass)),
+            '{{namespacedModel}}' => $modelClass,
+            'DummyModelClass' => class_basename($modelClass),
+            '{{ model }}' => class_basename($modelClass),
+            '{{model}}' => class_basename($modelClass),
+            'DummyModelVariable' => lcfirst(class_basename($modelClass)),
+            '{{ modelVariable }}' => lcfirst(class_basename($modelClass)),
+            '{{modelVariable}}' => lcfirst(class_basename($modelClass)),
         ]);
     }
 
     /**
      * Build the model replacement values.
      *
-     * @param array $replace
-     * @param array $perimeters
      *
      * @return array
      */
@@ -169,7 +155,7 @@ class ControlMakeCommand extends GeneratorCommand
 
         return array_merge($replace, [
             '{{ perimeters }}' => $perimetersImplementation,
-            '{{perimeters}}'   => $perimetersImplementation,
+            '{{perimeters}}' => $perimetersImplementation,
         ]);
     }
 
@@ -189,8 +175,6 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Interact further with the user if they were prompted for missing arguments.
      *
-     * @param \Symfony\Component\Console\Input\InputInterface   $input
-     * @param \Symfony\Component\Console\Output\OutputInterface $output
      *
      * @return void
      */
@@ -200,7 +184,7 @@ class ControlMakeCommand extends GeneratorCommand
             return;
         }
 
-        if (!empty($this->possiblePerimeters())) {
+        if (! empty($this->possiblePerimeters())) {
             $perimeters = multiselect(
                 'What perimeters should this control apply to? (Optional)',
                 $this->possiblePerimeters(),
@@ -211,7 +195,7 @@ class ControlMakeCommand extends GeneratorCommand
             }
         }
 
-        if (!empty($this->possibleModels())) {
+        if (! empty($this->possibleModels())) {
             $model = select(
                 'What model should this control apply to? (Optional)',
                 $this->possibleModels(),
@@ -242,11 +226,8 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Get the fully-qualified model class name.
      *
-     * @param string $model
      *
-     * @throws \InvalidArgumentException
-     *
-     * @return string
+     * @throws InvalidArgumentException
      */
     protected function parseModel(string $model): string
     {

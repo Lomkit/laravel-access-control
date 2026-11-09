@@ -2,11 +2,14 @@
 
 namespace Lomkit\Access\Tests\Feature;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\User;
+use Lomkit\Access\Tests\Support\Policies\ModelPolicy;
+use Lomkit\Access\Tests\Unit\TestCase;
 
-class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
+class PoliciesTest extends TestCase
 {
     public function test_policies_calls_view_method_properly(): void
     {
@@ -15,9 +18,9 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         });
         $model = Model::factory()
             ->createOne();
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        $policy = new \Lomkit\Access\Tests\Support\Policies\ModelPolicy();
+        $policy = new ModelPolicy;
 
         $this->assertTrue($policy->view($user, $model));
     }
@@ -27,9 +30,9 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         Gate::define('view global models', function (User $user) {
             return true;
         });
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        $policy = new \Lomkit\Access\Tests\Support\Policies\ModelPolicy();
+        $policy = new ModelPolicy;
 
         $this->assertTrue($policy->viewAny($user));
     }
@@ -39,9 +42,9 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         Gate::define('create global models', function (User $user) {
             return true;
         });
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        $policy = new \Lomkit\Access\Tests\Support\Policies\ModelPolicy();
+        $policy = new ModelPolicy;
 
         $this->assertTrue($policy->create($user));
     }
@@ -53,9 +56,9 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         });
         $model = Model::factory()
             ->createOne();
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        $policy = new \Lomkit\Access\Tests\Support\Policies\ModelPolicy();
+        $policy = new ModelPolicy;
 
         $this->assertTrue($policy->update($user, $model));
     }
@@ -67,9 +70,9 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         });
         $model = Model::factory()
             ->createOne();
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        $policy = new \Lomkit\Access\Tests\Support\Policies\ModelPolicy();
+        $policy = new ModelPolicy;
 
         $this->assertTrue($policy->delete($user, $model));
     }
@@ -81,9 +84,9 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         });
         $model = Model::factory()
             ->createOne();
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        $policy = new \Lomkit\Access\Tests\Support\Policies\ModelPolicy();
+        $policy = new ModelPolicy;
 
         $this->assertTrue($policy->restore($user, $model));
     }
@@ -95,9 +98,9 @@ class PoliciesTest extends \Lomkit\Access\Tests\Unit\TestCase
         });
         $model = Model::factory()
             ->createOne();
-        $user = \Illuminate\Support\Facades\Auth::user();
+        $user = Auth::user();
 
-        $policy = new \Lomkit\Access\Tests\Support\Policies\ModelPolicy();
+        $policy = new ModelPolicy;
 
         $this->assertTrue($policy->forceDelete($user, $model));
     }

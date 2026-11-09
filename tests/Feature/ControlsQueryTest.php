@@ -4,10 +4,11 @@ namespace Lomkit\Access\Tests\Feature;
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Models\User;
 
-class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
+class ControlsQueryTest extends TestCase
 {
     public function test_control_with_no_perimeter_passing(): void
     {
@@ -16,7 +17,7 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->create();
 
         $query = Model::query();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(0, $query->count());
     }
@@ -36,7 +37,7 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->create();
 
         $query = Model::query();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(50, $query->count());
     }
@@ -63,7 +64,7 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->create();
 
         $query = Model::query();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(100, $query->count());
     }
@@ -91,7 +92,7 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->create();
 
         $query = Model::query();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(100, $query->count());
     }
@@ -116,7 +117,7 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->create();
 
         $query = Model::query();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(50, $query->count());
     }
@@ -145,7 +146,7 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->create();
 
         $query = Model::query()->where('client_id', Auth::user()->client->getKey());
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(50, $query->count());
     }
@@ -174,12 +175,12 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
             ->create();
 
         config([
-            'access-control.queries.isolate_parent_query'      => false,
+            'access-control.queries.isolate_parent_query' => false,
             'access-control.queries.isolate_perimeter_queries' => false,
         ]);
 
         $query = Model::query()->where('client_id', Auth::user()->client->getKey());
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(50, $query->count());
     }
@@ -198,7 +199,7 @@ class ControlsQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         Auth::logout();
 
         $query = Model::query();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->queried($query, Auth::user());
+        $query = (new ModelControl)->queried($query, Auth::user());
 
         $this->assertEquals(0, $query->count());
     }

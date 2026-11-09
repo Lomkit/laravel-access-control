@@ -51,14 +51,14 @@ class HasControlScope implements Scope
      */
     public static function retrievingUser(): bool
     {
-        return static::$resolvingUser && !Auth::hasUser();
+        return static::$resolvingUser && ! Auth::hasUser();
     }
 
     /**
      * Applies access control to the query builder.
      *
-     * @param Builder $builder The Eloquent query builder instance.
-     * @param Model   $model   The related model instance (unused in this method).
+     * @param  Builder  $builder  The Eloquent query builder instance.
+     * @param  Model  $model  The related model instance (unused in this method).
      */
     public function apply(Builder $builder, Model $model): void
     {
@@ -70,7 +70,6 @@ class HasControlScope implements Scope
     /**
      * Extend the query builder with the needed functions.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder
      *
      * @return void
      */
@@ -84,9 +83,7 @@ class HasControlScope implements Scope
     /**
      * Registers the "controlled" macro on the query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance to extend.
-     *
-     * @return void
+     * @param  Builder  $builder  The query builder instance to extend.
      */
     protected function addControlled(Builder $builder): void
     {
@@ -105,8 +102,7 @@ class HasControlScope implements Scope
     /**
      * Registers the "uncontrolled" macro on the query builder.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $builder The query builder instance to extend.
-     *
+     * @param  Builder  $builder  The query builder instance to extend.
      * @return void
      */
     protected function addUncontrolled(Builder $builder)

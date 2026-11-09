@@ -2,20 +2,23 @@
 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Scout\Builder;
+use Lomkit\Access\Tests\Feature\TestCase;
+use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Models\SearchableModel;
 use Lomkit\Access\Tests\Support\Models\User;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 
 #[Group('scout')]
-class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
+class ControlsScoutQueryTest extends TestCase
 {
     /**
      * Normalize Scout's `$wheres` to a [field => value] map so assertions
      * survive the shape change introduced in laravel/scout 11.0
      * (assoc array → list of ['field', 'operator', 'value'] dicts).
      */
-    protected function whereMap(\Laravel\Scout\Builder $query): array
+    protected function whereMap(Builder $query): array
     {
         $wheres = $query->wheres;
 
@@ -29,13 +32,13 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     /**
      * Assert the Scout query yields nothing without relying on a filter the engine may reject.
      */
-    protected function assertNoResultScoutQuery(\Laravel\Scout\Builder $query): void
+    protected function assertNoResultScoutQuery(Builder $query): void
     {
         $this->assertEquals([], $this->whereMap($query));
         $this->assertNotNull($query->callback);
 
         // Search engines receive their client and get back an empty page in their own raw shape
-        $results = ($query->callback)(new stdClass(), '', []);
+        $results = ($query->callback)(new stdClass, '', []);
 
         $this->assertSame([], $results['hits']);
         $this->assertSame([], $results['rows']);
@@ -52,7 +55,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     public static function databaseEngines(): array
     {
         return [
-            'database'   => ['database'],
+            'database' => ['database'],
             'collection' => ['collection'],
         ];
     }
@@ -72,7 +75,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     /**
      * Assert the Scout query returns nothing through every way of reading it.
      */
-    protected function assertScoutQueryReturnsNothing(\Laravel\Scout\Builder $query): void
+    protected function assertScoutQueryReturnsNothing(Builder $query): void
     {
         $this->assertCount(0, $query->get());
         $this->assertCount(0, $query->keys());
@@ -91,7 +94,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
     public function test_control_scout_query_with_no_perimeter_passing(): void
     {
         $query = SearchableModel::search();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
+        $query = (new ModelControl)->scoutQueried($query, Auth::user());
 
         $this->assertNoResultScoutQuery($query);
     }
@@ -103,7 +106,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         });
 
         $query = SearchableModel::search();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
+        $query = (new ModelControl)->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['client_id' => Auth::user()->client->getKey()], $this->whereMap($query));
         $this->assertNull($query->callback);
@@ -119,7 +122,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         });
 
         $query = SearchableModel::search();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
+        $query = (new ModelControl)->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['client_id' => Auth::user()->client->getKey(), 'shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
     }
@@ -134,7 +137,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         });
 
         $query = SearchableModel::search();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
+        $query = (new ModelControl)->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['shared_with_users' => Auth::user()->getKey(), 'author_id' => Auth::user()->getKey()], $this->whereMap($query));
     }
@@ -146,7 +149,7 @@ class ControlsScoutQueryTest extends \Lomkit\Access\Tests\Feature\TestCase
         });
 
         $query = SearchableModel::search();
-        $query = (new \Lomkit\Access\Tests\Support\Access\Controls\ModelControl())->scoutQueried($query, Auth::user());
+        $query = (new ModelControl)->scoutQueried($query, Auth::user());
 
         $this->assertEquals(['shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
     }

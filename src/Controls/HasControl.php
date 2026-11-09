@@ -14,15 +14,16 @@ trait HasControl
      */
     public static function bootHasControl()
     {
-        static::addGlobalScope(new HasControlScope());
+        static::addGlobalScope(new HasControlScope);
     }
 
     /**
      * Get the control registered for the model.
      *
-     * @throws MissingControlException When no control is registered for the model.
      *
      * @return Control The control instance of the model.
+     *
+     * @throws MissingControlException When no control is registered for the model.
      */
     public function newControl(): Control
     {

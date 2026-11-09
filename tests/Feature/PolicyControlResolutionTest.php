@@ -35,14 +35,14 @@ class PolicyControlResolutionTest extends TestCase
 
     public function test_policy_uses_the_registered_control_instance(): void
     {
-        $control = new CountingModelControl();
-        (new Access())->addControl($control);
+        $control = new CountingModelControl;
+        (new Access)->addControl($control);
         $model = Model::factory()->createOne();
         $user = Auth::user();
 
-        $this->assertTrue((new CountingModelPolicy())->view($user, $model));
-        $this->assertTrue((new CountingModelPolicy())->viewAny($user));
-        $this->assertTrue((new CountingModelPolicy())->update($user, $model));
+        $this->assertTrue((new CountingModelPolicy)->view($user, $model));
+        $this->assertTrue((new CountingModelPolicy)->viewAny($user));
+        $this->assertTrue((new CountingModelPolicy)->update($user, $model));
 
         $this->assertSame($control, Access::control(CountingModelControl::class));
         $this->assertSame(1, $control->perimetersBuilt);
@@ -53,9 +53,9 @@ class PolicyControlResolutionTest extends TestCase
         $model = Model::factory()->createOne();
         $user = Auth::user();
 
-        $this->assertTrue((new CountingModelPolicy())->view($user, $model));
-        $this->assertTrue((new CountingModelPolicy())->view($user, $model));
-        $this->assertTrue((new CountingModelPolicy())->viewAny($user));
+        $this->assertTrue((new CountingModelPolicy)->view($user, $model));
+        $this->assertTrue((new CountingModelPolicy)->view($user, $model));
+        $this->assertTrue((new CountingModelPolicy)->viewAny($user));
 
         $control = Access::control(CountingModelControl::class);
 

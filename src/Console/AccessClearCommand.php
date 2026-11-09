@@ -26,10 +26,6 @@ class AccessClearCommand extends Command
 
     /**
      * Execute the console command.
-     *
-     * @param Filesystem $files
-     *
-     * @return void
      */
     public function handle(Filesystem $files): void
     {

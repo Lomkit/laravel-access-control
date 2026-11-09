@@ -6,30 +6,31 @@ use Illuminate\Auth\Events\Authenticated;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Scout\Builder;
 use Lomkit\Access\Access;
 use Lomkit\Access\Tests\Support\Access\Controls\ControlledUserControl;
 use Lomkit\Access\Tests\Support\Models\ControlledUser;
 use Lomkit\Access\Tests\Support\Models\SearchableModel;
 use PHPUnit\Framework\Attributes\Group;
 
-class ControlsAuthenticatedUserTest extends \Lomkit\Access\Tests\Feature\TestCase
+class ControlsAuthenticatedUserTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
 
-        (new Access())->addControl(new ControlledUserControl());
+        (new Access)->addControl(new ControlledUserControl);
 
         config([
             'access-control.queries.enabled_by_default' => true,
-            'auth.providers.users.model'                => ControlledUser::class,
+            'auth.providers.users.model' => ControlledUser::class,
         ]);
     }
 
     /**
      * Normalize Scout's `$wheres` to a [field => value] map across laravel/scout 10 and 11.
      */
-    protected function whereMap(\Laravel\Scout\Builder $query): array
+    protected function whereMap(Builder $query): array
     {
         $wheres = $query->wheres;
 
@@ -46,8 +47,8 @@ class ControlsAuthenticatedUserTest extends \Lomkit\Access\Tests\Feature\TestCas
     protected function createControlledUser(string $email): ControlledUser
     {
         return ControlledUser::create([
-            'name'     => 'Controlled user',
-            'email'    => $email,
+            'name' => 'Controlled user',
+            'email' => $email,
             'password' => '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
         ]);
     }

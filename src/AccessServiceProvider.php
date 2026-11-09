@@ -20,7 +20,7 @@ class AccessServiceProvider extends ServiceProvider
     ];
 
     protected array $devCommands = [
-        'ControlMake'   => ControlMakeCommand::class,
+        'ControlMake' => ControlMakeCommand::class,
         'PerimeterMake' => PerimeterMakeCommand::class,
     ];
 
@@ -72,7 +72,6 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Register the given commands.
      *
-     * @param array $commands
      *
      * @return void
      */
@@ -105,8 +104,6 @@ class AccessServiceProvider extends ServiceProvider
 
     /**
      * Hook the controls cache into the "optimize" and "optimize:clear" commands.
-     *
-     * @return void
      */
     protected function registerOptimizeCommands(): void
     {
