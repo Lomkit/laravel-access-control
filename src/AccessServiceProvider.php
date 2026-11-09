@@ -7,11 +7,18 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\Builder;
+use Lomkit\Access\Console\AccessCacheCommand;
+use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
 
 class AccessServiceProvider extends ServiceProvider
 {
+    protected array $commands = [
+        'AccessCache' => AccessCacheCommand::class,
+        'AccessClear' => AccessClearCommand::class,
+    ];
+
     protected array $devCommands = [
         'ControlMake'   => ControlMakeCommand::class,
         'PerimeterMake' => PerimeterMakeCommand::class,
@@ -24,14 +31,14 @@ class AccessServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->registerCommands($this->commands);
+
         $this->registerCommands($this->devCommands);
 
         $this->mergeConfigFrom(
             __DIR__.'/../config/access-control.php',
             'access-control'
         );
-
-        $this->registerAccessControls();
     }
 
     /**
@@ -42,6 +49,8 @@ class AccessServiceProvider extends ServiceProvider
         $this->registerPublishing();
 
         $this->registerStubs();
+
+        $this->registerOptimizeCommands();
 
         $this->bootScoutBuilder();
     }
@@ -95,15 +104,16 @@ class AccessServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the default paths controls.
+     * Hook the controls cache into the "optimize" and "optimize:clear" commands.
      *
      * @return void
      */
-    private function registerAccessControls(): void
+    protected function registerOptimizeCommands(): void
     {
-        $access = new Access();
-
-        $access->discoverControls($access->discoverControlsWithin());
+        $this->optimizes(
+            optimize: 'access:cache',
+            clear: 'access:clear',
+        );
     }
 
     /**
@@ -127,6 +137,9 @@ class AccessServiceProvider extends ServiceProvider
      */
     public function provides()
     {
-        return array_values($this->devCommands);
+        return [
+            ...array_values($this->commands),
+            ...array_values($this->devCommands),
+        ];
     }
 }
