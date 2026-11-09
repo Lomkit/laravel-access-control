@@ -148,18 +148,22 @@ class ControlMakeCommand extends GeneratorCommand
         foreach ($perimeters as $perimeter) {
             $perimeterClass = '\\'.$this->rootNamespace().'Access\\Perimeters\\'.$perimeter;
 
+            // Every generated callback denies access until the developer replaces it with the real rule
             $perimetersImplementation .= <<<PERIMETER
             $perimeterClass::new()
                     ->allowed(function (Model \$user, string \$method) {
-                        return true;
+                        return false;
                     })
                     ->should(function (Model \$user, Model \$model) {
-                        return true;
+                        return false;
                     })
                     ->query(function (Builder \$query, Model \$user) {
-                        return \$query;
+                        return \$query->whereRaw('0=1');
+                    })
+                    ->scoutQuery(function (\Laravel\Scout\Builder \$query, Model \$user) {
+                        return \$query->where('__NOT_A_VALID_FIELD__', 0);
                     }),
-                    
+
             PERIMETER;
         }
 

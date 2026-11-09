@@ -89,6 +89,9 @@ class MakeCommandsTest extends TestCase
         $this->assertFileExists(app_path('Access/Controls/TestControl.php'));
         $this->assertStringContainsString('class TestControl', file_get_contents(app_path('Access/Controls/TestControl.php')));
         $this->assertStringContainsString('App\\Access\\Perimeters\\TestPerimeter::new()', file_get_contents(app_path('Access/Controls/TestControl.php')));
+        $this->assertStringNotContainsString('return true;', file_get_contents(app_path('Access/Controls/TestControl.php')));
+        $this->assertStringContainsString("return \$query->whereRaw('0=1');", file_get_contents(app_path('Access/Controls/TestControl.php')));
+        $this->assertStringContainsString('->scoutQuery(function (\\Laravel\\Scout\\Builder $query, Model $user) {', file_get_contents(app_path('Access/Controls/TestControl.php')));
 
         unlink(app_path('Access/Perimeters/TestPerimeter.php'));
         unlink(app_path('Access/Perimeters/SecondTestPerimeter.php'));
