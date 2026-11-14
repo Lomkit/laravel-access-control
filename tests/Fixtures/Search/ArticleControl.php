@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Fixtures\Search;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder as ScoutBuilder;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Controls\Control;
 
 class ArticleControl extends Control
@@ -16,7 +17,7 @@ class ArticleControl extends Control
     {
         return [
             FeaturedPerimeter::new()
-                ->allowed(fn (Model $user, string $method): bool => $user->can("{$method} featured articles"))
+                ->allowed(fn (Model $user, Ability $ability): bool => $user->can("{$ability} featured articles"))
                 ->should(fn (Model $user, Article $article): bool => $article->featured)
                 ->query(function (Builder $query, Model $user): void {
                     $query->where('featured', true);
@@ -25,10 +26,10 @@ class ArticleControl extends Control
                     $query->where('featured', true);
                 }),
             GlobalPerimeter::new()
-                ->allowed(fn (Model $user, string $method): bool => $user->can("{$method} global articles"))
+                ->allowed(fn (Model $user, Ability $ability): bool => $user->can("{$ability} global articles"))
                 ->unrestricted(),
             AuthorPerimeter::new()
-                ->allowed(fn (Model $user, string $method): bool => $user->can("{$method} own articles"))
+                ->allowed(fn (Model $user, Ability $ability): bool => $user->can("{$ability} own articles"))
                 ->should(fn (Model $user, Article $article): bool => $article->author_id === $user->getKey())
                 ->query(fn (Builder $query, Model $user): Builder => $query->where('author_id', $user->getKey()))
                 ->scoutQuery(fn (ScoutBuilder $query, Model $user): ScoutBuilder => $query->where('author_id', $user->getKey())),

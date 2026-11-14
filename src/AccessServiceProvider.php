@@ -43,11 +43,6 @@ class AccessServiceProvider extends ServiceProvider
         $this->app->singleton(ControlRegistry::class);
 
         $this->app->singleton(ControlDiscovery::class);
-
-        $this->mergeConfigFrom(
-            __DIR__.'/../config/access-control.php',
-            'access-control'
-        );
     }
 
     /**
@@ -55,8 +50,6 @@ class AccessServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerPublishing();
-
         $this->registerStubs();
 
         $this->registerOptimizeCommands();
@@ -121,18 +114,6 @@ class AccessServiceProvider extends ServiceProvider
             optimize: 'access:cache',
             clear: 'access:clear',
         );
-    }
-
-    /**
-     * Register the package's publishable resources.
-     */
-    private function registerPublishing(): void
-    {
-        if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__.'/../config/access-control.php' => config_path('access-control.php'),
-            ], 'access-control-config');
-        }
     }
 
     /**

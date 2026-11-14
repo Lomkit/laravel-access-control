@@ -10,7 +10,7 @@ final readonly class GeneratedPerimeter
     {
         return <<<PERIMETER
         {$this->class}::new()
-                        ->allowed(function (Model \$user, string \$method): bool {
+                        ->allowed(function (Model \$user, Ability \$ability): bool {
                             return false;
                         })
                         ->should(function (Model \$user, Model \$model): bool {

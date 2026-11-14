@@ -4,6 +4,7 @@ namespace Lomkit\Access\Controls;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Exceptions\EmptyQueryCallbackException;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 use Lomkit\Access\Perimeters\Perimeter;
@@ -39,7 +40,7 @@ trait ControlsQueries
      */
     protected function applyQueryControl(Builder $query, Model $user): Builder
     {
-        $perimeters = $this->applicablePerimeters($user, $this->viewMethod());
+        $perimeters = $this->applicablePerimeters($user, Ability::view());
 
         if ($perimeters === []) {
             return $this->noResultQuery($query);

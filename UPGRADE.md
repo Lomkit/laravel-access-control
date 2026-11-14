@@ -18,9 +18,13 @@ Version 0.7 already changed several things. If you upgrade from 0.6, apply the [
 - `HasControl::newControl()` returns `Control` instead of `?Control`.
 - Overridden `ControlledPolicy` methods declare a return type compatible with `bool|Response`.
 
+### The configuration file
+
+The package has no configuration file anymore: `config/access-control.php`, its `methods` map and the `access-control-config` publish tag are removed, and the package reads no `access-control.*` key. Delete your published `config/access-control.php`. A file left in place is ignored, so a custom `methods` map stops applying: move it to the control, as [Abilities](#abilities) shows.
+
 ### Queries
 
-A query is no longer controlled unless it says so. The `queries.enabled_by_default` key is removed with the whole `queries` block of `config/access-control.php`, and nothing reads it anymore. Add `controlled()` to every query that relied on the key, then remove the `queries` block from your published `config/access-control.php`:
+A query is no longer controlled unless it says so. The `queries.enabled_by_default` key is removed, and nothing reads it anymore (the whole configuration file is gone, see [The configuration file](#the-configuration-file)). Add `controlled()` to every query that relied on the key:
 
 ```php
 // Before, with 'queries' => ['enabled_by_default' => true]
@@ -110,7 +114,7 @@ GlobalPerimeter::new()
 
 // After
 GlobalPerimeter::new()
-    ->allowed(fn (User $user, string $method) => $user->can("{$method} global posts"))
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} global posts"))
     ->unrestricted(),
 ```
 
@@ -185,6 +189,89 @@ class PostPolicy extends ControlledPolicy
 }
 ```
 
+### Abilities
+
+The `allowed` callback of a perimeter receives a `Lomkit\Access\Ability` instead of a string. An ability is an immutable value object, open to any business ability:
+
+```php
+use Lomkit\Access\Ability;
+
+Ability::view();           // also create(), update(), delete(), restore(), forceDelete()
+Ability::of('approve');    // any business ability
+$ability->is('view');      // compare by name, with an Ability or a string
+$ability->name();          // 'view'
+"{$ability} client posts"; // 'view client posts'
+```
+
+Type the closures with `Ability $ability`:
+
+```php
+// Before
+ClientPerimeter::new()
+    ->allowed(fn (User $user, string $method) => $user->can("{$method} client posts"))
+
+// After
+use Lomkit\Access\Ability;
+
+ClientPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+```
+
+A closure typed `string $method` keeps working: the ability converts to its name, because the package never declares `strict_types` in the file that calls the closures. It is a transition aid; the documented form is `Ability $ability`. A closure whose parameter has no type receives the `Ability` object itself, so a strict comparison with a string no longer matches: `$method === 'view'`, `match ($method)` and `in_array($method, [...], true)` are always false, and a `default` arm of a `match` now runs for every ability. Type that parameter `string`, or compare with `$ability->is('view')`.
+
+Compare abilities with `is()`, never with `===`: two abilities with the same name are not the same object, and an ability restored by `unserialize()` is a new one.
+
+Replace each read of the removed `methods` map with the ability it named:
+
+```php
+// Before
+config('access-control.methods.view')
+
+// After
+Ability::view()
+```
+
+The same goes for `create`, `update`, `delete`, `restore` and `forceDelete`. `Control::viewMethod()` is removed too: replace `$this->viewMethod()` with `Ability::view()`.
+
+`Control::abilityFor(string $policyMethod): Ability` maps a policy method to the ability its perimeters receive, and replaces the `methods` map. By default, `viewAny` and `view` map to `view`, `create`, `update`, `delete`, `restore` and `forceDelete` to themselves, and any other method to `Ability::of($method)`. A custom `methods` map becomes an override of `abilityFor()` on the control:
+
+```php
+// Before, in config/access-control.php
+'methods' => [
+    'viewAny' => 'list',
+    // ...
+],
+
+// After, in the control
+use Lomkit\Access\Ability;
+
+public function abilityFor(string $policyMethod): Ability
+{
+    return match ($policyMethod) {
+        'viewAny' => Ability::of('list'),
+        default => parent::abilityFor($policyMethod),
+    };
+}
+```
+
+`Ability::of()` throws `InvalidAbilityException` for an empty name, a name with whitespace or a name that is not valid UTF-8, and so does `abilityFor()` for such a policy method.
+
+`Control::applies()`, `Control::applicablePerimeters()` and `Perimeter::applyAllowedCallback()` take an `Ability` instead of a string, and `ControlledPolicy` passes the ability of each method. Update the calls, and the signatures of the methods your controls and perimeters override:
+
+```php
+// Before
+$control->applies($user, 'update', $post);
+$control->applies($user, 'viewAny', new Post);
+
+// After
+$control->applies($user, Ability::update(), $post);
+$control->applies($user, $control->abilityFor('viewAny'), new Post);
+```
+
+`make:control` now generates `fn (Model $user, Ability $ability)` closures, and its `control.stub` imports `Lomkit\Access\Ability`. If your application published `stubs/control.stub`, add `use Lomkit\Access\Ability;` to it, or the generated controls will not find the class.
+
+laravel-rest-api has its own `Lomkit\Rest\Authorization\Ability` enum, closed to its standard actions. It is a different type: import the one of the package you call.
+
 ### Correspondence table
 
 | 0.x | 1.0 |
@@ -200,3 +287,9 @@ class PostPolicy extends ControlledPolicy
 | `Access::$controlDiscoveryPaths = [...]` | `Access::discoverControlsIn([...])` in a service provider's `boot()` |
 | `Access::flush()` | Removed: the registry is a container singleton |
 | `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` | `php artisan access:cache`, `php artisan access:clear` |
+| `config/access-control.php`, `--tag=access-control-config` | Removed: delete the published file |
+| `config('access-control.methods.view')`, `$this->viewMethod()` | `Ability::view()` (and `create()`, `update()`, `delete()`, `restore()`, `forceDelete()`) |
+| A custom `methods` map | `abilityFor()` overridden on the control |
+| `->allowed(fn (User $user, string $method) => ...)` | `->allowed(fn (User $user, Ability $ability) => ...)` (string still works) |
+| `$control->applies($user, 'update', $post)` | `$control->applies($user, Ability::update(), $post)` |
+| `$ability === 'view'` | `$ability->is('view')` |

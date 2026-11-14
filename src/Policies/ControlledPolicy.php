@@ -27,39 +27,44 @@ class ControlledPolicy
     {
         $control = $this->getControl();
 
-        return $control->applies($user, __FUNCTION__, new ($control->getModel()));
+        return $this->decide($control, $user, __FUNCTION__, new ($control->getModel()));
     }
 
     public function view(Model $user, Model $model): bool|Response
     {
-        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
+        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
     }
 
     public function create(Model $user): bool|Response
     {
         $control = $this->getControl();
 
-        return $control->applies($user, __FUNCTION__, new ($control->getModel()));
+        return $this->decide($control, $user, __FUNCTION__, new ($control->getModel()));
     }
 
     public function update(Model $user, Model $model): bool|Response
     {
-        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
+        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
     }
 
     public function delete(Model $user, Model $model): bool|Response
     {
-        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
+        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
     }
 
     public function restore(Model $user, Model $model): bool|Response
     {
-        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
+        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
     }
 
     public function forceDelete(Model $user, Model $model): bool|Response
     {
-        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
+        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
+    }
+
+    private function decide(Control $control, Model $user, string $policyMethod, Model $model): bool
+    {
+        return $control->applies($user, $control->abilityFor($policyMethod), $model);
     }
 
     /**

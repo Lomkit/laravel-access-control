@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Tests\Feature\Perimeters;
 
 use Illuminate\Support\Facades\Gate;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\GlobalPerimeter;
@@ -99,7 +100,7 @@ class UnrestrictedPolicyTest extends PackageTestCase
                 ->unrestricted(),
         );
 
-        $this->assertTrue($control->applies($this->ada, 'update', $this->roadmap));
+        $this->assertTrue($control->applies($this->ada, Ability::update(), $this->roadmap));
         $this->assertSame([], $checked);
     }
 

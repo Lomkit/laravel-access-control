@@ -5,6 +5,8 @@ namespace Lomkit\Access\Controls;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Ability;
+use Lomkit\Access\Exceptions\InvalidAbilityException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Registry\ControlRegistry;
 use Throwable;
@@ -44,11 +46,25 @@ class Control
         return $this->resolvedPerimeters ??= $this->perimeters();
     }
 
-    public function applies(Model $user, string $method, Model $model): bool
+    /**
+     * @throws InvalidAbilityException When the policy method is not a valid ability name.
+     */
+    public function abilityFor(string $policyMethod): Ability
     {
-        $appliesMethod = config()->string(sprintf('access-control.methods.%s', $method), $method);
+        return match ($policyMethod) {
+            'viewAny', 'view' => Ability::view(),
+            'create' => Ability::create(),
+            'update' => Ability::update(),
+            'delete' => Ability::delete(),
+            'restore' => Ability::restore(),
+            'forceDelete' => Ability::forceDelete(),
+            default => Ability::of($policyMethod),
+        };
+    }
 
-        $perimeters = $this->applicablePerimeters($user, $appliesMethod);
+    public function applies(Model $user, Ability $ability, Model $model): bool
+    {
+        $perimeters = $this->applicablePerimeters($user, $ability);
 
         if ($perimeters === []) {
             return false;
@@ -68,12 +84,12 @@ class Control
     }
 
     /** @return list<Perimeter> */
-    final protected function applicablePerimeters(Model $user, string $method): array
+    final protected function applicablePerimeters(Model $user, Ability $ability): array
     {
         $applicable = [];
 
         foreach ($this->getPerimeters() as $perimeter) {
-            if (! $perimeter->applyAllowedCallback($user, $method)) {
+            if (! $perimeter->applyAllowedCallback($user, $ability)) {
                 continue;
             }
 
@@ -97,11 +113,6 @@ class Control
         }
 
         return false;
-    }
-
-    final protected function viewMethod(): string
-    {
-        return config()->string('access-control.methods.view');
     }
 
     public static function new(): static
