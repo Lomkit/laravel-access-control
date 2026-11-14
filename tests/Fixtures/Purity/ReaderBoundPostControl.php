@@ -13,15 +13,13 @@ class ReaderBoundPostControl extends PostControl
     #[\Override]
     protected function perimeters(): array
     {
-        $user = Auth::user();
-        $client = $user instanceof User ? $user->client_id : null;
+        $signedIn = Auth::user();
 
         return [
             ClientPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
-                ->should(fn (User $user, $post): bool => $post->project->client_id === $client)
-                ->query(function (Builder $query) use ($client): void {
-                    $query->whereHas('project', fn (Builder $projects) => $projects->where('client_id', $client));
+                ->query(function (Builder $query) use ($signedIn): void {
+                    $query->whereHas('project', fn (Builder $projects) => $projects->where('client_id', $signedIn instanceof User ? $signedIn->client_id : null));
                 }),
         ];
     }

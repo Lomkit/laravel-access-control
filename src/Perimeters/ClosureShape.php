@@ -3,8 +3,10 @@
 namespace Lomkit\Access\Perimeters;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use ReflectionClass;
 use ReflectionFunction;
+use UnitEnum;
 
 final readonly class ClosureShape
 {
@@ -37,19 +39,26 @@ final readonly class ClosureShape
 
     private static function same(mixed $value, mixed $other, int $depth): bool
     {
-        if ($value instanceof Closure && $other instanceof Closure) {
-            return self::of($value)->matches(self::of($other), $depth + 1);
+        if (is_object($value) && is_object($other)) {
+            return $value::class === $other::class && self::sameObjects($value, $other, $depth);
         }
 
         if (is_array($value) && is_array($other)) {
             return self::sameArrays($value, $other, $depth);
         }
 
-        if (is_object($value) && is_object($other) && $value::class === $other::class && (new ReflectionClass($value))->isReadOnly()) {
-            return $value == $other;
-        }
-
         return $value === $other;
+    }
+
+    private static function sameObjects(object $value, object $other, int $depth): bool
+    {
+        return match (true) {
+            $value instanceof Closure && $other instanceof Closure => self::of($value)->matches(self::of($other), $depth + 1),
+            $value instanceof Model && $other instanceof Model => $value->is($other),
+            $value instanceof UnitEnum => $value === $other,
+            (new ReflectionClass($value))->isReadOnly() => $value == $other,
+            default => true,
+        };
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Feature\Perimeters;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
@@ -14,9 +15,10 @@ use Lomkit\Access\Tests\Fixtures\Blog\PostControl;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Purity\CountingPostControl;
-use Lomkit\Access\Tests\Fixtures\Purity\FetchingPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\PurePostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\ReaderBoundPostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\RequestBoundPostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\ServicePostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\SignedInPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
@@ -86,13 +88,42 @@ class PerimeterPurityTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_catches_perimeters_that_capture_a_model_read_while_they_are_built(): void
+    public function it_catches_perimeters_that_capture_a_value_of_the_request(): void
     {
-        $this->app->instance(PostControl::class, new FetchingPostControl);
+        $this->app->instance(PostControl::class, new RequestBoundPostControl);
+        $this->app->instance('request', Request::create('/posts', 'GET', ['title' => 'Draft']));
 
-        $this->expectImpure(FetchingPostControl::class);
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        $this->app->instance('request', Request::create('/posts', 'GET', ['title' => 'Roadmap']));
+
+        $this->expectImpure(RequestBoundPostControl::class);
 
         Post::controlledFor($this->ada)->get();
+    }
+
+    #[Test]
+    public function it_accepts_perimeters_that_capture_a_service_built_with_them(): void
+    {
+        $this->app->instance(PostControl::class, new ServicePostControl);
+
+        for ($lookup = 0; $lookup < 3; $lookup++) {
+            $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+            $this->assertSame(['Roadmap'], Post::controlledFor($this->hank)->pluck('title')->all());
+        }
+    }
+
+    #[Test]
+    public function it_accepts_perimeters_that_capture_the_same_model_on_every_build(): void
+    {
+        $this->app->instance(PostControl::class, new ReaderBoundPostControl);
+        $this->actingAs($this->ada);
+
+        $this->assertSame(['Draft'], Post::controlled()->pluck('title')->all());
+
+        $this->actingAs(User::query()->findOrFail($this->ada->getKey()));
+
+        $this->assertSame(['Draft'], Post::controlled()->pluck('title')->all());
     }
 
     #[Test]
