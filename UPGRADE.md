@@ -246,7 +246,7 @@ A controlled search applies the boundary too: `Boundary::where()` gives its sear
 
 ### Testing the levels
 
-The `Lomkit\Access\Testing\InteractsWithAccess` trait adds assertions to your tests. `assertLevelsNest()` checks, for each reader and each pair of adjacent levels of every group, that no row of the lower level, inside the boundary, is missing from the upper level:
+The `Lomkit\Access\Testing\InteractsWithAccess` trait adds three assertions to your tests: `assertLevelsNest()` for the levels (below), `assertControlAgrees()` for the decisions (see [Testing the decisions](#testing-the-decisions)) and `assertSearchAgrees()` for the search (see [Testing the search](#testing-the-search)). `assertLevelsNest()` checks, for each reader and each pair of adjacent levels of every group, that no row of the lower level, inside the boundary, is missing from the upper level:
 
 ```php
 use Lomkit\Access\Testing\InteractsWithAccess;
@@ -263,6 +263,28 @@ class PostControlTest extends TestCase
 ```
 
 It reads the rows of the `query` callbacks with the `view` ability, not the `allowed` callbacks, and compares them with `not exists` on the key, so a `NULL` in a column cannot hide a missing row. It proves the nesting on the rows of the test only: seed the rows each level reaches.
+
+### Testing the decisions
+
+`assertControlAgrees()` checks that every way of deciding gives the same answer for a reader. For each ability and row it compares four paths:
+
+- the Gate row by row, with no decision kept;
+- the Gate after `Access::preload()`;
+- the Gate after `withAbilities()`;
+- for `view`, whether `controlled()` lists the row.
+
+```php
+public function test_its_decisions_agree(): void
+{
+    foreach ([$this->author, $this->clientManager, $this->admin] as $reader) {
+        $this->assertControlAgrees(PostControl::class, $reader, Post::uncontrolled()->get());
+    }
+}
+```
+
+The abilities default to `view`, `update` and `delete`; pass others as the fourth argument, such as `['view', 'update', 'approve']`. A failure names the reader, then each row key and ability that disagree, with the answer of each path: `granted`, a refusal code, or `denied without a code` when no policy decided. The usual cause is a `should` callback or an `includes()` hook that describes other rows than its `query()`. The rows must be saved rows of the control's model, since a draft is judged only in memory; it proves the agreement on the rows of the test only. The kept decisions are flushed before each path and after the last one.
+
+The tests need no reset trait for the kept decisions: they live in a scoped instance of the container, so each test starts with none, and every Eloquent write flushes them. After a write Eloquent does not see, such as `attach()`, call `Access::forgetDecisions()` before the next check.
 
 ### Search
 
@@ -544,7 +566,7 @@ class PostSearchTokenController
 
 #### Testing the search
 
-`assertSearchAgrees()`, in the `InteractsWithAccess` trait, checks for each reader that the rows the keys find, computed from the same metadata without any engine, are the rows of the controlled query:
+`assertSearchAgrees()`, in the `InteractsWithAccess` trait with `assertLevelsNest()` and `assertControlAgrees()`, checks for each reader that the rows the keys find, computed from the same metadata without any engine, are the rows of the controlled query:
 
 ```php
 public function test_its_search_says_what_its_sql_says(): void
@@ -1211,6 +1233,7 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
 | A brand or tenant read inside the callbacks, with decisions cached by hand | `Access::decisionContextUsing(fn () => ['brand' => ...])`, read in hooks with `$context->decisionContext()` |
 | `->addSelect(['can_update' => ...])` or a helper that collects the editable keys | `->withAbilities(['update'])`, then `can()`; `Access::preload()` or `reachableKeys()` for loaded rows |
+| A test that compares `can()` with `controlled()` by hand | `assertControlAgrees(PostControl::class, $reader, $rows)` |
 | `use Searchable` on a controlled model | `use ControlledSearchable`, then reindex |
 | `->scoutQuery(fn ($query, $user) => $query->where('client_id', $user->client_id))` | `->searchKeys(name: 'client', row: fn ($post) => $post->client_id, reader: fn ($user) => $user->client_id)` |
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |
