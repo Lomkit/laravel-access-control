@@ -48,6 +48,17 @@ final readonly class ReachedPerimeters
         return false;
     }
 
+    public function includesDraft(Model $draft, AccessContext $context): bool
+    {
+        foreach ($this->perimeters as $perimeter) {
+            if ($perimeter->checksInMemory() && $perimeter->applyShouldCallback($draft, $context)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** @return list<Perimeter> */
     public function all(): array
     {

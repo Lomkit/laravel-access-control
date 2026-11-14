@@ -174,12 +174,12 @@ class BoundaryPolicyTest extends PackageTestCase
 
         $queries = $this->queriesWhile(function (): void {
             $this->assertTrue($this->ada->can('update', $this->releaseNotes));
-            $this->assertFalse($this->ada->can('update', $this->archive));
-            $this->assertFalse($this->ada->can('update', $this->elsewhere));
             $this->assertTrue($this->ada->can('view', $this->archive));
         });
 
-        $this->assertCount(4, $queries);
+        $this->assertCount(2, $queries);
+        $this->assertFalse($this->ada->can('update', $this->archive));
+        $this->assertFalse($this->ada->can('update', $this->elsewhere));
         $this->assertStringStartsWith('select exists(select * from posts where posts.id = ? and (workspace_id = ?', str_replace(['"', '`'], '', $queries[0]));
     }
 

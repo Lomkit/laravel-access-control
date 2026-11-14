@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext), Levels groups, boundaries, ControlledPolicy, unrestricted perimeters, the assertLevelsNest() test assertion, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
+description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext), Levels groups, boundaries, ControlledPolicy (Response codes, drafts, Access::registerPolicies(), business abilities through decide()), unrestricted perimeters, the assertLevelsNest() test assertion, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
 ---
 
 # Laravel Access Control
@@ -9,7 +9,7 @@ description: Build and work with Lomkit Access Control features in Laravel, incl
 
 Use this skill when working with Lomkit Access Control in a Laravel project that requires `lomkit/laravel-access-control`. Activate when the user:
 
-- Writes or modifies a `Policy` and wants authorization centralized in a single class.
+- Writes or modifies a `Policy` and wants authorization centralized in a single class, or mentions `Access::registerPolicies()`, a draft for `create`, `Draft::of()`, or a refusal code such as `outside_boundary`.
 - Needs row-level filtering on Eloquent queries (multi-tenant, per-client, per-team, ownership).
 - Runs `php artisan make:control` or `php artisan make:perimeter`.
 - Mentions `#[ControlledBy]`, `Access::controlFor()`, `Access::hasControl()`, or `access:cache`.
@@ -218,23 +218,39 @@ class PostControl extends Control
     }
 }
 
-$control->applies($user, Ability::update(), $post);
-$control->applies($user, $control->abilityFor('approve'), $post); // Ability::of('approve')
+$control->applies($user, Ability::update(), $post);                         // bool
+$control->decide($user, $control->abilityFor('approve'), $post);           // Response, Ability::of('approve')
+$control->applies($user, Ability::create(), Draft::of($post));             // a draft, judged in memory
 ```
 
-- ControlledPolicy: drop-in policy that delegates every Gate method (`view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`) to the Control, passing the `Ability` that `abilityFor()` maps the method to. Its `$control` must be the control registered for the model it decides on, or it throws `PolicyControlMismatchException`. `viewAny` and `create` only run `allowed` (no instance to check `should`). Example usage:
+- ControlledPolicy: drop-in policy that delegates every Gate method (`view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`) to the Control, passing the `Ability` that `abilityFor()` maps the method to, and returns an `Illuminate\Auth\Access\Response` (never a bool; overrides declare `: Response`). Prefer `Access::registerPolicies()` in a service provider's `boot()` to empty policy classes: every controlled model without any policy gets a `ControlledPolicy`, resolved lazily through `Gate::guessPolicyNamesUsing()`; a policy from `Gate::policy()`, `#[UsePolicy]` (on the model or a parent), a parent mapping or the naming convention always wins (set an app guesser before the call). `$control` is optional: without it a row is decided by its model's control, but `viewAny`, `create` without a draft and row-less business abilities throw `MissingPolicyControlException`. A `$control` that is not the model's registered control throws `PolicyControlMismatchException`. Refusals carry a code and a translated message (`lang/vendor/access-control/{locale}/refusals.php`, `vendor:publish --tag=access-control-lang`), checked in this order: `unsaved` (a model that is not saved, for every ability but a `create` draft), `no_perimeter`, `outside_boundary` (403, the reader can still view the row, e.g. archived) or `not_found` (404 via `denyAsNotFound()`, the boundary also refuses `view`, e.g. another tenant), `outside_rows`. Rows are decided on their stored values: after `fill()`, `should` and the boundary get a copy built from `getRawOriginal()`. `create(Model $user, ?Model $draft = null)`: without a draft it means "somewhere" (only `allowed`); with one (`can('create', [Post::class, $draft])`, or laravel-rest-api, which passes it), the draft must land in a perimeter, judged only in memory (`should`/`includes`, unrestricted, the boundary's in-memory form): a perimeter without `should` cannot grant it and a boundary without `includes()` refuses it. Business abilities call the protected `decide(string $method, Model $user, Model|Draft|null $subject = null)` helper. Example usage:
 
 ```php
+use Illuminate\Auth\Access\Response;
+use Lomkit\Access\Access;
+use Lomkit\Access\Decisions\Draft;
 use Lomkit\Access\Policies\ControlledPolicy;
-use App\Access\Controls\PostControl;
 
-class PostPolicy extends ControlledPolicy
+Access::registerPolicies(); // AppServiceProvider::boot(): no empty policy files
+
+class PostPolicy extends ControlledPolicy // only when the model needs business abilities
 {
     protected string $control = PostControl::class;
+
+    public function approve(User $user, Post $post): Response
+    {
+        return $this->decide(__FUNCTION__, $user, $post);
+    }
+
+    public function duplicate(User $user, Post $post, Post $copy): Response
+    {
+        return $this->decide(__FUNCTION__, $user, Draft::of($copy));
+    }
 }
 
-$user->can('view', $post);          // → PostControl perimeters with Ability::view()
-$user->can('viewAny', Post::class); // → Ability::view(), through abilityFor()
+$user->can('view', $post);                          // → PostControl perimeters with Ability::view()
+$user->can('create', [Post::class, new Post($data)]); // the draft must land in a perimeter
+Gate::inspect('update', $post)->code();             // null, or 'no_perimeter', 'outside_rows', ...
 ```
 
 - Artisan generators: scaffold Controls and Perimeters. Generated files land in `app/Access/Controls` and `app/Access/Perimeters`. Example usage:
@@ -259,7 +275,8 @@ Post::search('hello')->controlled()->paginate(15);
   - Order and class no longer decide how perimeters combine: put a hierarchy in `Levels::of()`, widest first (admin grants first, declared with `unrestricted()`), and keep additive grants (shared, delegated) outside the group. Never put a perimeter that does not nest in a group: verify with `assertLevelsNest()`.
   - A tenant or workspace condition belongs in `boundary()`, not repeated in every `query`/`should`, and never in an override of `applies()` (final) or of the removed `applyQueryControl()`. A `Gate::before` that returns true bypasses the boundary (Laravel semantics).
   - A `query` callback must constrain the builder it receives: returning another builder (e.g. `Model::query()->where(...)`) throws `QueryCallbackReturnedAnotherBuilderException`, and so does a `scoutQuery` callback that returns another Scout builder. A `query` callback that adds no `where` (nothing, only `orderBy`/`limit`/`join`, or a `when()` that skips) throws `EmptyQueryCallbackException`: use `unrestricted()` for every row, or `whereRaw('0=1')` for no row.
-  - `should` is skipped for `viewAny`/`create` — use `allowed` for creation-time gates.
+  - `create` without a draft only runs `allowed` ("somewhere"): pass the draft (`can('create', [Post::class, $draft])`) to check where it lands, and give the perimeters readers create through a `should` callback, since a draft is judged only in memory.
+  - Never `fill()` a row and authorize `update` to check the new values: the policy decides on the stored row; check new values through a `Draft`. Never decide `view`/`update` on an unsaved model: it is refused (`unsaved`).
   - Scout cannot combine perimeters with OR: when several perimeters apply (a level and a loose perimeter, or two loose perimeters), their `scoutQuery` constraints are joined with AND, so a search returns fewer records than the Eloquent query. Search through a single perimeter, or denormalize the access into one indexed field (e.g. a `visible_to` array) and filter on it.
   - A controlled Scout search on a model whose control declares a boundary throws `UnsearchableBoundaryException`: the search cannot apply the boundary yet; read those rows through a controlled Eloquent query.
   - `scoutQuery` cannot run `whereHas`/`orWhereNotNull`; denormalize into the indexed payload.

@@ -6,79 +6,80 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Decisions\Draft;
+use Lomkit\Access\Exceptions\MissingControlException;
+use Lomkit\Access\Exceptions\MissingPolicyControlException;
 use Lomkit\Access\Exceptions\PolicyControlMismatchException;
 
 class ControlledPolicy
 {
-    // @TODO: what to do for other methods like attach / restore / force_delete ? It only has view / etc basic methods
-
     /** @var class-string<Control> */
     protected string $control;
 
-    /**
-     * @throws PolicyControlMismatchException When the model of the control is controlled by another control.
-     */
-    protected function getControl(): Control
+    public function viewAny(Model $user): Response
     {
-        return $this->controlOf(Access::control($this->control)->getModel());
+        return $this->decide(__FUNCTION__, $user);
     }
 
-    public function viewAny(Model $user): bool|Response
+    public function view(Model $user, Model $model): Response
     {
-        $control = $this->getControl();
-
-        return $this->decide($control, $user, __FUNCTION__, new ($control->getModel()));
+        return $this->decide(__FUNCTION__, $user, $model);
     }
 
-    public function view(Model $user, Model $model): bool|Response
+    public function create(Model $user, ?Model $draft = null): Response
     {
-        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
+        return $this->decide(__FUNCTION__, $user, $draft === null ? null : Draft::of($draft));
     }
 
-    public function create(Model $user): bool|Response
+    public function update(Model $user, Model $model): Response
     {
-        $control = $this->getControl();
-
-        return $this->decide($control, $user, __FUNCTION__, new ($control->getModel()));
+        return $this->decide(__FUNCTION__, $user, $model);
     }
 
-    public function update(Model $user, Model $model): bool|Response
+    public function delete(Model $user, Model $model): Response
     {
-        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
+        return $this->decide(__FUNCTION__, $user, $model);
     }
 
-    public function delete(Model $user, Model $model): bool|Response
+    public function restore(Model $user, Model $model): Response
     {
-        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
+        return $this->decide(__FUNCTION__, $user, $model);
     }
 
-    public function restore(Model $user, Model $model): bool|Response
+    public function forceDelete(Model $user, Model $model): Response
     {
-        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
-    }
-
-    public function forceDelete(Model $user, Model $model): bool|Response
-    {
-        return $this->decide($this->controlOf($model::class), $user, __FUNCTION__, $model);
-    }
-
-    private function decide(Control $control, Model $user, string $policyMethod, Model $model): bool
-    {
-        return $control->applies($user, $control->abilityFor($policyMethod), $model);
+        return $this->decide(__FUNCTION__, $user, $model);
     }
 
     /**
-     * @param  class-string<Model>  $model
-     *
-     * @throws PolicyControlMismatchException When the model is controlled by another control.
+     * @throws MissingPolicyControlException When there is no row and the policy names no control.
+     * @throws MissingControlException When no control is registered for the model.
+     * @throws PolicyControlMismatchException When the model is controlled by another control than the one of the policy.
      */
-    private function controlOf(string $model): Control
+    final protected function decide(string $method, Model $user, Model|Draft|null $subject = null): Response
     {
-        $control = Access::control($this->control);
-        $registered = Access::controlFor($model);
+        $control = $this->controlOf($method, $subject);
 
-        if ($registered !== $control) {
-            throw PolicyControlMismatchException::for(static::class, $this->control, $model, $registered::class);
+        return $control->decide($user, $control->abilityFor($method), $subject);
+    }
+
+    protected function declaredControl(): ?Control
+    {
+        return isset($this->control) ? Access::control($this->control) : null;
+    }
+
+    private function controlOf(string $method, Model|Draft|null $subject): Control
+    {
+        $declared = $this->declaredControl();
+        $model = match (true) {
+            $subject instanceof Draft => $subject->model()::class,
+            $subject instanceof Model => $subject::class,
+            default => $declared?->getModel() ?? throw MissingPolicyControlException::for(static::class, $method),
+        };
+        $control = Access::controlFor($model);
+
+        if ($declared !== null && $declared !== $control) {
+            throw PolicyControlMismatchException::for(static::class, $declared::class, $model, $control::class);
         }
 
         return $control;

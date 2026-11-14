@@ -18,6 +18,7 @@ class Control
 {
     use ControlsQueries;
     use ControlsScoutQueries;
+    use DecidesRows;
 
     /** @var class-string<Model> */
     protected string $model;
@@ -61,26 +62,6 @@ class Control
             'forceDelete' => Ability::forceDelete(),
             default => Ability::of($policyMethod),
         };
-    }
-
-    final public function applies(Model $user, Ability $ability, Model $model): bool
-    {
-        $context = AccessContext::of($user, $ability);
-        $perimeters = $this->declaration()->reachedBy($context);
-
-        if ($perimeters->isEmpty()) {
-            return false;
-        }
-
-        if (! $model->exists) {
-            return true;
-        }
-
-        if (! $this->declaration()->boundary()->contains($model, $context)) {
-            return false;
-        }
-
-        return $perimeters->includes($model, $context);
     }
 
     /** @return list<Perimeter> */

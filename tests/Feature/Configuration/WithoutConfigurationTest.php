@@ -57,7 +57,7 @@ class WithoutConfigurationTest extends PackageTestCase
     #[Test]
     public function it_publishes_no_configuration(): void
     {
-        $this->assertSame([], ServiceProvider::pathsToPublish(AccessServiceProvider::class));
+        $this->assertSame([lang_path('vendor/access-control')], array_values(ServiceProvider::pathsToPublish(AccessServiceProvider::class)));
         $this->assertNotContains('access-control-config', ServiceProvider::publishableGroups());
     }
 

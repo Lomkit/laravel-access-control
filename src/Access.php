@@ -2,7 +2,9 @@
 
 namespace Lomkit\Access;
 
+use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
+use Lomkit\Access\Policies\AutomaticPolicies;
 use Lomkit\Access\Registry\ControlRegistry;
 
 /**
@@ -15,6 +17,13 @@ use Lomkit\Access\Registry\ControlRegistry;
  */
 final class Access extends Facade
 {
+    public static function registerPolicies(): void
+    {
+        Container::getInstance()
+            ->make(AutomaticPolicies::class)
+            ->register();
+    }
+
     #[\Override]
     protected static function getFacadeAccessor(): string
     {

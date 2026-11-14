@@ -39,6 +39,12 @@ abstract class Boundary
     }
 
     /** @internal */
+    final public function containsDraft(Model $draft, AccessContext $context): bool
+    {
+        return $this->checksInMemory() && $this->includes($draft, $context);
+    }
+
+    /** @internal */
     final public function contains(Model $row, AccessContext $context): bool
     {
         if ($this->checksInMemory()) {

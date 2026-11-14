@@ -319,7 +319,26 @@ Access::discoverControlsIn([app_path('Domain/*/Controls')]);
 
 ### Policies
 
-A `ControlledPolicy` must name the control of its model. A policy whose `$control` is not the control registered for the model it decides on now throws `PolicyControlMismatchException`, which names both controls. In 0.x the decision and the controlled queries could use two different controls. Name the model's control in the policy:
+#### Automatic policies
+
+An empty policy that only names the control is no longer needed. Call `Access::registerPolicies()` in the `boot()` method of a service provider, and delete the empty policy classes:
+
+```php
+use Lomkit\Access\Access;
+
+public function boot(): void
+{
+    Access::registerPolicies();
+}
+```
+
+Every controlled model that has no policy at all then gets a `ControlledPolicy` for its control. A model keeps its own policy when it has one: registered with `Gate::policy()`, before or after the call, declared with `#[UsePolicy]` on the model or on a parent class, registered for a parent class, or found by Laravel's naming convention. The policies are resolved when the gate asks for them, through `Gate::guessPolicyNamesUsing()`, so the call does not discover the controls at boot. If the application sets its own `Gate::guessPolicyNamesUsing()` callback, set it before `Access::registerPolicies()`: the package keeps the names it guesses, and a callback set after replaces the package's.
+
+#### The control of a policy
+
+`$control` is now optional on a `ControlledPolicy`. Without it, the policy decides a row with the control of the row's model. A policy without `$control` cannot decide `viewAny`, `create` without a draft, or a business ability without a row: it throws `MissingPolicyControlException`. Keep `$control` on a policy that decides those, or let `Access::registerPolicies()` create it.
+
+A policy whose `$control` is not the control registered for the model it decides on throws `PolicyControlMismatchException`, which names both controls; so does a draft of another model. In 0.x the decision and the controlled queries could use two different controls. Name the model's control in the policy:
 
 ```php
 #[ControlledBy(PostControl::class)]
@@ -328,6 +347,141 @@ class Post extends Model {}
 class PostPolicy extends ControlledPolicy
 {
     protected string $control = PostControl::class;
+}
+```
+
+#### Responses with a code
+
+The methods of `ControlledPolicy` return an `Illuminate\Auth\Access\Response` instead of a boolean. `can()`, `@can`, `authorize()` and `Gate::inspect()` work as before; a refusal now carries a code and a translated message:
+
+| Code | Refusal | Status |
+| --- | --- | --- |
+| `unsaved` | The model is not saved, for any ability but `create` with a draft | 403 |
+| `no_perimeter` | No perimeter allows the reader for this ability | 403 |
+| `outside_boundary` | The row is outside the boundary for this ability, but the reader may still view it, such as an archived row | 403 |
+| `not_found` | The row is outside the boundary for this ability and for `view`, such as a row of another tenant | 404 |
+| `outside_rows` | No perimeter that allows the reader contains the row | 403 |
+
+The checks run in this order. A row outside the boundary answers `Response::denyAsNotFound()` only when the boundary also refuses `view` to that reader, so a row of another tenant is never revealed; a row the reader can read but not change, such as an archived row, answers a 403. With a boundary that has no in-memory form, telling them apart costs one more `exists` query, on refusals only.
+
+Overridden policy methods declare `Response` as their return type. Replace `bool` and `bool|Response`:
+
+```php
+// Before
+public function update(Model $user, Model $model): bool
+{
+    return $model->locked_at === null && parent::update($user, $model);
+}
+
+// After
+public function update(Model $user, Model $model): Response
+{
+    if ($model->locked_at !== null) {
+        return Response::deny('This post is locked.');
+    }
+
+    return parent::update($user, $model);
+}
+```
+
+The messages live in the package's `lang` files, in English and French. Publish them to translate or change them, then edit `lang/vendor/access-control/{locale}/refusals.php`:
+
+```bash
+php artisan vendor:publish --tag=access-control-lang
+```
+
+#### Drafts
+
+`ControlledPolicy::create()` takes the model about to be created, the draft, as an optional second parameter: `create(Model $user, ?Model $draft = null)`. With a draft, the policy checks that it lands in one of the reader's perimeters, inside the boundary. Without a draft, `create` still means "allowed to create somewhere", and only the `allowed` callbacks run:
+
+```php
+// Before: client_id was never checked
+$this->authorize('create', Post::class);
+$post = Post::create($request->validated());
+
+// After: the draft must land in one of the user's perimeters
+$draft = new Post($request->validated());
+$this->authorize('create', [Post::class, $draft]);
+$draft->save();
+```
+
+A draft is not in the database, so only the in-memory checks judge it: the `should` callback or the `includes()` hook of a perimeter, an unrestricted perimeter, and the in-memory form of the boundary (`Boundary::where()`, or the `includes()` hook of a boundary class). A perimeter without an in-memory form cannot grant a draft, and a boundary without one refuses it. `Perimeter::checksInMemory()` and `Boundary::checksInMemory()` tell which ones can. Add a `should` callback to the perimeters through which the readers create rows. laravel-rest-api already passes the draft to `create`, so its applications judge every creation on its draft once they upgrade.
+
+A policy that overrides `create(Model $user)` must accept the draft, or PHP throws a fatal error:
+
+```php
+// Before
+public function create(Model $user): bool|Response
+
+// After
+public function create(Model $user, ?Model $draft = null): Response
+```
+
+#### Unsaved models
+
+`view`, `update`, `delete`, `restore`, `forceDelete` and every business ability refuse a model that is not saved, with the `unsaved` code, before any other check. In 0.x they granted it. `Control::applies()` follows the same rule: decide `viewAny` and `create` without a row, or with a draft:
+
+```php
+// Before
+$control->applies($user, Ability::view(), new Post);
+$control->applies($user, Ability::create(), new Post);
+
+// After
+$control->applies($user, Ability::view());
+$control->applies($user, Ability::create());
+$control->applies($user, Ability::create(), Draft::of($post));
+```
+
+`Control::applies(Model $reader, Ability $ability, Model|Draft|null $subject = null): bool` takes a saved row, a `Lomkit\Access\Decisions\Draft` or nothing. `Control::decide()`, with the same parameters, returns the `Response` the policy returns.
+
+#### Decisions on the stored row
+
+The policy decides a row on the values it has in the database. After `fill()`, the `should` callbacks and the boundary receive a copy built from the original attributes (`getRawOriginal()`), without the loaded relations; a row without changes is passed as it is. In 0.x, `$post->fill(['author_id' => $me->id])` before `authorize('update', $post)` granted the update in memory. Authorize the new values through a draft, not through the modified row.
+
+#### Business abilities
+
+A policy declares a business ability, such as `approve` or `attach`, by calling the protected `decide()` helper with the name of its method. The control maps the method to an ability through `abilityFor()`, and the helper returns the same `Response` as the standard methods:
+
+```php
+use Illuminate\Auth\Access\Response;
+use Lomkit\Access\Decisions\Draft;
+
+class PostPolicy extends ControlledPolicy
+{
+    protected string $control = PostControl::class;
+
+    public function approve(User $user, Post $post): Response
+    {
+        return $this->decide(__FUNCTION__, $user, $post);
+    }
+
+    public function export(User $user): Response
+    {
+        return $this->decide(__FUNCTION__, $user);
+    }
+
+    public function duplicate(User $user, Post $post, Post $copy): Response
+    {
+        return $this->decide(__FUNCTION__, $user, Draft::of($copy));
+    }
+}
+```
+
+Replace the business methods that called the control by hand:
+
+```php
+// Before
+public function approve(User $user, Post $post): bool
+{
+    $control = Access::controlFor($post);
+
+    return $control->applies($user, $control->abilityFor('approve'), $post);
+}
+
+// After
+public function approve(User $user, Post $post): Response
+{
+    return $this->decide(__FUNCTION__, $user, $post);
 }
 ```
 
@@ -418,7 +572,7 @@ $control->applies($user, 'viewAny', new Post);
 
 // After
 $control->applies($user, Ability::update(), $post);
-$control->applies($user, $control->abilityFor('viewAny'), new Post);
+$control->applies($user, $control->abilityFor('viewAny'));
 ```
 
 A perimeter class that overrides `applyAllowedCallback()` moves to the `allows()` hook, which reads the ability from its context: see [Perimeter classes](#perimeter-classes).
@@ -682,3 +836,10 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `overlays()` overridden on a perimeter | Removed: a perimeter outside a group always adds up |
 | `make:perimeter --overlay`, `stubs/perimeter.overlay.stub` | `make:perimeter`, the perimeter written outside the group |
 | `applies()` or `applyQueryControl()` overridden on a control to add a condition | `boundary()`, returning `Boundary::where(...)` or a `Boundary` class |
+| `class PostPolicy extends ControlledPolicy { protected string $control = PostControl::class; }` with no other method | Deleted, with `Access::registerPolicies()` in a service provider's `boot()` |
+| `ControlledPolicy` methods returning `bool` | `Response`, with a code: `unsaved`, `no_perimeter`, `outside_boundary`, `not_found` (404), `outside_rows` |
+| `create(Model $user)` overridden on a policy | `create(Model $user, ?Model $draft = null): Response` |
+| `$this->authorize('create', Post::class)` before `Post::create($data)` | `$this->authorize('create', [Post::class, new Post($data)])` |
+| `$control->applies($user, $ability, new Post)` | `$control->applies($user, $ability)`, or `Draft::of($post)` for a creation |
+| `$control->applies($user, $control->abilityFor('approve'), $post)` in a policy | `$this->decide(__FUNCTION__, $user, $post)` |
+| `$post->fill($data)` then `authorize('update', $post)` to check the new values | Decided on the stored row: check the new values through a draft |

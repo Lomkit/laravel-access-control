@@ -28,7 +28,7 @@ class PostControl extends Control
                     }),
                 OwnPerimeter::new()
                     ->allowed(fn (User $user, Ability $ability): bool => $user->can("{$ability} own posts"))
-                    ->should(fn (User $user, Post $post): bool => $post->author()->is($user))
+                    ->should(fn (User $user, Post $post): bool => $post->author_id === $user->getKey())
                     ->query(function (Builder $query, User $user): void {
                         $query->whereBelongsTo($user, 'author');
                     }),
