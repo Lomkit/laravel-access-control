@@ -10,6 +10,7 @@ use Lomkit\Access\Exceptions\DuplicateReindexException;
 use Lomkit\Access\Exceptions\InvalidReindexRowsException;
 use Lomkit\Access\Exceptions\MissingReindexDeclarationException;
 use Lomkit\Access\Search\Freshness\ReindexWatchedRows;
+use Lomkit\Access\Search\Freshness\WatchedChange;
 use Lomkit\Access\Search\Freshness\WatchedEvent;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -368,7 +369,7 @@ class ReindexWhenTest extends FreshnessTestCase
         $restored = unserialize($command);
 
         $this->assertInstanceOf(ReindexWatchedRows::class, $restored);
-        $this->assertSame("Archive \xff\xfe", $restored->states->instancesOf(new Folder)[0]->getAttribute('name'));
+        $this->assertSame("Archive \xff\xfe", $restored->change->instancesOf(new Folder)[0]->getAttribute('name'));
     }
 
     #[Test]
@@ -407,5 +408,71 @@ class ReindexWhenTest extends FreshnessTestCase
             ->searchKeys('client', fn (Article $article): mixed => $article->getAttribute('folder_id'), fn (User $user): mixed => $user->client_id)
             ->reindexWhen(Folder::class, changed: ['client_id'], rows: fn (Folder $folder) => $folder->articles())
             ->reindexWhen(ArchiveFolder::class, changed: ['name'], rows: fn (ArchiveFolder $folder) => $folder->articles());
+    }
+
+    #[Test]
+    public function it_queues_only_the_key_for_a_created_or_restored_watched_row(): void
+    {
+        Queue::fake();
+        $folder = Folder::query()->create(['client_id' => $this->acme->getKey(), 'name' => 'Handbook', 'secret' => 'folder-secret-token']);
+        $folder->delete();
+        $folder->restore();
+
+        $changes = $this->pushedChanges();
+
+        $this->assertSame([], $changes[0]->carried());
+        $this->assertSame([], $changes[2]->carried());
+        $this->assertCount(3, $changes);
+    }
+
+    #[Test]
+    public function it_queues_only_the_previous_values_of_the_watched_attributes_for_an_updated_row(): void
+    {
+        $folder = Folder::query()->create(['client_id' => $this->acme->getKey(), 'name' => 'Handbook', 'secret' => 'folder-secret-token']);
+        Queue::fake();
+
+        $folder->update(['client_id' => $this->globex->getKey(), 'name' => 'Playbook', 'secret' => 'rotated-token']);
+
+        $this->assertSame([['client_id' => $this->acme->getKey()]], array_map(fn (WatchedChange $change): array => $change->carried(), $this->pushedChanges()));
+    }
+
+    #[Test]
+    public function it_queues_the_attributes_of_a_deleted_watched_row_without_its_hidden_columns(): void
+    {
+        $folder = Folder::query()->create(['client_id' => $this->acme->getKey(), 'name' => 'Handbook', 'secret' => 'folder-secret-token']);
+        Queue::fake();
+
+        $folder->forceDelete();
+
+        $carried = $this->pushedChanges()[0]->carried();
+        $this->assertArrayNotHasKey('secret', $carried);
+        $this->assertSame($this->acme->getKey(), $carried['client_id']);
+    }
+
+    #[Test]
+    public function it_skips_an_update_whose_watched_row_is_gone_when_the_job_runs(): void
+    {
+        $folder = $this->folder($this->acme);
+        $article = $this->article($folder);
+        Queue::fake();
+        $folder->update(['client_id' => $this->globex->getKey()]);
+        $job = Queue::pushed(ReindexWatchedRows::class)->first();
+        Folder::withoutEvents(fn (): ?bool => $folder->forceDelete());
+        $this->engine->updates = [];
+
+        $this->app->call([$job, 'handle']);
+
+        $this->assertSame([], $this->engine->updates);
+        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+    }
+
+    /** @return list<WatchedChange> */
+    protected function pushedChanges(): array
+    {
+        return Queue::pushed(ReindexWatchedRows::class)
+            ->filter(fn (ReindexWatchedRows $job): bool => $job->control === ArticleControl::class)
+            ->map(fn (ReindexWatchedRows $job): WatchedChange => $job->change)
+            ->values()
+            ->all();
     }
 }

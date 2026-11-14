@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('client_id')->nullable();
             $table->string('name');
+            $table->string('secret')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

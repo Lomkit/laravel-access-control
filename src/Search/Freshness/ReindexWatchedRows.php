@@ -27,21 +27,18 @@ final class ReindexWatchedRows implements ShouldBeUniqueUntilProcessing, ShouldQ
         public readonly string $control,
         public readonly string $keys,
         public readonly string $watched,
-        public readonly int|string|null $key,
-        public readonly WatchedStates $states,
+        public readonly WatchedChange $change,
     ) {}
 
     /** @param  class-string<Control>  $control */
     public static function of(string $control, string $keys, ReindexWhen $reindex, Model $instance, WatchedEvent $event): self
     {
-        $key = $instance->getKey();
-
-        return new self($control, $keys, $reindex->model(), is_int($key) || is_string($key) ? $key : null, $event->states($instance));
+        return new self($control, $keys, $reindex->model(), WatchedChange::of($event, $reindex, $instance));
     }
 
     public function uniqueId(): string
     {
-        return hash('sha256', serialize([$this->control, $this->keys, $this->watched, $this->key, $this->states->identity()]));
+        return hash('sha256', serialize([$this->control, $this->keys, $this->watched, $this->change->identity()]));
     }
 
     public function uniqueFor(): int
@@ -61,24 +58,12 @@ final class ReindexWatchedRows implements ShouldBeUniqueUntilProcessing, ShouldQ
 
         $rows = [];
 
-        foreach ($this->instances() as $instance) {
+        foreach ($this->change->instancesOf(new ($this->watched)) as $instance) {
             $query = $reindex->rowsFor($instance, $this->keys, $control->getModel());
             $rows[self::identity($query)] = $query;
         }
 
         SearchableRows::reindex($control->getModel(), array_values($rows));
-    }
-
-    /** @return list<Model> */
-    private function instances(): array
-    {
-        $prototype = new ($this->watched);
-        $fresh = $this->key === null ? null : $prototype
-            ->newQueryWithoutScopes()
-            ->whereKey($this->key)
-            ->first();
-
-        return [...($fresh instanceof Model ? [$fresh] : []), ...$this->states->instancesOf($prototype)];
     }
 
     /** @param  Builder<Model>  $query */

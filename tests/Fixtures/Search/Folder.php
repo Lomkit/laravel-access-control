@@ -13,6 +13,8 @@ class Folder extends Model
 {
     use SoftDeletes;
 
+    protected $hidden = ['secret'];
+
     /** @return HasMany<Article, $this> */
     public function articles(): HasMany
     {

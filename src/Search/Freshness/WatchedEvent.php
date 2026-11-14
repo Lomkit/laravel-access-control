@@ -21,13 +21,4 @@ enum WatchedEvent: string
     {
         return $this !== self::Updated || $instance->wasChanged($reindex->changed());
     }
-
-    public function states(Model $instance): WatchedStates
-    {
-        if ($this !== self::Updated) {
-            return WatchedStates::of([ModelSnapshot::current($instance)]);
-        }
-
-        return WatchedStates::of([ModelSnapshot::current($instance), ModelSnapshot::previous($instance)]);
-    }
 }
