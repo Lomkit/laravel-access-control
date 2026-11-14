@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Console;
 
+use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\GeneratorCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -11,32 +12,11 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function Laravel\Prompts\confirm;
 
 #[AsCommand(name: 'make:perimeter')]
+#[Description('Create a new perimeter class')]
 class PerimeterMakeCommand extends GeneratorCommand
 {
-    /**
-     * The console command name.
-     *
-     * @var string
-     */
-    protected $name = 'make:perimeter';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Create a new perimeter class';
-
-    /**
-     * The type of class being generated.
-     *
-     * @var string
-     */
     protected $type = 'Perimeter';
 
-    /**
-     * Get the stub file for the generator.
-     */
     #[\Override]
     protected function getStub(): string
     {
@@ -51,9 +31,6 @@ class PerimeterMakeCommand extends GeneratorCommand
         return $this->resolveStubPath($stub);
     }
 
-    /**
-     * Resolve the fully-qualified path to the stub.
-     */
     protected function resolveStubPath(string $stub): string
     {
         return file_exists($customPath = $this->laravel->basePath(trim($stub, '/')))
@@ -61,22 +38,13 @@ class PerimeterMakeCommand extends GeneratorCommand
                         : __DIR__.$stub;
     }
 
-    /**
-     * Get the default namespace for the class.
-     *
-     * @param  string  $rootNamespace
-     */
     #[\Override]
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Access\Perimeters';
     }
 
-    /**
-     * Get the console command options.
-     *
-     * @return list<array{string, string, int, string}>
-     */
+    /** @return list<array{string, string, int, string}> */
     #[\Override]
     protected function getOptions(): array
     {
@@ -85,9 +53,6 @@ class PerimeterMakeCommand extends GeneratorCommand
         ];
     }
 
-    /**
-     * Interact further with the user if they were prompted for missing arguments.
-     */
     #[\Override]
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
     {

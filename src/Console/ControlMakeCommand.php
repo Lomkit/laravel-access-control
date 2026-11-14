@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Console;
 
+use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -16,15 +17,9 @@ use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\select;
 
 #[AsCommand(name: 'make:control')]
+#[Description('Create a new control class')]
 class ControlMakeCommand extends GeneratorCommand
 {
-    /** @var string */
-    protected $name = 'make:control';
-
-    /** @var string */
-    protected $description = 'Create a new control class';
-
-    /** @var string */
     protected $type = 'Control';
 
     #[\Override]
@@ -40,14 +35,12 @@ class ControlMakeCommand extends GeneratorCommand
                         : __DIR__.$stub;
     }
 
-    /** @param  string  $rootNamespace */
     #[\Override]
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Access\Controls';
     }
 
-    /** @param  string  $name */
     #[\Override]
     protected function buildClass($name): string
     {
@@ -64,8 +57,10 @@ class ControlMakeCommand extends GeneratorCommand
 
         $replace = $this->buildPerimetersReplacements($replace, $perimeters);
 
-        if ($this->option('model')) {
-            $replace = $this->buildModelReplacements($replace);
+        $model = $this->option('model');
+
+        if (is_string($model) && $model !== '') {
+            $replace = $this->buildModelReplacements($replace, $model);
         }
 
         if ($baseControlExists) {
@@ -85,11 +80,8 @@ class ControlMakeCommand extends GeneratorCommand
      * @param  array<string, string>  $replace
      * @return array<string, string>
      */
-    protected function buildModelReplacements(array $replace): array
+    protected function buildModelReplacements(array $replace, string $model): array
     {
-        /** @var string $model */
-        $model = $this->option('model');
-
         $modelClass = $this->parseModel($model);
 
         return array_merge($replace, [
