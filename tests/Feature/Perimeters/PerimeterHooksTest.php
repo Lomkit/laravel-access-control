@@ -230,7 +230,7 @@ class PerimeterHooksTest extends PackageTestCase
 
         $this->expectException(MissingPerimeterCallbackException::class);
         $this->expectExceptionMessage(sprintf(
-            'The [%s] perimeter has no [should] callback. Declare it with ->should(...), or override includes() in the perimeter',
+            'The [%s] perimeter has no [query] callback. Declare it with ->query(...), or override scope() in the perimeter',
             AllowingPerimeter::class,
         ));
 

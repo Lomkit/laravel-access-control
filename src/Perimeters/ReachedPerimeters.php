@@ -7,7 +7,7 @@ use Lomkit\Access\AccessContext;
 
 final readonly class ReachedPerimeters
 {
-    /** @param  list<Perimeter>  $perimeters */
+    /** @param  array<string, Perimeter>  $perimeters */
     private function __construct(private array $perimeters) {}
 
     public static function none(): self
@@ -15,7 +15,7 @@ final readonly class ReachedPerimeters
         return new self([]);
     }
 
-    /** @param  list<Perimeter>  $perimeters */
+    /** @param  array<string, Perimeter>  $perimeters */
     public static function of(array $perimeters): self
     {
         return new self($perimeters);
@@ -37,10 +37,10 @@ final readonly class ReachedPerimeters
         return false;
     }
 
-    public function includes(Model $row, AccessContext $context): bool
+    public function includesInMemory(Model $row, AccessContext $context): bool
     {
         foreach ($this->perimeters as $perimeter) {
-            if ($perimeter->applyShouldCallback($row, $context)) {
+            if ($perimeter->checksInMemory() && $perimeter->applyShouldCallback($row, $context)) {
                 return true;
             }
         }
@@ -48,20 +48,15 @@ final readonly class ReachedPerimeters
         return false;
     }
 
-    public function includesDraft(Model $draft, AccessContext $context): bool
+    /** @return array<string, Perimeter> */
+    public function checkedInSql(): array
     {
-        foreach ($this->perimeters as $perimeter) {
-            if ($perimeter->checksInMemory() && $perimeter->applyShouldCallback($draft, $context)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_filter($this->perimeters, fn (Perimeter $perimeter): bool => ! $perimeter->checksInMemory());
     }
 
     /** @return list<Perimeter> */
     public function all(): array
     {
-        return $this->perimeters;
+        return array_values($this->perimeters);
     }
 }

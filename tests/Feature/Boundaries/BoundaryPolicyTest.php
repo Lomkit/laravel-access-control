@@ -180,7 +180,8 @@ class BoundaryPolicyTest extends PackageTestCase
         $this->assertCount(2, $queries);
         $this->assertFalse($this->ada->can('update', $this->archive));
         $this->assertFalse($this->ada->can('update', $this->elsewhere));
-        $this->assertStringStartsWith('select exists(select * from posts where posts.id = ? and (workspace_id = ?', str_replace(['"', '`'], '', $queries[0]));
+        $this->assertStringStartsWith("select case when ((workspace_id = ? and archived_at is null)) then 'granted' else 'outside_boundary' end", str_replace(['"', '`'], '', $queries[0]));
+        $this->assertStringEndsWith('from posts where posts.id = ? limit 1', str_replace(['"', '`'], '', $queries[0]));
     }
 
     #[Test]

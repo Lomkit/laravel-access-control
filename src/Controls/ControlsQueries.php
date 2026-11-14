@@ -9,8 +9,6 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\EmptyQueryCallbackException;
 use Lomkit\Access\Exceptions\JoinInPerimeterException;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
-use Lomkit\Access\Perimeters\Perimeter;
-use Lomkit\Access\Perimeters\ReachedPerimeters;
 
 /** @phpstan-require-extends Control */
 trait ControlsQueries
@@ -58,35 +56,6 @@ trait ControlsQueries
             return;
         }
 
-        $query->where(function (Builder $rows) use ($perimeters, $context): void {
-            $this->constrainByPerimeters($rows, $perimeters, $context);
-        });
-    }
-
-    /** @param  Builder<covariant Model>  $query */
-    private function constrainByPerimeters(Builder $query, ReachedPerimeters $perimeters, AccessContext $context): void
-    {
-        foreach ($perimeters->all() as $perimeter) {
-            $query->orWhere(function (Builder $rows) use ($context, $perimeter): void {
-                $this->constrainByPerimeter($rows, $perimeter, $context);
-            });
-        }
-    }
-
-    /** @param  Builder<covariant Model>  $query */
-    private function constrainByPerimeter(Builder $query, Perimeter $perimeter, AccessContext $context): void
-    {
-        $constraints = count($query->getQuery()->wheres);
-        $joins = count($query->getQuery()->joins ?? []);
-
-        $perimeter->applyQueryCallback($query, $context);
-
-        if (count($query->getQuery()->wheres) === $constraints) {
-            throw EmptyQueryCallbackException::for($this, $perimeter);
-        }
-
-        if (count($query->getQuery()->joins ?? []) !== $joins) {
-            throw JoinInPerimeterException::forPerimeter($this, $perimeter);
-        }
+        (new PerimeterConstraints($this))->apply($query, $perimeters->all(), $context);
     }
 }

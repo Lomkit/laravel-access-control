@@ -20,18 +20,14 @@ final readonly class PerimeterList
     {
         $reached = [];
 
-        foreach ($this->entries as $entry) {
-            $perimeter = $this->reachedIn($entry, $context);
+        foreach ($this->entries as $index => $entry) {
+            foreach ($this->reachedIn($entry, $index, $context) as $position => $perimeter) {
+                if ($perimeter->isUnrestricted()) {
+                    return ReachedPerimeters::of([$position => $perimeter]);
+                }
 
-            if ($perimeter === null) {
-                continue;
+                $reached[$position] = $perimeter;
             }
-
-            if ($perimeter->isUnrestricted()) {
-                return ReachedPerimeters::of([$perimeter]);
-            }
-
-            $reached[] = $perimeter;
         }
 
         return ReachedPerimeters::of($reached);
@@ -79,13 +75,20 @@ final readonly class PerimeterList
         return true;
     }
 
-    private function reachedIn(Perimeter|Levels $entry, AccessContext $context): ?Perimeter
+    /** @return array<string, Perimeter> */
+    private function reachedIn(Perimeter|Levels $entry, int $index, AccessContext $context): array
     {
-        if ($entry instanceof Levels) {
-            return $entry->reachedBy($context);
+        if (! $entry instanceof Levels) {
+            return $entry->applyAllowedCallback($context) ? ["#{$index}" => $entry] : [];
         }
 
-        return $entry->applyAllowedCallback($context) ? $entry : null;
+        $reached = [];
+
+        foreach ($entry->reachedBy($context) as $level => $perimeter) {
+            $reached["#{$index}.{$level}"] = $perimeter;
+        }
+
+        return $reached;
     }
 
     private function sameEntry(Perimeter|Levels $entry, Perimeter|Levels $other): bool

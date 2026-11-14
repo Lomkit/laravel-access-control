@@ -31,7 +31,7 @@ class AccessContextTest extends PackageTestCase
         $this->assertTrue($class->isFinal());
         $this->assertTrue($class->isReadOnly());
         $this->assertFalse($class->isInstantiable());
-        $this->assertSame(['of', 'reader', 'ability'], array_map(
+        $this->assertSame(['of', 'reader', 'ability', 'decisionContext'], array_map(
             fn (ReflectionMethod $method): string => $method->getName(),
             $class->getMethods(ReflectionMethod::IS_PUBLIC),
         ));

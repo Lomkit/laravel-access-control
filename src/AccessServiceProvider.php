@@ -3,6 +3,7 @@
 namespace Lomkit\Access;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Foundation\Events\PublishingStubs;
 use Illuminate\Support\Facades\Event;
@@ -13,6 +14,9 @@ use Lomkit\Access\Console\AccessCacheCommand;
 use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
+use Lomkit\Access\Decisions\DecisionContextResolver;
+use Lomkit\Access\Decisions\DecisionFlushes;
+use Lomkit\Access\Decisions\DecisionMemo;
 use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
@@ -56,6 +60,10 @@ class AccessServiceProvider extends ServiceProvider
         $this->app->singleton(ControlDiscovery::class);
 
         $this->app->singleton(TrustedSearchEngines::class);
+
+        $this->app->singleton(DecisionContextResolver::class);
+
+        $this->app->scoped(DecisionMemo::class);
     }
 
     /**
@@ -72,6 +80,8 @@ class AccessServiceProvider extends ServiceProvider
         $this->bootScoutBuilder();
 
         $this->bootSearchFreshness();
+
+        $this->app->make(DecisionFlushes::class)->listen($this->app->make(Dispatcher::class));
     }
 
     protected function bootScoutBuilder(): void

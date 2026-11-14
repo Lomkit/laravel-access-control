@@ -3,10 +3,13 @@
 namespace Lomkit\Access\Controls;
 
 use Illuminate\Auth\Access\Response;
+use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Decisions\DecisionMemo;
 use Lomkit\Access\Decisions\Draft;
+use Lomkit\Access\Decisions\RowCheck;
 use Lomkit\Access\Decisions\StoredRow;
 use Lomkit\Access\Decisions\Verdict;
 use Lomkit\Access\Perimeters\ReachedPerimeters;
@@ -52,11 +55,9 @@ trait DecidesRows
 
     private function rowVerdict(Model $row, ReachedPerimeters $perimeters, AccessContext $context): Verdict
     {
-        if (! $this->declaration()->boundary()->contains($row, $context)) {
-            return Verdict::OutsideBoundary;
-        }
+        $memo = Container::getInstance()->make(DecisionMemo::class);
 
-        return $perimeters->includes($row, $context) ? Verdict::Granted : Verdict::OutsideRows;
+        return (new RowCheck($this, $memo))->verdict($row, $perimeters, $context);
     }
 
     private function draftVerdict(Model $draft, ReachedPerimeters $perimeters, AccessContext $context): Verdict
@@ -65,7 +66,7 @@ trait DecidesRows
             return Verdict::OutsideBoundary;
         }
 
-        return $perimeters->includesDraft($draft, $context) ? Verdict::Granted : Verdict::OutsideRows;
+        return $perimeters->includesInMemory($draft, $context) ? Verdict::Granted : Verdict::OutsideRows;
     }
 
     private function hidesFrom(Model $reader, Ability $ability, Model $row): bool
