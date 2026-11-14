@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Fixtures\Search;
 use Illuminate\Database\Eloquent\Attributes\Table;
 use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Lomkit\Access\Attributes\ControlledBy;
 use Lomkit\Access\Controls\HasControl;
@@ -25,6 +26,12 @@ class Notice extends Model
     public function makeSearchableUsing(Collection $models): Collection
     {
         return $this->withAccessKeys($models->filter(fn (Model $model): bool => $model->getAttribute('title') !== 'Hidden'));
+    }
+
+    /** @return BelongsToMany<Article, $this, ArticleNotice> */
+    public function articles(): BelongsToMany
+    {
+        return $this->belongsToMany(Article::class, 'article_notice')->using(ArticleNotice::class);
     }
 
     /** @return array{id: mixed, title: mixed} */

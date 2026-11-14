@@ -10,8 +10,10 @@ return new class extends Migration
     {
         Schema::create('pages', function (Blueprint $table): void {
             $table->id();
+            $table->unsignedBigInteger('folder_id')->nullable();
             $table->string('title');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 };

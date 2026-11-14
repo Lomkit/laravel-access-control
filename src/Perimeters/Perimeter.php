@@ -7,18 +7,21 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
-use Lomkit\Access\Exceptions\AbilityParameterTypeException;
+use Lomkit\Access\Exceptions\DuplicateReindexException;
+use Lomkit\Access\Exceptions\InvalidReindexAttributesException;
+use Lomkit\Access\Exceptions\InvalidReindexModelException;
+use Lomkit\Access\Exceptions\InvalidReindexRowsException;
 use Lomkit\Access\Exceptions\InvalidSearchKeyNameException;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
-use Lomkit\Access\Exceptions\OverriddenPerimeterHookException;
+use Lomkit\Access\Exceptions\ReindexWithoutSearchKeysException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
+use Lomkit\Access\Search\Freshness\ReindexWhen;
 use Lomkit\Access\Search\SearchKeys;
 
 /** @phpstan-consistent-constructor */
 class Perimeter
 {
-    /** @var array<value-of<PerimeterHook>, PerimeterClosure> */
-    private array $callbacks = [];
+    private ?PerimeterCallbacks $callbacks = null;
 
     private bool $unrestricted = false;
 
@@ -59,27 +62,31 @@ class Perimeter
     }
 
     /**
-     * @throws UnrestrictedPerimeterCallbackException If the perimeter declares or overrides a row check, or declares search keys.
+     * @param  list<string>  $changed
+     *
+     * @throws ReindexWithoutSearchKeysException If the perimeter declares no search keys.
+     * @throws InvalidReindexModelException If the model is not an Eloquent model class.
+     * @throws InvalidReindexAttributesException If changed names no attribute, or a blank one.
+     * @throws InvalidReindexRowsException If the rows callback does not accept the model.
+     * @throws DuplicateReindexException If the perimeter already reindexes for the model.
      */
+    public function reindexWhen(string $model, array $changed, Closure $rows): static
+    {
+        $perimeter = clone $this;
+        $perimeter->searchKeys = ($this->searchKeys ?? throw ReindexWithoutSearchKeysException::for($this, $model))
+            ->reindexingWhen(ReindexWhen::declaredBy($this, $model, $changed, $rows), $this);
+
+        return $perimeter;
+    }
+
+    /** @throws UnrestrictedPerimeterCallbackException If the perimeter declares or overrides a row check, or declares search keys. */
     public function unrestricted(): static
     {
         if ($this->searchKeys !== null) {
             throw UnrestrictedPerimeterCallbackException::for($this, 'searchKeys');
         }
 
-        foreach (PerimeterHook::cases() as $hook) {
-            if (! $hook->checksRows()) {
-                continue;
-            }
-
-            if (array_key_exists($hook->value, $this->callbacks)) {
-                throw UnrestrictedPerimeterCallbackException::for($this, $hook->callback());
-            }
-
-            if ($hook->isOverriddenIn(static::class)) {
-                throw UnrestrictedPerimeterCallbackException::overriding($this, $hook);
-            }
-        }
+        $this->callbacks()->ensureNoRowCheck($this);
 
         $perimeter = clone $this;
         $perimeter->unrestricted = true;
@@ -95,7 +102,7 @@ class Perimeter
     final public function checksInMemory(): bool
     {
         return $this->unrestricted
-            || array_key_exists(PerimeterHook::Includes->value, $this->callbacks)
+            || $this->callbacks()->declares(PerimeterHook::Includes)
             || PerimeterHook::Includes->isOverriddenIn(static::class);
     }
 
@@ -113,13 +120,7 @@ class Perimeter
             return false;
         }
 
-        foreach ($this->callbacks as $callback) {
-            if (! $callback->admits($context->reader())) {
-                return false;
-            }
-        }
-
-        return $this->allows($context);
+        return $this->callbacks()->admit($context->reader()) && $this->allows($context);
     }
 
     /** @internal */
@@ -147,12 +148,7 @@ class Perimeter
     /** @internal */
     final public function shape(): PerimeterShape
     {
-        return new PerimeterShape(
-            static::class,
-            $this->unrestricted,
-            array_map(fn (PerimeterClosure $callback): ClosureShape => $callback->shape(), $this->callbacks),
-            $this->searchKeys,
-        );
+        return new PerimeterShape(static::class, $this->unrestricted, $this->callbacks()->shapes(), $this->searchKeys);
     }
 
     protected function allows(AccessContext $context): bool
@@ -171,30 +167,22 @@ class Perimeter
         $this->callback(PerimeterHook::Scope)->constrain($this, $context->ability(), $query, $context->reader());
     }
 
-    /**
-     * @throws OverriddenPerimeterHookException If the perimeter overrides the hook the callback stands for.
-     * @throws UnrestrictedPerimeterCallbackException If the callback checks rows on an unrestricted perimeter.
-     * @throws AbilityParameterTypeException If the callback takes the ability in a parameter that does not accept an Ability.
-     */
     private function declaring(PerimeterHook $hook, Closure $callback): static
     {
-        if ($hook->isOverriddenIn(static::class)) {
-            throw OverriddenPerimeterHookException::for($this, $hook);
-        }
-
-        if ($this->unrestricted && $hook->checksRows()) {
-            throw UnrestrictedPerimeterCallbackException::for($this, $hook->callback());
-        }
-
         $perimeter = clone $this;
-        $perimeter->callbacks[$hook->value] = PerimeterClosure::of($callback, $hook, $this);
+        $perimeter->callbacks = $this->callbacks()->declaring($hook, $callback, $this);
 
         return $perimeter;
+    }
+
+    private function callbacks(): PerimeterCallbacks
+    {
+        return $this->callbacks ??= PerimeterCallbacks::none();
     }
 
     /** @throws MissingPerimeterCallbackException If the perimeter does not declare the callback. */
     private function callback(PerimeterHook $hook): PerimeterClosure
     {
-        return $this->callbacks[$hook->value] ?? throw MissingPerimeterCallbackException::for($this, $hook);
+        return $this->callbacks()->for($hook, $this);
     }
 }

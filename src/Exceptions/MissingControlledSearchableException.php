@@ -14,4 +14,22 @@ final class MissingControlledSearchableException extends LogicException
             $model::class,
         ));
     }
+
+    public static function forPivot(string $pivot, string $parent, string $related): self
+    {
+        return new self(sprintf(
+            'The [%s] pivot uses ReindexesSearch, but neither [%s] nor [%s] uses the ControlledSearchable trait, so it has no document to reindex. Remove ReindexesSearch from the pivot, or use ControlledSearchable on the searchable model.',
+            $pivot,
+            $parent,
+            $related,
+        ));
+    }
+
+    public static function forReindex(string $model): self
+    {
+        return new self(sprintf(
+            'The [%s] model does not use the ControlledSearchable trait, so its documents cannot be reindexed with their access keys. Use Lomkit\Access\Search\ControlledSearchable on the model.',
+            $model,
+        ));
+    }
 }

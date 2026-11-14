@@ -12,6 +12,8 @@ parameters:
         - tests/Fixtures/Testing/AccessTestCase.php
         # Analyses the ControlledSearchable trait through a model that uses it
         - tests/Fixtures/Search/Article.php
+        # Analyses the ReindexesSearch trait through a pivot that uses it
+        - tests/Fixtures/Search/ArticleReviewer.php
     level: 10
     phpVersion: 80300
     checkMissingOverrideMethodAttribute: true
