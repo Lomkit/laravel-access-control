@@ -475,7 +475,23 @@ protected function perimeters(): array
 }
 ```
 
-The same goes for a perimeter list that depends on the user, the request, the tenant, the configuration of the moment, the database or the clock. Captured values are compared by identity, except closures, compared by the line that declares them, and readonly objects such as `Ability`, compared by value: create any other object in a property of the control, or inside the callback.
+The same goes for a perimeter list that depends on the user, the request, the tenant, the configuration of the moment or the clock.
+
+The check compares the values the callbacks capture this way:
+
+- scalars and arrays by value;
+- Eloquent models by class and key, so a user captured at build time is caught as soon as another user signs in;
+- enums and readonly objects, such as `Ability`, by value;
+- closures by the lines that declare them and, recursively, by the values they capture;
+- any other object by its class only: a service built in `perimeters()`, such as `$rules = new PostRules`, is pure and passes.
+
+The check only sees what changes between two builds of the same process. It cannot see:
+
+- the state inside a captured service or model: a service that reads the request or the tenant when it is built, or whose properties change later, compares equal as long as its class is the same; a model is compared by its key, not by its attributes;
+- a value that is the same in both builds, such as the tenant of a test that never switches tenant, or a row read from the database that does not change;
+- what the callbacks read when they run: that is not a purity problem, since the callbacks are where the reader, the request and the tenant belong.
+
+Read request and tenant state in the callbacks, never in `perimeters()` or in the constructor of a service it captures.
 
 ### Removed helpers
 
@@ -485,7 +501,7 @@ The same goes for a perimeter list that depends on the user, the request, the te
 
 `make:control` without `--model` now names the model after the control, such as `App\Models\Post` for `PostControl`, where it used to write a placeholder that did not compile. It refuses, and writes nothing, when the model is not an Eloquent model class. `--model` also accepts a fully qualified class outside `App\Models`, such as `--model='Domain\Blog\Post'`.
 
-`make:perimeter` now generates a perimeter class that overrides `allows()`, `includes()` and `scope()` and denies everything until you fill them. `make:control --perimeters=...` generates only the callbacks of the hooks each perimeter class does not override. The generated `control.stub` no longer carries descriptive docblocks and marks `perimeters()` with `#[\Override]`. If your application published `stubs/control.stub` or `stubs/perimeter.plain.stub`, publish them again with `php artisan stub:publish --force` or apply the same changes.
+`make:perimeter` still generates an empty perimeter class, whose rules are declared as callbacks in the control. The new `--hooks` option generates a class that overrides `allows()`, `includes()`, `scope()` and `scoutScope()` and denies everything until you fill them, from the new `perimeter.hooks.stub`, which `stub:publish` publishes too. `make:control --perimeters=...` generates only the callbacks of the hooks each perimeter class does not override. The generated `control.stub` no longer carries descriptive docblocks and marks `perimeters()` with `#[\Override]`. If your application published `stubs/control.stub`, publish it again with `php artisan stub:publish --force` or apply the same changes.
 
 ### Correspondence table
 
