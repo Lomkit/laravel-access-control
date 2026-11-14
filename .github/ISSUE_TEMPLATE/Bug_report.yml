@@ -1,0 +1,50 @@
+name: Bug Report
+description: "Report something that's broken."
+body:
+  - type: input
+    attributes:
+      label: Laravel Access Control Version
+      description: Provide the Laravel Access Control version that you are using.
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Laravel Version
+      description: Provide the Laravel version that you are using.
+      placeholder: 13.0.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: PHP Version
+      description: Provide the PHP version that you are using.
+      placeholder: 8.4.0
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Database Driver & Version
+      description: If applicable, provide the database driver and version you are using.
+      placeholder: "MySQL 8.0.31 for macOS 13.0 on arm64 (Homebrew)"
+    validations:
+      required: false
+  - type: input
+    attributes:
+      label: Laravel Scout Version & Engine
+      description: If the issue involves a search, provide the Laravel Scout version and the engine you are using.
+      placeholder: "Scout 11.10.0 with Meilisearch 1.55.0"
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Description
+      description: Provide a detailed description of the issue you are facing.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Provide detailed steps to reproduce your issue. If necessary, please provide a GitHub repository to demonstrate your issue.
+    validations:
+      required: true
