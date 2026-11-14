@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Exceptions\JoinInPerimeterException;
 use ReflectionMethod;
 
 abstract class Boundary
@@ -30,11 +31,17 @@ abstract class Boundary
      * @internal
      *
      * @param  Builder<covariant Model>  $query
+     *
+     * @throws JoinInPerimeterException If the scope adds a join.
      */
     final public function applyScope(Builder $query, AccessContext $context): void
     {
         $query->where(function (Builder $bounded) use ($context): void {
             $this->scope($bounded, $context);
+
+            if (($bounded->getQuery()->joins ?? []) !== []) {
+                throw JoinInPerimeterException::forBoundary($this, $bounded->getModel()::class);
+            }
         });
     }
 

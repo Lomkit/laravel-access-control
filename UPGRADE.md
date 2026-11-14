@@ -100,6 +100,8 @@ The same rule applies to the `scoutQuery` callback.
 
 A `query` callback that adds no constraint to the builder it receives now throws `EmptyQueryCallbackException`. Laravel drops an empty group, so the other perimeters of the reader stopped applying, and the reader saw more or fewer rows than intended. A callback that only orders, limits or joins adds no constraint either: Laravel keeps only the `where` clauses of the group. A callback that adds its constraint under a condition throws for the readers it skips: add a constraint that matches no row for them, such as `$query->whereRaw('0=1')`, or refuse them in `allowed()`.
 
+A `query` callback, or the `scope()` of a boundary class, that adds a join now throws `JoinInPerimeterException`, which names the perimeter or the boundary: Laravel drops a join added inside the nested `where` group these rules run in, so the rule broke the SQL or filtered nothing. Replace the join with `whereHas()` or an `exists` subquery.
+
 ### Unrestricted perimeters
 
 A perimeter that reaches every row is declared with `unrestricted()`, instead of a `query` callback that adds nothing and a `should` callback that returns `true`. Replace your global perimeters:
@@ -843,3 +845,4 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `$control->applies($user, $ability, new Post)` | `$control->applies($user, $ability)`, or `Draft::of($post)` for a creation |
 | `$control->applies($user, $control->abilityFor('approve'), $post)` in a policy | `$this->decide(__FUNCTION__, $user, $post)` |
 | `$post->fill($data)` then `authorize('update', $post)` to check the new values | Decided on the stored row: check the new values through a draft |
+| `->query(fn ($query) => $query->join('projects', ...)->where('projects.client_id', ...))` | `->query(fn ($query) => $query->whereHas('project', fn ($q) => $q->where('client_id', ...)))`: a join throws `JoinInPerimeterException` |
