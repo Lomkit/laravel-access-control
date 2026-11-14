@@ -61,7 +61,7 @@ trait DecidesRows
             return Verdict::OutsideBoundary;
         }
 
-        return $perimeters->includesInMemory($draft, $context) ? Verdict::Granted : Verdict::OutsideRows;
+        return $perimeters->includesDraft($draft, $context) ? Verdict::Granted : Verdict::OutsideRows;
     }
 
     private function hidesFrom(Model $reader, Ability $ability, Model $row): bool

@@ -32,8 +32,20 @@ trait ControlsQueries
             return;
         }
 
-        $context = AccessContext::of($reader, Ability::view());
+        $this->restrictFor($query, AccessContext::of($reader, Ability::view()));
+    }
 
+    /**
+     * @internal
+     *
+     * @param  Builder<covariant Model>  $query
+     *
+     * @throws QueryCallbackReturnedAnotherBuilderException If a query callback returns another builder.
+     * @throws EmptyQueryCallbackException If a query callback adds no constraint.
+     * @throws JoinInPerimeterException If a query callback adds a join.
+     */
+    final public function restrictFor(Builder $query, AccessContext $context): void
+    {
         $query->where(function (Builder $controlled) use ($context): void {
             $this->constrainControlled($controlled, $context);
         });

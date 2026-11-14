@@ -48,6 +48,38 @@ final readonly class ReachedPerimeters
         return false;
     }
 
+    public function includesDraft(Model $draft, AccessContext $context): bool
+    {
+        if ($this->includesInMemory($draft, $context)) {
+            return true;
+        }
+
+        foreach ($this->perimeters as $perimeter) {
+            if ($perimeter instanceof ThroughParent && $perimeter->admitsDraft($draft, $context)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function fingerprint(AccessContext $context): string
+    {
+        return self::positions($this->perimeters, $context);
+    }
+
+    /** @param  array<string, Perimeter>  $perimeters */
+    public static function positions(array $perimeters, AccessContext $context): string
+    {
+        $positions = [];
+
+        foreach ($perimeters as $position => $perimeter) {
+            $positions[] = $perimeter instanceof ThroughParent ? "{$position}({$perimeter->fingerprint($context)})" : $position;
+        }
+
+        return implode(',', $positions);
+    }
+
     /** @return array<string, Perimeter> */
     public function checkedInSql(): array
     {

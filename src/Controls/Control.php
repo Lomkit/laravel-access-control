@@ -10,6 +10,9 @@ use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\DuplicateSearchKeyNameException;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
+use Lomkit\Access\Exceptions\InvalidParentRelationException;
+use Lomkit\Access\Exceptions\MissingParentControlException;
+use Lomkit\Access\Exceptions\ParentCycleException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\PerimeterList;
@@ -91,10 +94,15 @@ class Control
         return $this->declaration ??= $this->declare();
     }
 
-    /** @throws DuplicateSearchKeyNameException When two perimeters declare search keys with the same name. */
+    /**
+     * @throws DuplicateSearchKeyNameException When two perimeters declare search keys with the same name.
+     * @throws InvalidParentRelationException When a ThroughParent names no belongsTo of the model, or a wrong inverse.
+     * @throws MissingParentControlException When the parent of a ThroughParent has no control.
+     * @throws ParentCycleException When the ThroughParent perimeters lead back to the control.
+     */
     private function declare(): ControlDeclaration
     {
-        $perimeters = new PerimeterList($this->perimeters());
+        $perimeters = (new PerimeterList($this->perimeters()))->boundTo($this);
         $boundary = $this->boundary();
 
         return new ControlDeclaration($perimeters, $boundary, SearchRules::of(static::class, $perimeters, $boundary));

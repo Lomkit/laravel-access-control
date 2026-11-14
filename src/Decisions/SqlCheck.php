@@ -39,7 +39,7 @@ final readonly class SqlCheck
 
     public function fingerprint(): string
     {
-        return ($this->boundary ? 'boundary' : 'rows').':'.implode(',', array_keys($this->perimeters));
+        return ($this->boundary ? 'boundary' : 'rows').':'.ReachedPerimeters::positions($this->perimeters, $this->context);
     }
 
     public function verdictCase(Model $model): ?VerdictCase
