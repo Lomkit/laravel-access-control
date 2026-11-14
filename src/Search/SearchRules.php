@@ -6,30 +6,46 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\DuplicateSearchKeyNameException;
+use Lomkit\Access\Exceptions\UnsearchableThroughParentException;
 use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Perimeters\ReachedPerimeters;
-use Lomkit\Access\Search\Freshness\ReindexWhen;
+use Lomkit\Access\Perimeters\ThroughParent;
+use Lomkit\Access\Search\Freshness\FreshnessRules;
+use Lomkit\Access\Search\Parents\ParentKey;
+use Lomkit\Access\Search\Parents\ParentSearch;
 
 final class SearchRules
 {
-    /** @param  array<string, SearchKeys>  $keys */
+    /**
+     * @param  array<string, SearchKeys>  $keys
+     * @param  list<ParentSearch>  $parents
+     */
     private function __construct(
         private readonly array $keys,
         private readonly BoundarySearch $boundary,
+        private readonly array $parents,
+        private readonly FreshnessRules $freshness,
     ) {}
 
     /**
      * @param  class-string  $control
+     * @param  class-string<Model>  $model
      *
      * @throws DuplicateSearchKeyNameException When two perimeters of the control declare search keys with the same name.
+     * @throws UnsearchableThroughParentException When the model is searchable and a ThroughParent cannot be searched exactly.
      */
-    public static function of(string $control, PerimeterList $perimeters, Boundary $boundary): self
+    public static function of(string $control, string $model, PerimeterList $perimeters, Boundary $boundary): self
     {
         $keys = [];
+        $parents = array_map(fn (ThroughParent $parent): ParentSearch => $parent->parentSearch(), $perimeters->parents());
 
         foreach ($perimeters->searchKeys() as $declared) {
             if (array_key_exists($declared->name(), $keys)) {
                 throw DuplicateSearchKeyNameException::in($control, $declared->name());
+            }
+
+            if ($parents !== [] && $declared->name() === ParentKey::PREFIX) {
+                throw DuplicateSearchKeyNameException::reservedForParents($control, $declared->name());
             }
 
             $keys[$declared->name()] = $declared;
@@ -37,7 +53,7 @@ final class SearchRules
 
         ksort($keys);
 
-        return new self($keys, BoundarySearch::of($boundary));
+        return new self($keys, BoundarySearch::of($boundary), $parents, FreshnessRules::of($control, $keys, $parents, UsesControlledSearchable::check($model)));
     }
 
     public function isSearchable(): bool
@@ -50,6 +66,22 @@ final class SearchRules
         return $this->boundary->boundary();
     }
 
+    public function isBounded(): bool
+    {
+        return $this->boundary->isBounded();
+    }
+
+    /** @return list<ParentSearch> */
+    public function parents(): array
+    {
+        return $this->parents;
+    }
+
+    public function freshness(): FreshnessRules
+    {
+        return $this->freshness;
+    }
+
     /** @return list<string> */
     public function load(): array
     {
@@ -57,6 +89,10 @@ final class SearchRules
 
         foreach ($this->keys as $keys) {
             array_push($load, ...$keys->load());
+        }
+
+        foreach ($this->parents as $parent) {
+            array_push($load, ...$parent->load());
         }
 
         return array_values(array_unique($load));
@@ -73,45 +109,6 @@ final class SearchRules
         return $this->boundary->keys();
     }
 
-    /** @return list<ReindexWhen> */
-    public function reindexes(): array
-    {
-        $reindexes = [];
-
-        foreach ($this->keys as $keys) {
-            array_push($reindexes, ...$keys->reindexes()->all());
-        }
-
-        return $reindexes;
-    }
-
-    /** @return list<class-string<Model>> */
-    public function watchedModels(): array
-    {
-        return array_values(array_unique(array_map(fn (ReindexWhen $reindex): string => $reindex->model(), $this->reindexes())));
-    }
-
-    public function reindexFor(string $name, string $watched): ?ReindexWhen
-    {
-        return ($this->keys[$name] ?? null)?->reindexes()->for($watched);
-    }
-
-    /** @return array<string, ReindexWhen> */
-    public function reindexesWatching(Model $instance): array
-    {
-        $reindexes = [];
-
-        foreach ($this->keys as $name => $keys) {
-            foreach ($keys->reindexes()->all() as $reindex) {
-                if ($reindex->watches($instance)) {
-                    $reindexes[$name] = $reindex;
-                }
-            }
-        }
-
-        return $reindexes;
-    }
-
     /** @return array<string, list<string>> */
     public function documentFor(Model $row): array
     {
@@ -119,6 +116,10 @@ final class SearchRules
 
         foreach ($this->keys as $keys) {
             array_push($access, ...$keys->rowKeys($row));
+        }
+
+        foreach ($this->parents as $parent) {
+            array_push($access, ...$parent->rowKeys($row));
         }
 
         return [
@@ -138,7 +139,11 @@ final class SearchRules
         $access = [];
 
         foreach ($perimeters->all() as $perimeter) {
-            array_push($access, ...($perimeter->declaredSearchKeys()?->readerKeys($context) ?? []));
+            $keys = $perimeter instanceof ThroughParent
+                ? $perimeter->parentSearch()->readerKeys($context)
+                : $perimeter->declaredSearchKeys()?->readerKeys($context) ?? [];
+
+            array_push($access, ...$keys);
         }
 
         return SearchFilter::of($boundary, array_values(array_unique($access)));

@@ -37,6 +37,18 @@ final readonly class SearchFilter
         return $this->closed;
     }
 
+    /** @return list<string>|null */
+    public function boundaryKeys(): ?array
+    {
+        return $this->boundary;
+    }
+
+    /** @return list<string>|null */
+    public function accessKeys(): ?array
+    {
+        return $this->access;
+    }
+
     /** @return array<string, list<string>> */
     public function whereIns(): array
     {

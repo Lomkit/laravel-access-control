@@ -57,6 +57,22 @@ final readonly class PerimeterList
         ));
     }
 
+    /** @return list<ThroughParent> */
+    public function parents(): array
+    {
+        $parents = [];
+
+        foreach ($this->entries as $entry) {
+            foreach ($entry instanceof Levels ? $entry->all() : [$entry] as $perimeter) {
+                if ($perimeter instanceof ThroughParent) {
+                    $parents[] = $perimeter;
+                }
+            }
+        }
+
+        return $parents;
+    }
+
     /** @return list<SearchKeys> */
     public function searchKeys(): array
     {

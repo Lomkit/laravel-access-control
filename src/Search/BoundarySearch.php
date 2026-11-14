@@ -20,6 +20,11 @@ final readonly class BoundarySearch
         return new self($boundary::class, ! $boundary instanceof NoBoundary, $boundary->applySearchKeys());
     }
 
+    public function isBounded(): bool
+    {
+        return $this->bounded;
+    }
+
     public function isSearchable(): bool
     {
         return ! $this->bounded || $this->keys !== null;

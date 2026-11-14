@@ -3,12 +3,14 @@
 namespace Lomkit\Access\Tests\Fixtures\Search;
 
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Scout\Builder;
 use Laravel\Scout\EngineManager;
 use Laravel\Scout\ScoutServiceProvider;
 use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -178,6 +180,30 @@ abstract class EngineTestCase extends PackageTestCase
         $this->waitForDocuments(4);
 
         $this->assertSame(['Scout internals', 'Scout primer', 'Scout recipes'], $this->searchedTitles());
+    }
+
+    #[Test]
+    public function it_finds_the_children_of_the_parents_the_reader_may_view(): void
+    {
+        File::delete([$this->app->bootstrapPath('cache/access-controls.php'), $this->app->bootstrapPath('cache/access-reindex.php')]);
+        Access::discoverControlsIn([__DIR__, dirname(__DIR__).'/Threads/Folders']);
+        ConfiguredArticleControl::bind(ThroughParent::belongsTo('folder', inverse: 'articles'));
+        $this->allow(['view client folders']);
+        $handbook = Folder::query()->create(['client_id' => $this->ada->client_id, 'name' => 'Handbook']);
+        $playbook = Folder::query()->create(['client_id' => $this->grace->client_id, 'name' => 'Playbook']);
+        Article::factory()->createOne(['author_id' => $this->grace->getKey(), 'title' => 'Scout in a folder', 'folder_id' => $handbook->getKey()]);
+        Article::factory()->createOne(['author_id' => $this->ada->getKey(), 'title' => 'Scout in another folder', 'folder_id' => $playbook->getKey()]);
+        Article::query()->get()->searchable();
+        $this->waitForDocuments(5);
+
+        $this->assertSame(['Scout in a folder'], $this->searchedTitles());
+        $this->assertSame(['Scout in another folder'], $this->controlledTitles($this->grace));
+
+        $handbook->update(['client_id' => $this->grace->client_id]);
+        $this->waitForIndexing((new Article)->searchableAs());
+
+        $this->assertSame([], $this->searchedTitles());
+        $this->assertSame(['Scout in a folder', 'Scout in another folder'], $this->controlledTitles($this->grace));
     }
 
     /** @return list<string> */

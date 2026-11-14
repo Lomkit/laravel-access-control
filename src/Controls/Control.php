@@ -105,7 +105,7 @@ class Control
         $perimeters = (new PerimeterList($this->perimeters()))->boundTo($this);
         $boundary = $this->boundary();
 
-        return new ControlDeclaration($perimeters, $boundary, SearchRules::of(static::class, $perimeters, $boundary));
+        return new ControlDeclaration($perimeters, $boundary, SearchRules::of(static::class, $this->model, $perimeters, $boundary));
     }
 
     public static function new(): static

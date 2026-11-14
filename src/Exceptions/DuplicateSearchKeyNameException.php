@@ -6,6 +6,15 @@ use LogicException;
 
 final class DuplicateSearchKeyNameException extends LogicException
 {
+    public static function reservedForParents(string $control, string $name): self
+    {
+        return new self(sprintf(
+            'A perimeter of the [%s] control declares search keys named [%s], the name that prefixes the keys its ThroughParent perimeters inherit from their parents. A key of that perimeter could open the rows of a parent: give the perimeter another name.',
+            $control,
+            $name,
+        ));
+    }
+
     public static function in(string $control, string $name): self
     {
         return new self(sprintf(

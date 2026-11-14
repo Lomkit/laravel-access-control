@@ -23,7 +23,7 @@ final readonly class WatchMap
 
             $rules = $registry->control($control)->searchRules();
 
-            foreach ($rules->watchedModels() as $watched) {
+            foreach ($rules->freshness()->watchedModels() as $watched) {
                 $watchers[$watched][] = $control;
             }
         }

@@ -168,7 +168,7 @@ final class ControlRegistry
     /** @throws UnwatchableReindexException When the control reindexes for a model that a fresh process would not watch. */
     private function ensureWatchable(string $control, Control $instance): void
     {
-        $watched = $instance->searchRules()->watchedModels();
+        $watched = $instance->searchRules()->freshness()->watchedModels();
 
         if ($watched === []) {
             return;

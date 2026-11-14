@@ -13,11 +13,11 @@ final readonly class WatchedChange
         private string $carried,
     ) {}
 
-    public static function of(WatchedEvent $event, ReindexWhen $reindex, Model $instance): self
+    public static function of(WatchedEvent $event, ReindexRule $reindex, Model $instance): self
     {
         $key = $instance->getKey();
         $carried = match ($event) {
-            WatchedEvent::Updated => array_intersect_key($instance->getPrevious(), array_flip($reindex->changed())),
+            WatchedEvent::Updated => $reindex->previousValues($instance),
             WatchedEvent::Deleted => array_diff_key($instance->getAttributes(), array_flip($instance->getHidden())),
             WatchedEvent::Created, WatchedEvent::Restored => [],
         };

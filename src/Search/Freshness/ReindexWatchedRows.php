@@ -31,7 +31,7 @@ final class ReindexWatchedRows implements ShouldBeUniqueUntilProcessing, ShouldQ
     ) {}
 
     /** @param  class-string<Control>  $control */
-    public static function of(string $control, string $keys, ReindexWhen $reindex, Model $instance, WatchedEvent $event): self
+    public static function of(string $control, string $keys, ReindexRule $reindex, Model $instance, WatchedEvent $event): self
     {
         return new self($control, $keys, $reindex->model(), WatchedChange::of($event, $reindex, $instance));
     }
@@ -53,7 +53,7 @@ final class ReindexWatchedRows implements ShouldBeUniqueUntilProcessing, ShouldQ
     public function handle(ControlRegistry $registry): void
     {
         $control = $registry->control($this->control);
-        $reindex = $control->searchRules()->reindexFor($this->keys, $this->watched)
+        $reindex = $control->searchRules()->freshness()->for($this->keys, $this->watched)
             ?? throw MissingReindexDeclarationException::for($this->control, $this->keys, $this->watched);
 
         $rows = [];

@@ -19,10 +19,14 @@ class MemoryEngine extends Engine
     /** @var list<list<string>> */
     public array $updates = [];
 
+    /** @var list<array{string, list<string>}> */
+    public array $indexUpdates = [];
+
     #[\Override]
     public function update($models): void
     {
         $this->updates[] = array_values(array_map(fn (Model $model): string => (string) $model->getScoutKey(), $models->all()));
+        $this->indexUpdates[] = [(string) $models->first()?->searchableAs(), end($this->updates)];
 
         foreach ($models as $model) {
             $this->documents[$model->searchableAs()][(string) $model->getScoutKey()] = [

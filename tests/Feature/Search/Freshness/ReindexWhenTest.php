@@ -360,7 +360,7 @@ class ReindexWhenTest extends FreshnessTestCase
     public function it_keeps_a_queue_payload_valid_for_attributes_that_are_not_utf8(): void
     {
         $folder = (new Folder)->newFromBuilder(['id' => 7, 'client_id' => $this->acme->getKey(), 'name' => "Archive \xff\xfe"]);
-        $reindex = Access::control(ArticleControl::class)->searchRules()->reindexFor('client', Folder::class);
+        $reindex = Access::control(ArticleControl::class)->searchRules()->freshness()->for('client', Folder::class);
         $this->assertNotNull($reindex);
 
         $job = ReindexWatchedRows::of(ArticleControl::class, 'client', $reindex, $folder, WatchedEvent::Deleted);
