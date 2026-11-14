@@ -6,8 +6,10 @@ use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
+use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Registry\ControlRegistry;
@@ -20,7 +22,7 @@ class Control
     /** @var class-string<Model> */
     protected string $model;
 
-    private ?PerimeterList $declaredPerimeters = null;
+    private ?ControlDeclaration $declaration = null;
 
     /** @param  class-string<Model>  $model */
     public function isModel(string $model): bool
@@ -34,10 +36,15 @@ class Control
         return $this->model;
     }
 
-    /** @return array<Perimeter> */
+    /** @return array<Perimeter|Levels> */
     protected function perimeters(): array
     {
         return [];
+    }
+
+    protected function boundary(): Boundary
+    {
+        return Boundary::none();
     }
 
     /**
@@ -56,81 +63,53 @@ class Control
         };
     }
 
-    public function applies(Model $user, Ability $ability, Model $model): bool
+    final public function applies(Model $user, Ability $ability, Model $model): bool
     {
         $context = AccessContext::of($user, $ability);
-        $perimeters = $this->perimetersApplicableTo($context);
+        $perimeters = $this->declaration()->reachedBy($context);
 
-        if ($perimeters === []) {
+        if ($perimeters->isEmpty()) {
             return false;
         }
 
-        if (! $model->exists || $this->reachesEveryRow($perimeters)) {
+        if (! $model->exists) {
             return true;
         }
 
-        foreach ($perimeters as $perimeter) {
-            if ($perimeter->applyShouldCallback($model, $context)) {
-                return true;
-            }
+        if (! $this->declaration()->boundary()->contains($model, $context)) {
+            return false;
         }
 
-        return false;
+        return $perimeters->includes($model, $context);
     }
 
     /** @return list<Perimeter> */
     final protected function applicablePerimeters(Model $reader, Ability $ability): array
     {
-        return $this->perimetersApplicableTo(AccessContext::of($reader, $ability));
-    }
-
-    /** @param  list<Perimeter>  $perimeters */
-    final protected function reachesEveryRow(array $perimeters): bool
-    {
-        foreach ($perimeters as $perimeter) {
-            if ($perimeter->isUnrestricted()) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->declaration()->reachedBy(AccessContext::of($reader, $ability))->all();
     }
 
     /**
      * @internal
      *
-     * @throws ImpurePerimetersException When perimeters() builds perimeters of another shape than the ones it built first.
+     * @throws ImpurePerimetersException When perimeters() or boundary() builds another declaration than the one it built first.
      */
     final public function verifyPerimeters(): void
     {
-        if (! $this->declaredPerimeters()->matches(new PerimeterList($this->perimeters()))) {
+        if (! $this->declaration()->matches($this->declare())) {
             throw ImpurePerimetersException::for($this);
         }
     }
 
-    /** @return list<Perimeter> */
-    private function perimetersApplicableTo(AccessContext $context): array
+    /** @internal */
+    final public function declaration(): ControlDeclaration
     {
-        $applicable = [];
-
-        foreach ($this->declaredPerimeters()->all() as $perimeter) {
-            if (! $perimeter->applyAllowedCallback($context)) {
-                continue;
-            }
-
-            $applicable[] = $perimeter;
-
-            if (! $perimeter->overlays()) {
-                break;
-            }
-        }
-
-        return $applicable;
+        return $this->declaration ??= $this->declare();
     }
 
-    private function declaredPerimeters(): PerimeterList
+    private function declare(): ControlDeclaration
     {
-        return $this->declaredPerimeters ??= new PerimeterList($this->perimeters());
+        return new ControlDeclaration(new PerimeterList($this->perimeters()), $this->boundary());
     }
 
     public static function new(): static

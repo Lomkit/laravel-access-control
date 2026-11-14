@@ -2,6 +2,6 @@
 
 namespace Lomkit\Access\Tests\Fixtures\Search;
 
-use Lomkit\Access\Perimeters\OverlayPerimeter;
+use Lomkit\Access\Perimeters\Perimeter;
 
-class FeaturedPerimeter extends OverlayPerimeter {}
+class FeaturedPerimeter extends Perimeter {}

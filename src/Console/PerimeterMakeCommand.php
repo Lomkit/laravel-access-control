@@ -20,11 +20,7 @@ class PerimeterMakeCommand extends GeneratorCommand
     #[\Override]
     protected function getStub(): string
     {
-        return $this->resolveStubPath(match (true) {
-            (bool) $this->option('hooks') => '/stubs/perimeter.hooks.stub',
-            (bool) $this->option('overlay') => '/stubs/perimeter.overlay.stub',
-            default => '/stubs/perimeter.plain.stub',
-        });
+        return $this->resolveStubPath($this->option('hooks') ? '/stubs/perimeter.hooks.stub' : '/stubs/perimeter.plain.stub');
     }
 
     protected function resolveStubPath(string $stub): string
@@ -45,7 +41,6 @@ class PerimeterMakeCommand extends GeneratorCommand
     protected function getOptions(): array
     {
         return [
-            ['overlay', 'o', InputOption::VALUE_NONE, 'Indicates if the perimeter overlays'],
             ['hooks', null, InputOption::VALUE_NONE, 'Generate the protected hooks, to write the rules in the perimeter class instead of callbacks in the control'],
         ];
     }
@@ -59,12 +54,6 @@ class PerimeterMakeCommand extends GeneratorCommand
 
         if (confirm('Should the rules be written in the perimeter class, with hooks?', false)) {
             $input->setOption('hooks', true);
-
-            return;
-        }
-
-        if (confirm('Should this perimeter be an overlay?', false)) {
-            $input->setOption('overlay', true);
         }
     }
 }

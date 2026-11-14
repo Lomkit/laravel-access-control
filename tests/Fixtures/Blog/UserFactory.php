@@ -16,6 +16,7 @@ class UserFactory extends Factory
             'client_id' => ClientFactory::new(),
             'name' => 'Ada',
             'email' => 'ada@example.com',
+            'current_workspace_id' => 1,
         ];
     }
 }

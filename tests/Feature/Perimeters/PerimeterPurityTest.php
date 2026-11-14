@@ -20,6 +20,7 @@ use Lomkit\Access\Tests\Fixtures\Purity\ReaderBoundPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\RequestBoundPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\ServicePostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\SignedInPostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\WorkspaceBoundPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -63,7 +64,7 @@ class PerimeterPurityTest extends PackageTestCase
     protected function expectImpure(string $control): void
     {
         $this->expectException(ImpurePerimetersException::class);
-        $this->expectExceptionMessage(sprintf('The perimeters() method of the [%s] control built different perimeters twice.', $control));
+        $this->expectExceptionMessage(sprintf('The perimeters() or boundary() method of the [%s] control built a different declaration twice.', $control));
     }
 
     #[Test]
@@ -212,5 +213,21 @@ class PerimeterPurityTest extends PackageTestCase
         Auth::logout();
 
         $this->assertSame(1, $control->builds);
+    }
+
+    #[Test]
+    public function it_catches_a_boundary_that_captures_the_workspace_of_the_signed_in_user(): void
+    {
+        $this->hank->update(['current_workspace_id' => 2]);
+        $this->app->instance(PostControl::class, new WorkspaceBoundPostControl);
+        $this->actingAs($this->ada);
+
+        $this->assertSame(0, Post::controlledFor($this->ada)->count());
+
+        $this->actingAs($this->hank);
+
+        $this->expectImpure(WorkspaceBoundPostControl::class);
+
+        Post::controlledFor($this->hank)->get();
     }
 }

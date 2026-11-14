@@ -118,9 +118,151 @@ GlobalPerimeter::new()
     ->unrestricted(),
 ```
 
-An unrestricted perimeter takes no `query`, `should` or `scoutQuery` callback: declaring one of them with `unrestricted()` throws `UnrestrictedPerimeterCallbackException`. When an unrestricted perimeter applies to the reader, a controlled query and a controlled search get no perimeter constraint, the policy grants the row without calling any `should` callback, and the other perimeters of the reader are not evaluated.
+An unrestricted perimeter takes no `query`, `should` or `scoutQuery` callback: declaring one of them with `unrestricted()` throws `UnrestrictedPerimeterCallbackException`. When an unrestricted perimeter applies to the reader, a controlled query and a controlled search get no perimeter constraint, the policy grants the row without calling any `should` callback, and the perimeters after it are not evaluated. The [boundary](#boundaries) of the control still applies.
 
-This fixes a reader with both a global and an overlay permission, such as an administrator who also has "view shared posts": in 0.x the empty global group was dropped and the administrator only saw the shared posts. Such a reader now sees every row, which may widen what your tests expect.
+This fixes a reader with both a global and an overlay permission, such as an administrator who also has "view shared posts": in 0.x the empty global group was dropped and the administrator only saw the shared posts. Such a reader now sees every row of the boundary, which may widen what your tests expect.
+
+### Combining perimeters
+
+`OverlayPerimeter` is removed, and so is `Perimeter::overlays()`. In 0.x, the order of the perimeters and the class of each one decided how they combined: the first perimeter that allowed the reader stopped the search, unless it extended `OverlayPerimeter`, and an overlay written after a perimeter that stopped was never read. In 1.0, two explicit rules replace them:
+
+- a hierarchy is declared in a `Levels::of()` group, widest level first. For each ability, only the highest level the reader reaches applies: the levels below it are neither evaluated nor added to the SQL;
+- every perimeter outside a group adds up with the others (OR), wherever it is written. A control can declare several groups next to loose perimeters.
+
+Convert each control. The perimeters that stopped, the ones that did not extend `OverlayPerimeter`, go into a `Levels::of()` group, in the same order. The overlays stay outside the group, as plain perimeters:
+
+```php
+// Before
+protected function perimeters(): array
+{
+    return [
+        SharedPerimeter::new()->allowed(...)->should(...)->query(...),   // extends OverlayPerimeter
+        GlobalPerimeter::new()->allowed(...)->unrestricted(),             // stops
+        ClientPerimeter::new()->allowed(...)->should(...)->query(...),   // stops
+        OwnPerimeter::new()->allowed(...)->should(...)->query(...),      // stops
+    ];
+}
+
+class SharedPerimeter extends OverlayPerimeter {}
+
+// After
+use Lomkit\Access\Perimeters\Levels;
+
+protected function perimeters(): array
+{
+    return [
+        Levels::of(
+            GlobalPerimeter::new()->allowed(...)->unrestricted(),
+            ClientPerimeter::new()->allowed(...)->should(...)->query(...),
+            OwnPerimeter::new()->allowed(...)->should(...)->query(...),
+        ),
+        SharedPerimeter::new()->allowed(...)->should(...)->query(...),
+    ];
+}
+
+class SharedPerimeter extends Perimeter {}
+```
+
+Replace `extends OverlayPerimeter` with `extends Perimeter` in your perimeter classes, and remove the overrides of `overlays()`.
+
+Review the controls one by one: a control that relied on a perimeter that stops to block an overlay written after it now widens access. In 0.x, a reader allowed by `ClientPerimeter` never reached an overlay written below it; in 1.0 that perimeter sits outside the group and adds its rows. When the overlay must not apply to the readers of a level, move it into the group as a level, or refuse those readers in its `allowed()`.
+
+A level contains the levels below it: a reader who reaches the client level must see at least the rows of the own level. A perimeter that does not nest belongs outside the group. `assertLevelsNest()` checks it on your test data, and is the safety net of the conversion (see [Testing the levels](#testing-the-levels)).
+
+`Levels::of()` throws `EmptyLevelsException` without a level, and `NestedLevelsException` when a level is itself a group.
+
+`applicablePerimeters($reader, $ability)` returns the level the reader reaches in each group, followed by the loose perimeters that allow the reader, in the order they are written. When an unrestricted perimeter applies, it returns that perimeter alone.
+
+### Boundaries
+
+A control can declare a boundary: a condition that every row must meet, whatever the perimeter that grants it, such as the workspace or the tenant of the reader. The boundary applies as an AND around the perimeters, before the levels, even for an unrestricted perimeter, in the controlled queries and in the policy. Declare it in `boundary()`:
+
+```php
+use Lomkit\Access\Boundaries\Boundary;
+
+protected function boundary(): Boundary
+{
+    return Boundary::where('workspace_id', fn (User $user) => $user->current_workspace_id)
+        ->readOnlyWhenNotNull('archived_at');
+}
+```
+
+`Boundary::where($column, $readerValue)` keeps the rows whose column equals the value the closure reads from the reader, an int or a string. `readOnlyWhenNotNull($column)` keeps a row readable while the column is not null, and refuses it to every other ability, such as `update` or `approve`: an archived post stays visible and can no longer be edited. The same declaration gives the SQL of the controlled queries and the check of the policy, which runs in memory, without a query.
+
+A reader value of `null` closes the boundary: the reader reads no row and the policy refuses every ability, `create` included; the SQL never compares with `IS NULL`. A reader whose type the closure does not accept, such as a `Member` for `fn (User $user)`, is refused the same way. Any other value than an int, a string or `null` throws `InvalidBoundaryValueException`.
+
+A boundary that a column cannot express is a class that extends `Boundary`. It overrides `scope()`, the SQL form, and may override `includes()`, the form in memory; both receive the `AccessContext`:
+
+```php
+use Lomkit\Access\AccessContext;
+use Lomkit\Access\Boundaries\Boundary;
+
+class TenantBoundary extends Boundary
+{
+    protected function scope(Builder $query, AccessContext $context): void
+    {
+        $reader = $context->reader();
+
+        $query->whereIn('team_id', $reader instanceof User ? $reader->teams()->select('teams.id') : []);
+
+        if (! $context->ability()->is('view')) {
+            $query->where('locked', false);
+        }
+    }
+}
+
+protected function boundary(): Boundary
+{
+    return new TenantBoundary;
+}
+```
+
+Without `includes()`, the policy checks the boundary with an `exists` query on the row; with it, in memory. Even an unrestricted perimeter grants a row without SQL only when the boundary is empty or checks in memory: otherwise the policy runs that `exists` on the boundary alone. The policy checks the boundary before the `should` callbacks of the perimeters. `boundary()` follows the rule of `perimeters()`: it is built once per process and must not read the user, the request or the tenant while it builds the boundary (see [Pure perimeter lists](#pure-perimeter-lists)).
+
+Replace the overrides of `applies()` and `applyQueryControl()` that added such a condition by hand with a boundary:
+
+```php
+// Before
+protected function applyQueryControl(Builder $query, Model $user): Builder
+{
+    return parent::applyQueryControl($query->where('workspace_id', $user->current_workspace_id), $user);
+}
+
+public function applies(Model $user, string $method, Model $model): bool
+{
+    return $model->workspace_id === $user->current_workspace_id && parent::applies($user, $method, $model);
+}
+
+// After
+protected function boundary(): Boundary
+{
+    return Boundary::where('workspace_id', fn (User $user) => $user->current_workspace_id);
+}
+```
+
+`Control::applies()` is now `final`, and `applyQueryControl()` and `noResultQuery()` are removed: an override left in place is a fatal error when the class loads.
+
+A controlled Scout search on a model whose control declares a boundary throws `UnsearchableBoundaryException`: Scout cannot apply the boundary yet, so the search would return rows outside it. Read those rows through a controlled Eloquent query.
+
+### Testing the levels
+
+The `Lomkit\Access\Testing\InteractsWithAccess` trait adds assertions to your tests. `assertLevelsNest()` checks, for each reader and each pair of adjacent levels of every group, that no row of the lower level, inside the boundary, is missing from the upper level:
+
+```php
+use Lomkit\Access\Testing\InteractsWithAccess;
+
+class PostControlTest extends TestCase
+{
+    use InteractsWithAccess;
+
+    public function test_its_levels_nest(): void
+    {
+        $this->assertLevelsNest(PostControl::class, readers: [$this->author, $this->clientManager, $this->admin]);
+    }
+}
+```
+
+It reads the rows of the `query` callbacks with the `view` ability, not the `allowed` callbacks, and compares them with `not exists` on the key, so a `NULL` in a column cannot hide a missing row. It proves the nesting on the rows of the test only: seed the rows each level reaches.
 
 ### Linking a model to its control
 
@@ -447,7 +589,7 @@ The callbacks are private properties of `Perimeter`. A subclass that assigned `$
 
 ### Pure perimeter lists
 
-A control builds its perimeters once and keeps them for the whole process: a request, but also a queue worker or an Octane worker that serves many requests. `perimeters()` must therefore return the same perimeters every time it runs. In debug mode and in tests, each time the registry hands out a control, it builds `perimeters()` again and compares the result with the perimeters it keeps: the same classes in the same order, the same callbacks declared from the same lines, and the same values captured by the callbacks. A difference throws `ImpurePerimetersException`, which names the control. The check does not run when debug mode is off outside tests.
+A control builds its perimeters once and keeps them for the whole process: a request, but also a queue worker or an Octane worker that serves many requests. `perimeters()` must therefore return the same perimeters every time it runs. In debug mode and in tests, each time the registry hands out a control, it builds `perimeters()` again and compares the result with the perimeters it keeps: the same classes in the same order, the same callbacks declared from the same lines, and the same values captured by the callbacks. A difference throws `ImpurePerimetersException`, which names the control. The same goes for `boundary()`: the boundary is built once with the perimeters, and the check compares its class, its columns and the values its closure captures. The check does not run when debug mode is off outside tests.
 
 Move what `perimeters()` read when it built the perimeters into the callbacks, which run for each decision with the reader:
 
@@ -503,6 +645,8 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 
 `make:perimeter` still generates an empty perimeter class, whose rules are declared as callbacks in the control. The new `--hooks` option generates a class that overrides `allows()`, `includes()`, `scope()` and `scoutScope()` and denies everything until you fill them, from the new `perimeter.hooks.stub`, which `stub:publish` publishes too. `make:control --perimeters=...` generates only the callbacks of the hooks each perimeter class does not override. The generated `control.stub` no longer carries descriptive docblocks and marks `perimeters()` with `#[\Override]`. If your application published `stubs/control.stub`, publish it again with `php artisan stub:publish --force` or apply the same changes.
 
+`make:perimeter --overlay` and the `perimeter.overlay.stub` are removed, with `OverlayPerimeter`: `stub:publish` no longer publishes the stub, and a published `stubs/perimeter.overlay.stub` is no longer read, so delete it. Generate a plain perimeter and place it outside the `Levels::of()` group of the control. `make:control --perimeters=...` lists the perimeters as loose perimeters, which add up: group the levels of a hierarchy in `Levels::of()` by hand. The generated control declares no boundary; add a `boundary()` method when the model needs one.
+
 ### Correspondence table
 
 | 0.x | 1.0 |
@@ -533,3 +677,8 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `$this->allowedCallback = ...` in a perimeter subclass | `->allowed(...)`, or the `allows()` hook |
 | `$user instanceof User ? ... : $query->whereRaw('0 = 1')` in a callback | Type the reader: `fn (Builder $query, User $user) => ...` |
 | `Control::appNamespace()` | `app()->getNamespace()` |
+| `class SharedPerimeter extends OverlayPerimeter` | `class SharedPerimeter extends Perimeter`, written outside the `Levels::of()` group |
+| Perimeters that stop at the first allowed one | `Levels::of(...)`, widest first, in the same order; checked by `assertLevelsNest()` |
+| `overlays()` overridden on a perimeter | Removed: a perimeter outside a group always adds up |
+| `make:perimeter --overlay`, `stubs/perimeter.overlay.stub` | `make:perimeter`, the perimeter written outside the group |
+| `applies()` or `applyQueryControl()` overridden on a control to add a condition | `boundary()`, returning `Boundary::where(...)` or a `Boundary` class |

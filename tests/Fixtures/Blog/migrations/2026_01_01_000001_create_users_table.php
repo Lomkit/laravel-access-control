@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('client_id')->constrained();
             $table->string('name');
             $table->string('email');
+            $table->unsignedBigInteger('current_workspace_id')->nullable();
             $table->timestamps();
         });
     }

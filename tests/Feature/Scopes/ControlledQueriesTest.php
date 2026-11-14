@@ -153,7 +153,7 @@ class ControlledQueriesTest extends PackageTestCase
         $query = Post::where('published', true)->controlled();
 
         $this->assertSame(['Inventory', 'Release notes'], $query->orderBy('title')->pluck('title')->all());
-        $this->assertStringStartsWith('select * from posts where published = ? and ((exists (', $this->sql($query));
+        $this->assertStringStartsWith('select * from posts where published = ? and ((posts.workspace_id = ?) and ((posts.author_id in (?)) or (exists (', $this->sql($query));
     }
 
     #[Test]
@@ -166,7 +166,7 @@ class ControlledQueriesTest extends PackageTestCase
         $query = Post::where('published', true)->orWhere('title', 'Roadmap')->controlled();
 
         $this->assertSame(['Release notes'], $query->pluck('title')->all());
-        $this->assertStringStartsWith('select * from posts where (published = ? or title = ?) and ((', $this->sql($query));
+        $this->assertSame('select * from posts where (published = ? or title = ?) and ((posts.workspace_id = ?) and ((posts.author_id in (?))))', $this->sql($query));
     }
 
     #[Test]

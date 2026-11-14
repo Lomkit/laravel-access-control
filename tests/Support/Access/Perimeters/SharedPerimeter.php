@@ -2,6 +2,6 @@
 
 namespace Lomkit\Access\Tests\Support\Access\Perimeters;
 
-use Lomkit\Access\Perimeters\OverlayPerimeter;
+use Lomkit\Access\Perimeters\Perimeter;
 
-class SharedPerimeter extends OverlayPerimeter {}
+class SharedPerimeter extends Perimeter {}

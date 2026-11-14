@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
+use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Tests\Fixtures\Agencies\Agencies;
 use Lomkit\Access\Tests\Fixtures\Agencies\Member;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -79,7 +80,7 @@ class ReaderTypeTest extends PackageTestCase
     #[DataProvider('readerTypes')]
     public function it_applies_a_perimeter_only_to_the_readers_its_closures_accept(Closure $allowed, bool $appliesToUser, bool $appliesToMember): void
     {
-        ConfiguredPostControl::bind(GlobalPerimeter::new()->allowed($allowed)->unrestricted());
+        ConfiguredPostControl::bindWithin(Boundary::none(), GlobalPerimeter::new()->allowed($allowed)->unrestricted());
 
         $this->assertSame($appliesToUser, Gate::forUser($this->ada)->allows('update', $this->roadmap));
         $this->assertSame($appliesToMember, Gate::forUser($this->linus)->allows('update', $this->roadmap));
@@ -90,7 +91,8 @@ class ReaderTypeTest extends PackageTestCase
     #[Test]
     public function it_skips_a_perimeter_whose_query_closure_takes_another_reader(): void
     {
-        ConfiguredPostControl::bind(
+        ConfiguredPostControl::bindWithin(
+            Boundary::none(),
             ClientPerimeter::new()
                 ->allowed(fn (Model $reader): bool => true)
                 ->query(function (Builder $query, User $user): void {
@@ -110,7 +112,8 @@ class ReaderTypeTest extends PackageTestCase
     #[Test]
     public function it_skips_a_perimeter_whose_should_closure_takes_another_reader(): void
     {
-        ConfiguredPostControl::bind(
+        ConfiguredPostControl::bindWithin(
+            Boundary::none(),
             ClientPerimeter::new()
                 ->allowed(fn ($reader): bool => true)
                 ->should(fn (User $user, Post $post): bool => true)
