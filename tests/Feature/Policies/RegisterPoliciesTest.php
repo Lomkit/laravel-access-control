@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Policies;
 
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Access;
+use Lomkit\Access\Policies\AutomaticPolicy;
 use Lomkit\Access\Policies\ControlledPolicy;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
@@ -23,6 +24,7 @@ use Lomkit\Access\Tests\Fixtures\Ledger\Receipt;
 use Lomkit\Access\Tests\Fixtures\Ledger\RecordPolicy;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionMethod;
 
 class RegisterPoliciesTest extends PackageTestCase
 {
@@ -139,7 +141,13 @@ class RegisterPoliciesTest extends PackageTestCase
     {
         Access::registerPolicies();
 
-        $this->assertInstanceOf(RecordPolicy::class, Gate::getPolicyFor(Receipt::class));
+        $policy = Gate::getPolicyFor(Receipt::class);
+
+        $this->assertNotInstanceOf(AutomaticPolicy::class, $policy);
+
+        if ((new ReflectionMethod(\Illuminate\Auth\Access\Gate::class, 'getPolicyFromAttribute'))->getNumberOfParameters() > 1) {
+            $this->assertInstanceOf(RecordPolicy::class, $policy);
+        }
     }
 
     #[Test]
