@@ -244,6 +244,63 @@ protected function boundary(): Boundary
 
 A controlled search applies the boundary too: `Boundary::where()` gives its search keys, and a boundary class declares them in `searchKeys()` (see [Search](#search)).
 
+### Inheriting the access of a parent
+
+A child row often has exactly the access of its parent: a comment is visible to whoever may view its post. In 0.x each application wrote it by hand, in a `query` callback that repeated the parent's rules or called `controlled()` inside a `whereHas()`. Forgetting that inner `controlled()`, or the parent's control, opened every child row that had a parent. `Lomkit\Access\Perimeters\ThroughParent` declares it once:
+
+```php
+// Before
+CommentPerimeter::new()
+    ->allowed(fn (User $user) => true)
+    ->query(fn (Builder $query) => $query->whereHas('post', fn (Builder $posts) => $posts->controlled()));
+
+// After
+use Lomkit\Access\Perimeters\ThroughParent;
+
+protected function perimeters(): array
+{
+    return [
+        ThroughParent::belongsTo('post', inverse: 'comments'),
+        AuthorPerimeter::new()
+            ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} own comments"))
+            ->query(fn (Builder $query, User $user) => $query->where('author_id', $user->id)),
+    ];
+}
+```
+
+The control of the parent decides for the same reader and the same decision context, in the policy, in `controlled()`, in the row checks, in `withAbilities()`, `Access::preload()` and `reachableKeys()`. The parent's boundary applies to the parent, and the child's own boundary still applies to the child (AND).
+
+**Only `view` is delegated by default.** Reusing every ability would let whoever may update a post delete any comment on it. `->delegates([...])` replaces the default with the abilities it lists: a list item delegates the same ability, a string key maps a child ability to an ability of the parent. Creating a comment on a post the reader may view is the usual mapping:
+
+```php
+ThroughParent::belongsTo('post')->delegates(['view', 'update', 'create' => 'view']);
+```
+
+For an ability it does not delegate, the perimeter does not apply, as if `allowed()` returned false. For a delegated one, it applies when the control of the parent reaches at least one perimeter for the reader and the mapped ability, a check that runs no query.
+
+`ThroughParent` takes no other callback: `allowed()`, `should()`, `query()`, `searchKeys()`, `reindexWhen()` and `unrestricted()` throw `ThroughParentCallbackException`. Declare another rule in a perimeter of its own next to it.
+
+**Composition.** A `ThroughParent` adds up with the other perimeters like any perimeter outside a group, and two of them add up: `ThroughParent::belongsTo('post')` and `ThroughParent::belongsTo('author')` grant the comments of the posts the reader may view and the comments of the users the reader may view. It may also be a level of a `Levels::of()` group: the reader reaches that level when the parent reaches a perimeter for the mapped ability. Parents nest: a comment inherits from its post, which inherits from its project.
+
+**SQL.** A stored child is checked in SQL through an `exists` subquery on the parent, built by `whereHas()` and restricted by the control of the parent for the mapped ability, so a decision costs one query, and batches and kept decisions apply to it as to any perimeter checked in SQL. The parent's global scopes apply: a soft-deleted parent grants no child. The key of a kept decision includes the perimeters the parent reaches, so a permission withdrawn from the parent during a request is never answered from a kept decision.
+
+**Drafts.** A draft is not in the database, so `create` with a draft loads its parent by the foreign key (one query) and asks the control of the parent to decide on that stored parent for the mapped ability. A draft without a parent key, or whose parent does not exist, is refused. A relation loaded on the draft is ignored: only the foreign key counts.
+
+**Validation.** The control validates its `ThroughParent` perimeters when it builds its perimeters, at its first use, or when the registry resolves it in debug mode and in tests, before any query:
+
+| Mistake | Exception |
+| --- | --- |
+| The relation does not exist on the child model | `InvalidParentRelationException` |
+| The relation is not a `belongsTo` (`hasMany`, `morphTo`, `belongsToMany`...) | `InvalidParentRelationException`: other relations come in 1.1 |
+| `inverse` is not the `hasMany` of the parent on the same keys | `InvalidParentRelationException` |
+| No control is registered for the parent model | `MissingParentControlException` |
+| The parents lead back to the child, directly or through several hops | `ParentCycleException`, naming the cycle |
+| `delegates()` gets an empty list, an ability twice, or something else than an ability | `InvalidDelegationException` |
+
+`inverse` names the `hasMany` from the parent to its children. It is optional for now and validated when given; the search will use it to reindex the children when the parent's keys change. Until then, a `ThroughParent` adds no key to a search, so a searchable child is found only through its other perimeters, never wider than SQL.
+
+`php artisan make:control CommentControl --parent=post` writes the `ThroughParent::belongsTo('post')` entry, and refuses a relation that is not a `belongsTo` of the model.
+
 ### Testing the levels
 
 The `Lomkit\Access\Testing\InteractsWithAccess` trait adds three assertions to your tests: `assertLevelsNest()` for the levels (below), `assertControlAgrees()` for the decisions (see [Testing the decisions](#testing-the-decisions)) and `assertSearchAgrees()` for the search (see [Testing the search](#testing-the-search)). `assertLevelsNest()` checks, for each reader and each pair of adjacent levels of every group, that no row of the lower level, inside the boundary, is missing from the upper level:
@@ -1233,6 +1290,7 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
 | A brand or tenant read inside the callbacks, with decisions cached by hand | `Access::decisionContextUsing(fn () => ['brand' => ...])`, read in hooks with `$context->decisionContext()` |
 | `->addSelect(['can_update' => ...])` or a helper that collects the editable keys | `->withAbilities(['update'])`, then `can()`; `Access::preload()` or `reachableKeys()` for loaded rows |
+| `->query(fn ($query) => $query->whereHas('post', fn ($posts) => $posts->controlled()))` on a child | `ThroughParent::belongsTo('post', inverse: 'comments')`, with `->delegates([...])` beyond `view` |
 | A test that compares `can()` with `controlled()` by hand | `assertControlAgrees(PostControl::class, $reader, $rows)` |
 | `use Searchable` on a controlled model | `use ControlledSearchable`, then reindex |
 | `->scoutQuery(fn ($query, $user) => $query->where('client_id', $user->client_id))` | `->searchKeys(name: 'client', row: fn ($post) => $post->client_id, reader: fn ($user) => $user->client_id)` |

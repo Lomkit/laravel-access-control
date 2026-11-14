@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext, rows checked in memory or in SQL), Levels groups, boundaries, ControlledPolicy (Response codes, drafts, Access::registerPolicies(), business abilities through decide()), unrestricted perimeters, the assertLevelsNest() and assertControlAgrees() test assertions, batched decisions (withAbilities(), Access::preload(), reachableKeys()), the controlled(), controlledFor() and uncontrolled() query scopes, and Laravel Scout searches through indexed access keys (ControlledSearchable, searchKeys(), reindexWhen(), the ReindexesSearch pivot trait, assertSearchAgrees()).
+description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext, rows checked in memory or in SQL), ThroughParent (a child inherits the access of its belongsTo parent), Levels groups, boundaries, ControlledPolicy (Response codes, drafts, Access::registerPolicies(), business abilities through decide()), unrestricted perimeters, the assertLevelsNest() and assertControlAgrees() test assertions, batched decisions (withAbilities(), Access::preload(), reachableKeys()), the controlled(), controlledFor() and uncontrolled() query scopes, and Laravel Scout searches through indexed access keys (ControlledSearchable, searchKeys(), reindexWhen(), the ReindexesSearch pivot trait, assertSearchAgrees()).
 ---
 
 # Laravel Access Control
@@ -10,11 +10,11 @@ description: Build and work with Lomkit Access Control features in Laravel, incl
 Use this skill when working with Lomkit Access Control in a Laravel project that requires `lomkit/laravel-access-control`. Activate when the user:
 
 - Writes or modifies a `Policy` and wants authorization centralized in a single class, or mentions `Access::registerPolicies()`, a draft for `create`, `Draft::of()`, or a refusal code such as `outside_boundary`.
-- Needs row-level filtering on Eloquent queries (multi-tenant, per-client, per-team, ownership).
+- Needs row-level filtering on Eloquent queries (multi-tenant, per-client, per-team, ownership), or a child model (comment, line, attachment) that has the access of its parent.
 - Runs `php artisan make:control` or `php artisan make:perimeter`.
 - Mentions `#[ControlledBy]`, `Access::controlFor()`, `Access::hasControl()`, or `access:cache`.
 - Mentions `Ability`, `Ability::of()`, `abilityFor()`, or a business ability such as `approve` on a controlled model.
-- Mentions `Control`, `Perimeter`, `AccessContext`, `decisionContext()`, `Access::decisionContextUsing()`, `Access::forgetDecisions()`, `withAbilities()`, `Access::preload()`, `reachableKeys()`, `assertControlAgrees()`, `admits()`, `applicablePerimeters()`, `Levels::of()`, `Boundary`, `boundary()`, `unrestricted()`, `assertLevelsNest()`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
+- Mentions `Control`, `Perimeter`, `AccessContext`, `decisionContext()`, `Access::decisionContextUsing()`, `Access::forgetDecisions()`, `withAbilities()`, `Access::preload()`, `reachableKeys()`, `assertControlAgrees()`, `admits()`, `applicablePerimeters()`, `ThroughParent::belongsTo()`, `delegates()`, `Levels::of()`, `Boundary`, `boundary()`, `unrestricted()`, `assertLevelsNest()`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
 - Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules, or mentions `ControlledSearchable`, `searchKeys()`, `reindexWhen()`, `ReindexesSearch`, `Access::searchFilterables()` or `assertSearchAgrees()`.
 - Asks why a search still shows a document after a related model changed (stale access keys), or how to reindex the documents when a parent, a pivot or a mass update changes the data a key reads.
 
@@ -112,6 +112,20 @@ protected function perimeters(): array
             OwnPerimeter::new()->allowed(...)->should(...)->query(...),
         ),
         SharedPerimeter::new()->allowed(...)->should(...)->query(...), // outside the group: adds up
+    ];
+}
+```
+
+- ThroughParent: `ThroughParent::belongsTo('post', inverse: 'comments')` (`Lomkit\Access\Perimeters\ThroughParent`) gives a child the access of its `belongsTo` parent: the control of the parent decides for the same reader and decision context, with its boundary, in the policy, in `controlled()`, in the row checks (one `exists` through `whereHas()`, the parent's global scopes included), in `withAbilities()`, `Access::preload()` and `reachableKeys()`. Only `view` is delegated by default; `->delegates(['view', 'update', 'create' => 'view'])` replaces it (a list item delegates the same ability, a string key maps a child ability to a parent ability), and a non-delegated ability does not reach the perimeter. A draft (`create`) loads its parent by the foreign key (one query) and the parent control decides on that stored parent; no key, no parent: refused. It adds up like any loose perimeter (two parents add up), may be a level of a group, and parents nest. It takes no other callback (`ThroughParentCallbackException`). When the control builds its perimeters, before any query, a relation that is missing or not a `belongsTo` (or a wrong `inverse`) throws `InvalidParentRelationException`, a parent without control `MissingParentControlException`, a cycle `ParentCycleException`, a bad `delegates()` `InvalidDelegationException`. `make:control --parent=post` writes the entry. Example usage:
+
+```php
+use Lomkit\Access\Perimeters\ThroughParent;
+
+protected function perimeters(): array
+{
+    return [
+        ThroughParent::belongsTo('post', inverse: 'comments')->delegates(['view', 'create' => 'view']),
+        AuthorPerimeter::new()->allowed(...)->query(fn (Builder $query, User $user) => $query->where('author_id', $user->id)),
     ];
 }
 ```
@@ -303,6 +317,7 @@ Post::search('budget')->uncontrolled()->get(); // back office, exports
   - Order and class no longer decide how perimeters combine: put a hierarchy in `Levels::of()`, widest first (admin grants first, declared with `unrestricted()`), and keep additive grants (shared, delegated) outside the group. Never put a perimeter that does not nest in a group: verify with `assertLevelsNest()`.
   - A tenant or workspace condition belongs in `boundary()`, not repeated in every `query`/`should`, and never in an override of `applies()` (final) or of the removed `applyQueryControl()`. A `Gate::before` that returns true bypasses the boundary (Laravel semantics).
   - A `query` callback must constrain the builder it receives: returning another builder (e.g. `Model::query()->where(...)`) throws `QueryCallbackReturnedAnotherBuilderException`. A `query` callback that adds no `where` (nothing, only `orderBy`/`limit`/`join`, or a `when()` that skips) throws `EmptyQueryCallbackException`: use `unrestricted()` for every row, or `whereRaw('0=1')` for no row. A `query` callback or a boundary `scope()` that adds a join throws `JoinInPerimeterException` (Laravel drops joins inside the nested where group): use `whereHas()` or an `exists` subquery.
+  - A child with the access of its parent is a `ThroughParent::belongsTo(...)`, never a `query` callback with `whereHas('post', ...)` written by hand: that callback runs without the parent's control unless it calls `controlled()` itself, and opens every child of any parent once it is forgotten. Widen it with `delegates()` only for the abilities that truly follow the parent: delegating `delete` to the parent's `update` lets every editor of a post delete its comments.
   - `create` without a draft only runs `allowed` ("somewhere"): pass the draft (`can('create', [Post::class, $draft])`) to check where it lands, and give the perimeters readers create through a `should` callback, since a draft is judged only in memory.
   - Never `fill()` a row and authorize `update` to check the new values: the policy decides on the stored row; check new values through a `Draft`. Never decide `view`/`update` on an unsaved model: it is refused (`unsaved`).
   - `scoutQuery` and the `scoutScope()` hook no longer exist: declare `searchKeys()`. A perimeter reached by the reader without `searchKeys` adds nothing to the search (narrower than SQL): give every perimeter of a searchable model its keys, and check with `assertSearchAgrees()`.
