@@ -2,24 +2,16 @@
 
 namespace {{ namespace }};
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Controls\Control;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 class {{ class }} extends Control
 {
-     /**
-      * The model the control refers to.
-      * @var class-string<Model>
-      */
-     protected string $model = \{{ namespacedModel }}::class;
+    protected string $model = \{{ namespacedModel }}::class;
 
-    /**
-     * Retrieve the list of perimeter definitions for the current control.
-     *
-     * @return array<\Lomkit\Access\Perimeters\Perimeter> An array of Perimeter objects.
-     */
+    #[\Override]
     protected function perimeters(): array
     {
         return [

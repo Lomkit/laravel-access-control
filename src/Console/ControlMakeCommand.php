@@ -4,8 +4,9 @@ namespace Lomkit\Access\Console;
 
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\GeneratorCommand;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use InvalidArgumentException;
+use Illuminate\Support\Str;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -21,6 +22,23 @@ use function Laravel\Prompts\select;
 class ControlMakeCommand extends GeneratorCommand
 {
     protected $type = 'Control';
+
+    #[\Override]
+    public function handle(): bool|int|null
+    {
+        $model = $this->controlledModel();
+
+        if (! is_subclass_of($model, Model::class)) {
+            $this->components->error(sprintf(
+                'The [%s] model is not an Eloquent model class. A control needs the model it controls: create the model first, or name it with --model.',
+                $model,
+            ));
+
+            return self::FAILURE;
+        }
+
+        return parent::handle();
+    }
 
     #[\Override]
     protected function getStub(): string
@@ -44,29 +62,12 @@ class ControlMakeCommand extends GeneratorCommand
     #[\Override]
     protected function buildClass($name): string
     {
-        $rootNamespace = $this->rootNamespace();
-        $controlNamespace = $this->getNamespace($name);
+        $replace = (new ControlStubReplacements($this->controlledModel(), $this->perimeterClasses()))->toArray();
 
-        /** @var array<string, string> $replace */
-        $replace = [];
-
-        $baseControlExists = file_exists($this->getPath("{$rootNamespace}Access\Controls\Control"));
-
-        /** @var list<string> $perimeters */
-        $perimeters = $this->option('perimeters');
-
-        $replace = $this->buildPerimetersReplacements($replace, $perimeters);
-
-        $model = $this->option('model');
-
-        if (is_string($model) && $model !== '') {
-            $replace = $this->buildModelReplacements($replace, $model);
-        }
-
-        if ($baseControlExists) {
+        if (file_exists($this->getPath("{$this->rootNamespace()}Access\Controls\Control"))) {
             $replace['use Lomkit\Access\Controls\Control;'] = '';
         } else {
-            $replace["use {$controlNamespace}\Control;\n"] = '';
+            $replace["use {$this->getNamespace($name)}\Control;\n"] = '';
         }
 
         return str_replace(
@@ -76,43 +77,28 @@ class ControlMakeCommand extends GeneratorCommand
         );
     }
 
-    /**
-     * @param  array<string, string>  $replace
-     * @return array<string, string>
-     */
-    protected function buildModelReplacements(array $replace, string $model): array
+    protected function controlledModel(): string
     {
-        $modelClass = $this->parseModel($model);
+        $model = $this->option('model');
 
-        return array_merge($replace, [
-            'DummyFullModelClass' => $modelClass,
-            '{{ namespacedModel }}' => $modelClass,
-            '{{namespacedModel}}' => $modelClass,
-            'DummyModelClass' => class_basename($modelClass),
-            '{{ model }}' => class_basename($modelClass),
-            '{{model}}' => class_basename($modelClass),
-            'DummyModelVariable' => lcfirst(class_basename($modelClass)),
-            '{{ modelVariable }}' => lcfirst(class_basename($modelClass)),
-            '{{modelVariable}}' => lcfirst(class_basename($modelClass)),
-        ]);
+        if (! is_string($model) || $model === '') {
+            $model = Str::replaceLast('Control', '', class_basename($this->getNameInput()));
+        }
+
+        $model = ltrim(str_replace('/', '\\', $model), '\\');
+
+        return class_exists($model) ? $model : $this->qualifyModel($model);
     }
 
-    /**
-     * @param  array<string, string>  $replace
-     * @param  list<string>  $perimeters
-     * @return array<string, string>
-     */
-    protected function buildPerimetersReplacements(array $replace, array $perimeters): array
+    /** @return list<string> */
+    protected function perimeterClasses(): array
     {
-        $perimetersImplementation = implode("\n            ", array_map(
-            fn (string $perimeter): string => (new GeneratedPerimeter('\\'.$this->rootNamespace().'Access\\Perimeters\\'.$perimeter))->code(),
-            $perimeters,
-        ));
+        $perimeters = $this->option('perimeters');
 
-        return array_merge($replace, [
-            '{{ perimeters }}' => $perimetersImplementation,
-            '{{perimeters}}' => $perimetersImplementation,
-        ]);
+        return array_values(array_map(
+            fn (string $perimeter): string => $this->rootNamespace().'Access\\Perimeters\\'.$perimeter,
+            array_filter(is_array($perimeters) ? $perimeters : [], is_string(...)),
+        ));
     }
 
     /** @return list<array{string, string, int, string}> */
@@ -121,7 +107,7 @@ class ControlMakeCommand extends GeneratorCommand
     {
         return [
             ['perimeters', 'p', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'The perimeters that the control relies on'],
-            ['model', 'm', InputOption::VALUE_REQUIRED, 'The model the control relies on'],
+            ['model', 'm', InputOption::VALUE_REQUIRED, 'The model the control relies on, named after the control by default'],
         ];
     }
 
@@ -145,13 +131,11 @@ class ControlMakeCommand extends GeneratorCommand
 
         if (! empty($this->possibleModelNames())) {
             $model = select(
-                'What model should this control apply to? (Optional)',
+                'What model should this control apply to?',
                 $this->possibleModelNames(),
             );
 
-            if ($model) {
-                $input->setOption('model', $model);
-            }
+            $input->setOption('model', $model);
         }
     }
 
@@ -175,15 +159,5 @@ class ControlMakeCommand extends GeneratorCommand
             ->sort()
             ->values()
             ->all();
-    }
-
-    /** @throws InvalidArgumentException */
-    protected function parseModel(string $model): string
-    {
-        if (preg_match('([^A-Za-z0-9_/\\\\])', $model)) {
-            throw new InvalidArgumentException('Model name contains invalid characters.');
-        }
-
-        return $this->qualifyModel($model);
     }
 }

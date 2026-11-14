@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Perimeters;
 
 use Illuminate\Database\Eloquent\Builder;
 use Lomkit\Access\Ability;
+use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -106,12 +107,14 @@ class MissingCallbackTest extends PackageTestCase
     public function it_throws_on_each_use_of_a_perimeter_without_callbacks(): void
     {
         $perimeter = Perimeter::new();
+        $context = AccessContext::of($this->ada, Ability::view());
 
         foreach ([
-            'allowed' => fn () => $perimeter->applyAllowedCallback($this->ada, Ability::view()),
-            'should' => fn () => $perimeter->applyShouldCallback($this->ada, $this->releaseNotes),
-            'query' => fn () => $perimeter->applyQueryCallback(Post::query(), $this->ada),
-        ] as $callback => $apply) {
+            ['allowed', fn () => $perimeter->applyAllowedCallback($context)],
+            ['should', fn () => $perimeter->applyShouldCallback($this->releaseNotes, $context)],
+            ['query', fn () => $perimeter->applyQueryCallback(Post::query(), $context)],
+            ['allowed', fn () => $perimeter->admits($this->ada, Ability::view(), $this->releaseNotes)],
+        ] as [$callback, $apply]) {
             try {
                 $apply();
 

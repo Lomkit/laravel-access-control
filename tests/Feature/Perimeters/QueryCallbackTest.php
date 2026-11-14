@@ -87,9 +87,9 @@ class QueryCallbackTest extends PackageTestCase
 
         $this->expectException(QueryCallbackReturnedAnotherBuilderException::class);
         $this->expectExceptionMessage(sprintf(
-            'The [query] callback of the [%s] perimeter in the [%s] control returned another builder.',
+            'The [query] callback of the [%s] perimeter returned another builder for the [%s] model.',
             OwnPerimeter::class,
-            ConfiguredPostControl::class,
+            Post::class,
         ));
 
         $this->readTitles();

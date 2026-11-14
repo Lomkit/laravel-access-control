@@ -58,7 +58,7 @@ A controlled query no longer skips its control while the guard retrieves the use
 
 ### Named readers
 
-`controlledFor()` applies the control for a reader you name, where `controlled()` reads the signed-in user: use it in jobs, listeners and commands, which have no signed-in user. Replace the calls to `Control::queried()` with `controlledFor()`:
+`controlledFor()` applies the control for a reader you name, where `controlled()` reads the signed-in user: use it in jobs, listeners and commands, which have no signed-in user. `Control::queried()` is removed: replace its calls with `controlledFor()`:
 
 ```php
 // Before
@@ -84,7 +84,7 @@ The `query` callback of a perimeter constrains the builder it receives, and its 
 })
 ```
 
-A callback that returns another builder now throws `QueryCallbackReturnedAnotherBuilderException`, which names the perimeter and the control. In 0.x the returned builder was ignored, so its constraints were lost and the perimeter let every row through. Apply the constraints to the builder the callback receives instead:
+A callback that returns another builder now throws `QueryCallbackReturnedAnotherBuilderException`, which names the perimeter and the model. In 0.x the returned builder was ignored, so its constraints were lost and the perimeter let every row through. Apply the constraints to the builder the callback receives instead:
 
 ```php
 // Before: Post::query() is a new builder, so the perimeter added nothing
@@ -228,6 +228,8 @@ OwnPerimeter::new()
 
 A closure whose second parameter is untyped, or typed with a type that cannot receive an `Ability` such as `string` or `?string`, now throws `AbilityParameterTypeException` when the perimeter is declared, with the fix in the message. In 0.x it received a string; given the `Ability` object, its `===`, `match` and strict `in_array` comparisons would never match, and a `default` arm would grant every ability. The second parameter may also be typed `?Ability`, a union that contains `Ability`, `Stringable`, `object` or `mixed`: it then receives the `Ability` object. A closure that takes only the reader, such as `fn (User $user) => true`, needs no change.
 
+The same rule applies to the ability that the `should`, `query` and `scoutQuery` callbacks receive as their third parameter (see [Perimeter callbacks](#perimeter-callbacks)).
+
 Compare abilities with `is()`, never with `===`: two abilities with the same name are not the same object, and an ability restored by `unserialize()` is a new one.
 
 Replace each read of the removed `methods` map with the ability it named:
@@ -265,7 +267,7 @@ public function abilityFor(string $policyMethod): Ability
 
 `Ability::of()` throws `InvalidAbilityException` for an empty name, a name with whitespace or a name that is not valid UTF-8, and so does `abilityFor()` for such a policy method.
 
-`Control::applies()`, `Control::applicablePerimeters()` and `Perimeter::applyAllowedCallback()` take an `Ability` instead of a string, and `ControlledPolicy` passes the ability of each method. Update the calls, and the signatures of the methods your controls and perimeters override:
+`Control::applies()` and `Control::applicablePerimeters()` take an `Ability` instead of a string, and `ControlledPolicy` passes the ability of each method. Update the calls:
 
 ```php
 // Before
@@ -277,32 +279,220 @@ $control->applies($user, Ability::update(), $post);
 $control->applies($user, $control->abilityFor('viewAny'), new Post);
 ```
 
-A perimeter class that overrides `applyAllowedCallback()` declares its second parameter as `Ability $ability`, and compares it with `$ability->is('view')`. An override typed `string $method` is a fatal error, and an untyped one throws `AbilityParameterTypeException` when the control resolves its perimeters, instead of receiving an object that a string comparison would never match. An override typed `mixed` receives the `Ability` object:
-
-```php
-// Before
-public function applyAllowedCallback(Model $user, $method): bool
-{
-    return $method === 'view';
-}
-
-// After
-public function applyAllowedCallback(Model $user, Ability $ability): bool
-{
-    return $ability->is('view');
-}
-```
+A perimeter class that overrides `applyAllowedCallback()` moves to the `allows()` hook, which reads the ability from its context: see [Perimeter classes](#perimeter-classes).
 
 `make:control` now generates `fn (Model $user, Ability $ability)` closures, and its `control.stub` imports `Lomkit\Access\Ability`. If your application published `stubs/control.stub`, add `use Lomkit\Access\Ability;` to it, or the generated controls will not find the class.
 
 laravel-rest-api has its own `Lomkit\Rest\Authorization\Ability` enum, closed to its standard actions. It is a different type: import the one of the package you call.
+
+### Perimeter classes
+
+The `apply*Callback()` methods of `Perimeter` are now `final`: a perimeter class can no longer override them, and an override left in place is a fatal error when the class loads. A perimeter class overrides protected hooks instead. Each hook receives a `Lomkit\Access\AccessContext`, which gives the reader with `reader()` and the ability with `ability()`. The package builds the context; new information can be added to it in 1.x without changing the hook signatures.
+
+| 0.x override | 1.0 hook | What it decides |
+| --- | --- | --- |
+| `applyAllowedCallback(Model $user, $method): bool` | `allows(AccessContext $context): bool` | Whether the perimeter applies to the reader, for the ability |
+| `applyShouldCallback(Model $user, Model $model): bool` | `includes(Model $row, AccessContext $context): bool` | Whether a row belongs to the perimeter |
+| `applyQueryCallback(Builder $query, Model $user): Builder` | `scope(Builder $query, AccessContext $context): void` | The rows of the perimeter, as constraints on `$query` |
+| `applyScoutQueryCallback(ScoutBuilder $query, Model $user): ScoutBuilder` | `scoutScope(ScoutBuilder $query, AccessContext $context): void` | The rows of the perimeter, as Scout filters |
+
+Rename each override, make it `protected`, and read the reader and the ability from the context. A rule is written once: either as a hook in the perimeter class, or as a callback in the control. Declaring the `allowed`, `should`, `query` or `scoutQuery` callback of a hook that the class overrides now throws `OverriddenPerimeterHookException`, which names the perimeter and the hook: in 0.x, an override that did not call its parent silently ignored the callback. Move the logic of the callback into the hook, or remove the override and keep the callback. A parent hook that has no callback throws `MissingPerimeterCallbackException`, so an override no longer calls it.
+
+`allows()`:
+
+```php
+// Before
+public function applyAllowedCallback(Model $user, string $method): bool
+{
+    return $user->is_active && $user->can("{$method} client posts");
+}
+
+// After
+use Lomkit\Access\AccessContext;
+
+protected function allows(AccessContext $context): bool
+{
+    $reader = $context->reader();
+
+    return $reader instanceof User && $reader->is_active && $reader->can("{$context->ability()} client posts");
+}
+```
+
+`includes()`, which now also receives the ability, so a perimeter can read the client's rows and update only its own:
+
+```php
+// Before
+public function applyShouldCallback(Model $user, Model $model): bool
+{
+    return $model->client_id === $user->client_id;
+}
+
+// After
+protected function includes(Model $row, AccessContext $context): bool
+{
+    $reader = $context->reader();
+
+    if (! $reader instanceof User) {
+        return false;
+    }
+
+    return $context->ability()->is('view')
+        ? $row->client_id === $reader->client_id
+        : $row->author_id === $reader->id;
+}
+```
+
+`scope()`, which constrains the builder it receives and returns nothing:
+
+```php
+// Before
+public function applyQueryCallback(Builder $query, Model $user): Builder
+{
+    return $query->where('client_id', $user->client_id)->where('archived', false);
+}
+
+// After
+protected function scope(Builder $query, AccessContext $context): void
+{
+    $reader = $context->reader();
+
+    $query
+        ->where('client_id', $reader instanceof User ? $reader->client_id : 0)
+        ->where('archived', false);
+}
+```
+
+`scoutScope()`:
+
+```php
+// Before
+public function applyScoutQueryCallback(ScoutBuilder $query, Model $user): ScoutBuilder
+{
+    return $query->where('client_id', $user->client_id);
+}
+
+// After
+protected function scoutScope(ScoutBuilder $query, AccessContext $context): void
+{
+    $reader = $context->reader();
+
+    $query->where('client_id', $reader instanceof User ? $reader->client_id : 0);
+}
+```
+
+A hook receives the reader as `Model`, the type of every reader: a perimeter class cannot narrow it to `User` in its signature, so it checks the reader with `instanceof`, as above. The perimeter controls the rows of one model, so `$row` and `$query` are rows of that model.
+
+`unrestricted()` throws `UnrestrictedPerimeterCallbackException` on a perimeter class that overrides `includes()`, `scope()` or `scoutScope()`: an unrestricted perimeter never runs them.
+
+`Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` tells whether the perimeter applies to the reader for the ability and contains the row, through its hooks or its callbacks. Inside a control, `applicablePerimeters(Model $reader, Ability $ability)` returns the perimeters that apply to the reader for the ability: together, they tell which perimeters grant a row.
+
+`applyAllowedCallback()`, `applyShouldCallback()`, `applyQueryCallback()` and `applyScoutQueryCallback()` are internal: they take an `AccessContext` and are called by the control. Replace your calls with `admits()`, or with the policy and the controlled queries. `UntypedAbilityHookException` is removed, since `allows()` reads the ability from its context.
+
+### Perimeter callbacks
+
+The `should`, `query` and `scoutQuery` callbacks receive the ability after their other arguments. It is optional: the closures of 0.x keep working.
+
+```php
+OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+    ->should(fn (User $user, Post $post, Ability $ability) => $ability->is('view')
+        ? $post->client_id === $user->client_id
+        : $post->author_id === $user->id)
+    ->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id)),
+```
+
+As for `allowed`, the parameter must accept an `Ability`, or the declaration throws `AbilityParameterTypeException`. The controlled queries and searches always pass `view`.
+
+An `allowed` or `should` callback must return a boolean: any other value, such as `1`, `'yes'` or nothing, now throws `PerimeterCallbackResultException`, which names the perimeter and the callback, instead of being converted. Return `true` or `false`.
+
+`QueryCallbackReturnedAnotherBuilderException` now names the perimeter and the model instead of the control. `MissingPerimeterCallbackException` is now final, and its message also names the hook to override.
+
+### Readers of another type
+
+A perimeter whose callbacks type the reader, such as `fn (User $user, ...)`, now applies only to the readers of that type. For another reader, such as an API client model, the perimeter does not apply: the policy and the controlled queries skip it, instead of failing with a `TypeError`. The package reads the type of the reader parameter of each callback once, when the perimeter is declared: a class, a nullable class, an interface, a union or an intersection. An untyped parameter, `Model`, `object` or `mixed` accepts every reader. Remove the guards that refused other readers by hand:
+
+```php
+// Before
+->query(fn (Builder $query, Model $user) => $user instanceof User
+    ? $query->where('client_id', $user->client_id)
+    : $query->whereRaw('0 = 1'))
+
+// After
+->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id))
+```
+
+The perimeter is skipped when any of its callbacks refuses the reader: type the callbacks of a perimeter with the same reader type.
+
+### Immutable perimeters
+
+A perimeter cannot change once it is declared. `allowed()`, `should()`, `query()`, `scoutQuery()` and `unrestricted()` return a new perimeter and leave the one they are called on unchanged, and return `static`. Chain the declarations, or keep the returned perimeter:
+
+```php
+// Before: each call changed $perimeter
+$perimeter = OwnPerimeter::new();
+$perimeter->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} own posts"));
+$perimeter->query(fn (Builder $query, User $user) => $query->whereBelongsTo($user, 'author'));
+
+// After
+$perimeter = OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} own posts"))
+    ->query(fn (Builder $query, User $user) => $query->whereBelongsTo($user, 'author'));
+```
+
+A declaration whose result is dropped is lost: the perimeter then throws `MissingPerimeterCallbackException` when the callback is needed.
+
+The callbacks are private properties of `Perimeter`. A subclass that assigned `$this->allowedCallback`, `$this->shouldCallback`, `$this->queryCallback` or `$this->scoutQueryCallback` now writes a property of its own, which the package never reads: declare the callbacks with the fluent methods, or override the hooks.
+
+`Control::getPerimeters()` is removed. The perimeters of a control are built once by `perimeters()` and kept by the control; nothing can read or change them from outside. Inside a control, use `applicablePerimeters($reader, $ability)`; elsewhere, use the policy, `admits()` or the controlled queries.
+
+### Pure perimeter lists
+
+A control builds its perimeters once and keeps them for the whole process: a request, but also a queue worker or an Octane worker that serves many requests. `perimeters()` must therefore return the same perimeters every time it runs. In debug mode and in tests, each time the registry hands out a control, it builds `perimeters()` again and compares the result with the perimeters it keeps: the same classes in the same order, the same callbacks declared from the same lines, and the same values captured by the callbacks. A difference throws `ImpurePerimetersException`, which names the control. The check does not run when debug mode is off outside tests.
+
+Move what `perimeters()` read when it built the perimeters into the callbacks, which run for each decision with the reader:
+
+```php
+// Before: the client of the first user is captured for the whole worker
+protected function perimeters(): array
+{
+    $client = auth()->user()->client_id;
+
+    return [
+        ClientPerimeter::new()
+            ->allowed(fn (User $user) => true)
+            ->query(fn (Builder $query) => $query->where('client_id', $client)),
+    ];
+}
+
+// After
+protected function perimeters(): array
+{
+    return [
+        ClientPerimeter::new()
+            ->allowed(fn (User $user) => true)
+            ->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id)),
+    ];
+}
+```
+
+The same goes for a perimeter list that depends on the user, the request, the tenant, the configuration of the moment, the database or the clock. Captured values are compared by identity, except closures, compared by the line that declares them, and readonly objects such as `Ability`, compared by value: create any other object in a property of the control, or inside the callback.
+
+### Removed helpers
+
+`Control::appNamespace()` is removed. Read the namespace of the application with `app()->getNamespace()`.
+
+### Generators
+
+`make:control` without `--model` now names the model after the control, such as `App\Models\Post` for `PostControl`, where it used to write a placeholder that did not compile. It refuses, and writes nothing, when the model is not an Eloquent model class. `--model` also accepts a fully qualified class outside `App\Models`, such as `--model='Domain\Blog\Post'`.
+
+`make:perimeter` now generates a perimeter class that overrides `allows()`, `includes()` and `scope()` and denies everything until you fill them. `make:control --perimeters=...` generates only the callbacks of the hooks each perimeter class does not override. The generated `control.stub` no longer carries descriptive docblocks and marks `perimeters()` with `#[\Override]`. If your application published `stubs/control.stub` or `stubs/perimeter.plain.stub`, publish them again with `php artisan stub:publish --force` or apply the same changes.
 
 ### Correspondence table
 
 | 0.x | 1.0 |
 | --- | --- |
 | `'queries' => ['enabled_by_default' => true]` | `controlled()` on each query that must be filtered |
-| `$control->queried($query, $user)` | `$query->controlledFor($user)` |
+| `$control->queried($query, $user)` (removed) | `$query->controlledFor($user)` |
 | `HasControlScope::resolveUser()` | `Auth::user()` |
 | `HasControlScope::retrievingUser()` | Removed, no replacement |
 | `->query(fn ($query) => $query)`, `->should(fn () => true)` on a global perimeter | `->unrestricted()` |
@@ -318,4 +508,12 @@ laravel-rest-api has its own `Lomkit\Rest\Authorization\Ability` enum, closed to
 | `->allowed(fn (User $user, string $method) => ...)`, or an untyped `$method` | `->allowed(fn (User $user, Ability $ability) => ...)`: an untyped or `string` parameter throws `AbilityParameterTypeException` |
 | `$control->applies($user, 'update', $post)` | `$control->applies($user, Ability::update(), $post)` |
 | `$ability === 'view'` | `$ability->is('view')` |
-| `applyAllowedCallback(Model $user, $method)` overridden on a perimeter | `applyAllowedCallback(Model $user, Ability $ability)` |
+| `applyAllowedCallback(Model $user, $method)` overridden on a perimeter | `protected function allows(AccessContext $context): bool` |
+| `applyShouldCallback(Model $user, Model $model)` overridden on a perimeter | `protected function includes(Model $row, AccessContext $context): bool` |
+| `applyQueryCallback(Builder $query, Model $user)` overridden on a perimeter | `protected function scope(Builder $query, AccessContext $context): void` |
+| `applyScoutQueryCallback(ScoutBuilder $query, Model $user)` overridden on a perimeter | `protected function scoutScope(ScoutBuilder $query, AccessContext $context): void` |
+| `$perimeter->applyShouldCallback($user, $row)` called directly | `$perimeter->admits($user, $ability, $row)` |
+| `$control->getPerimeters()` | Removed: `applicablePerimeters($reader, $ability)` inside the control |
+| `$this->allowedCallback = ...` in a perimeter subclass | `->allowed(...)`, or the `allows()` hook |
+| `$user instanceof User ? ... : $query->whereRaw('0 = 1')` in a callback | Type the reader: `fn (Builder $query, User $user) => ...` |
+| `Control::appNamespace()` | `app()->getNamespace()` |

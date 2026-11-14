@@ -75,7 +75,7 @@ class StubsTest extends PackageTestCase
     public static function generators(): array
     {
         return [
-            'control' => ['make:control', ['name' => 'StubbedControl', '--model' => 'Post'], 'control.stub', 'Access/Controls/StubbedControl.php'],
+            'control' => ['make:control', ['name' => 'StubbedControl', '--model' => 'Lomkit\\Access\\Tests\\Fixtures\\Blog\\Comment'], 'control.stub', 'Access/Controls/StubbedControl.php'],
             'perimeter' => ['make:perimeter', ['name' => 'StubbedPerimeter'], 'perimeter.plain.stub', 'Access/Perimeters/StubbedPerimeter.php'],
             'overlay perimeter' => ['make:perimeter', ['name' => 'StubbedPerimeter', '--overlay' => true], 'perimeter.overlay.stub', 'Access/Perimeters/StubbedPerimeter.php'],
         ];

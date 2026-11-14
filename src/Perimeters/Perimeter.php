@@ -5,144 +5,70 @@ namespace Lomkit\Access\Perimeters;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Laravel\Scout\Builder as ScoutBuilder;
 use Lomkit\Access\Ability;
+use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\AbilityParameterTypeException;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
+use Lomkit\Access\Exceptions\OverriddenPerimeterHookException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
 
 /** @phpstan-consistent-constructor */
 class Perimeter
 {
-    protected ?Closure $scoutQueryCallback = null;
-
-    protected ?Closure $queryCallback = null;
-
-    protected ?Closure $shouldCallback = null;
-
-    protected ?Closure $allowedCallback = null;
+    /** @var array<value-of<PerimeterHook>, PerimeterClosure> */
+    private array $callbacks = [];
 
     private bool $unrestricted = false;
 
-    /**
-     * @throws MissingPerimeterCallbackException If the perimeter does not declare a should callback.
-     */
-    public function applyShouldCallback(Model $user, Model $model): bool
+    public static function new(): static
     {
-        /** @var Closure(Model, Model): bool $callback */
-        $callback = $this->shouldCallback ?? throw MissingPerimeterCallbackException::for($this, 'should');
+        return new static;
+    }
 
-        return $callback($user, $model);
+    public function allowed(Closure $callback): static
+    {
+        return $this->declaring(PerimeterHook::Allows, $callback);
+    }
+
+    public function should(Closure $callback): static
+    {
+        return $this->declaring(PerimeterHook::Includes, $callback);
+    }
+
+    public function query(Closure $callback): static
+    {
+        return $this->declaring(PerimeterHook::Scope, $callback);
+    }
+
+    public function scoutQuery(Closure $callback): static
+    {
+        return $this->declaring(PerimeterHook::ScoutScope, $callback);
     }
 
     /**
-     * @template TModel of Model
-     *
-     * @param  \Laravel\Scout\Builder<TModel>  $query
-     * @return \Laravel\Scout\Builder<TModel> The builder the callback returned, or the given one when it returned nothing.
-     *
-     * @throws MissingPerimeterCallbackException If the perimeter does not declare a Scout query callback.
+     * @throws UnrestrictedPerimeterCallbackException If the perimeter declares or overrides a row check.
      */
-    public function applyScoutQueryCallback(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
+    public function unrestricted(): static
     {
-        /** @var Closure(\Laravel\Scout\Builder<TModel>, Model): (\Laravel\Scout\Builder<TModel>|null) $callback */
-        $callback = $this->scoutQueryCallback ?? throw MissingPerimeterCallbackException::for($this, 'scoutQuery');
+        foreach (PerimeterHook::cases() as $hook) {
+            if (! $hook->checksRows()) {
+                continue;
+            }
 
-        return $callback($query, $user) ?? $query;
-    }
+            if (array_key_exists($hook->value, $this->callbacks)) {
+                throw UnrestrictedPerimeterCallbackException::for($this, $hook->callback());
+            }
 
-    /**
-     * @template TModel of Model
-     *
-     * @param  Builder<TModel>  $query
-     * @return Builder<TModel> The builder the callback returned, or the given one when it returned nothing.
-     *
-     * @throws MissingPerimeterCallbackException If the perimeter does not declare a query callback.
-     */
-    public function applyQueryCallback(Builder $query, Model $user): Builder
-    {
-        /** @var Closure(Builder<TModel>, Model): (Builder<TModel>|null) $callback */
-        $callback = $this->queryCallback ?? throw MissingPerimeterCallbackException::for($this, 'query');
-
-        return $callback($query, $user) ?? $query;
-    }
-
-    /**
-     * @throws MissingPerimeterCallbackException If the perimeter does not declare an allowed callback.
-     */
-    public function applyAllowedCallback(Model $user, Ability $ability): bool
-    {
-        /** @var Closure(Model, Ability): bool $callback */
-        $callback = $this->allowedCallback ?? throw MissingPerimeterCallbackException::for($this, 'allowed');
-
-        return $callback($user, $ability);
-    }
-
-    /**
-     * @throws AbilityParameterTypeException When the callback takes a second parameter that is not typed to receive an Ability.
-     */
-    public function allowed(Closure $allowedCallback): self
-    {
-        AbilityParameter::ensureTypedIn($this, $allowedCallback);
-
-        $this->allowedCallback = $allowedCallback;
-
-        return $this;
-    }
-
-    /**
-     * @throws UnrestrictedPerimeterCallbackException If the perimeter is unrestricted.
-     */
-    public function should(Closure $shouldCallback): self
-    {
-        $this->ensureRestricted('should');
-
-        $this->shouldCallback = $shouldCallback;
-
-        return $this;
-    }
-
-    /**
-     * @throws UnrestrictedPerimeterCallbackException If the perimeter is unrestricted.
-     */
-    public function query(Closure $queryCallback): self
-    {
-        $this->ensureRestricted('query');
-
-        $this->queryCallback = $queryCallback;
-
-        return $this;
-    }
-
-    /**
-     * @throws UnrestrictedPerimeterCallbackException If the perimeter is unrestricted.
-     */
-    public function scoutQuery(Closure $scoutQueryCallback): self
-    {
-        $this->ensureRestricted('scoutQuery');
-
-        $this->scoutQueryCallback = $scoutQueryCallback;
-
-        return $this;
-    }
-
-    /**
-     * @throws UnrestrictedPerimeterCallbackException If the perimeter already declares a row callback.
-     */
-    public function unrestricted(): self
-    {
-        $declared = array_filter([
-            'should' => $this->shouldCallback,
-            'query' => $this->queryCallback,
-            'scoutQuery' => $this->scoutQueryCallback,
-        ]);
-
-        if ($declared !== []) {
-            throw UnrestrictedPerimeterCallbackException::for($this, (string) array_key_first($declared));
+            if ($hook->isOverriddenIn(static::class)) {
+                throw UnrestrictedPerimeterCallbackException::overriding($this, $hook);
+            }
         }
 
-        $this->unrestricted = true;
+        $perimeter = clone $this;
+        $perimeter->unrestricted = true;
 
-        return $this;
+        return $perimeter;
     }
 
     final public function isUnrestricted(): bool
@@ -150,20 +76,112 @@ class Perimeter
         return $this->unrestricted;
     }
 
-    public static function new(): static
-    {
-        return new static;
-    }
-
     public function overlays(): bool
     {
         return false;
     }
 
-    private function ensureRestricted(string $callback): void
+    final public function admits(Model $reader, Ability $ability, Model $row): bool
     {
-        if ($this->unrestricted) {
-            throw UnrestrictedPerimeterCallbackException::for($this, $callback);
+        $context = AccessContext::of($reader, $ability);
+
+        return $this->applyAllowedCallback($context) && $this->applyShouldCallback($row, $context);
+    }
+
+    /** @internal */
+    final public function applyAllowedCallback(AccessContext $context): bool
+    {
+        foreach ($this->callbacks as $callback) {
+            if (! $callback->admits($context->reader())) {
+                return false;
+            }
         }
+
+        return $this->allows($context);
+    }
+
+    /** @internal */
+    final public function applyShouldCallback(Model $row, AccessContext $context): bool
+    {
+        return $this->unrestricted || $this->includes($row, $context);
+    }
+
+    /**
+     * @internal
+     *
+     * @param  Builder<covariant Model>  $query
+     */
+    final public function applyQueryCallback(Builder $query, AccessContext $context): void
+    {
+        $this->scope($query, $context);
+    }
+
+    /**
+     * @internal
+     *
+     * @param  ScoutBuilder<covariant Model>  $query
+     */
+    final public function applyScoutQueryCallback(ScoutBuilder $query, AccessContext $context): void
+    {
+        $this->scoutScope($query, $context);
+    }
+
+    /** @internal */
+    final public function shape(): PerimeterShape
+    {
+        return new PerimeterShape(
+            static::class,
+            $this->unrestricted,
+            array_map(fn (PerimeterClosure $callback): ClosureShape => $callback->shape(), $this->callbacks),
+        );
+    }
+
+    protected function allows(AccessContext $context): bool
+    {
+        return $this->callback(PerimeterHook::Allows)->decide($this, $context->ability(), $context->reader());
+    }
+
+    protected function includes(Model $row, AccessContext $context): bool
+    {
+        return $this->callback(PerimeterHook::Includes)->decide($this, $context->ability(), $context->reader(), $row);
+    }
+
+    /** @param  Builder<covariant Model>  $query */
+    protected function scope(Builder $query, AccessContext $context): void
+    {
+        $this->callback(PerimeterHook::Scope)->constrain($this, $context->ability(), $query, $context->reader());
+    }
+
+    /** @param  ScoutBuilder<covariant Model>  $query */
+    protected function scoutScope(ScoutBuilder $query, AccessContext $context): void
+    {
+        $this->callback(PerimeterHook::ScoutScope)->constrain($this, $context->ability(), $query, $context->reader());
+    }
+
+    /**
+     * @throws OverriddenPerimeterHookException If the perimeter overrides the hook the callback stands for.
+     * @throws UnrestrictedPerimeterCallbackException If the callback checks rows on an unrestricted perimeter.
+     * @throws AbilityParameterTypeException If the callback takes the ability in a parameter that does not accept an Ability.
+     */
+    private function declaring(PerimeterHook $hook, Closure $callback): static
+    {
+        if ($hook->isOverriddenIn(static::class)) {
+            throw OverriddenPerimeterHookException::for($this, $hook);
+        }
+
+        if ($this->unrestricted && $hook->checksRows()) {
+            throw UnrestrictedPerimeterCallbackException::for($this, $hook->callback());
+        }
+
+        $perimeter = clone $this;
+        $perimeter->callbacks[$hook->value] = PerimeterClosure::of($callback, $hook, $this);
+
+        return $perimeter;
+    }
+
+    /** @throws MissingPerimeterCallbackException If the perimeter does not declare the callback. */
+    private function callback(PerimeterHook $hook): PerimeterClosure
+    {
+        return $this->callbacks[$hook->value] ?? throw MissingPerimeterCallbackException::for($this, $hook);
     }
 }
