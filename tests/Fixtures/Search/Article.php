@@ -17,13 +17,20 @@ class Article extends Model
     use HasFactory;
     use Searchable;
 
-    /** @return array{id: int, author_id: ?int, title: string} */
+    #[\Override]
+    protected function casts(): array
+    {
+        return ['featured' => 'boolean'];
+    }
+
+    /** @return array{id: int, author_id: ?int, title: string, featured: bool} */
     public function toSearchableArray(): array
     {
         return [
             'id' => $this->getKey(),
             'author_id' => $this->author_id,
             'title' => $this->title,
+            'featured' => $this->featured,
         ];
     }
 }

@@ -15,6 +15,7 @@ class ArticleFactory extends Factory
         return [
             'title' => 'Scout primer',
             'body' => 'Index the rows that a user may read.',
+            'featured' => false,
         ];
     }
 }

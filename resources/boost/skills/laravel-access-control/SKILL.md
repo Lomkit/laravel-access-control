@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls, Perimeters, ControlledPolicy, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
+description: Build and work with Lomkit Access Control features in Laravel, including Controls, Perimeters, ControlledPolicy, unrestricted perimeters, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
 ---
 
 # Laravel Access Control
@@ -12,14 +12,14 @@ Use this skill when working with Lomkit Access Control in a Laravel project that
 - Writes or modifies a `Policy` and wants authorization centralized in a single class.
 - Needs row-level filtering on Eloquent queries (multi-tenant, per-client, per-team, ownership).
 - Runs `php artisan make:control` or `php artisan make:perimeter`.
-- Mentions `Control`, `Perimeter`, `OverlayPerimeter`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
+- Mentions `Control`, `Perimeter`, `OverlayPerimeter`, `unrestricted()`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
 - Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules.
 
 Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that `config/access-control.php` only maps Gate methods to perimeter methods: publish it with `php artisan vendor:publish --tag=access-control-config` only to change that map. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
 
 ## Features
 
-- Perimeter: fluent definition of `allowed`/`should`/`query`/`scoutQuery` for one access rule. Non-overlay perimeters short-circuit — the first match wins. Example usage:
+- Perimeter: fluent definition of `allowed`/`should`/`query`/`scoutQuery` for one access rule. Non-overlay perimeters short-circuit — the first match wins. The `query` and `scoutQuery` callbacks constrain the builder they receive and return nothing (returning that same builder is accepted, e.g. from an arrow function); their return value is never used. Example usage:
 
 ```php
 use Lomkit\Access\Perimeters\Perimeter;
@@ -29,8 +29,20 @@ use Illuminate\Database\Eloquent\Model;
 Perimeter::new()
     ->allowed(fn (Model $user, string $method) => $user->can("{$method} client models"))
     ->should(fn (Model $user, Model $model)    => $model->client_id === $user->client_id)
-    ->query(fn (Builder $query, Model $user)   => $query->where('client_id', $user->client_id))
-    ->scoutQuery(fn (\Laravel\Scout\Builder $q, Model $user) => $q->where('client_id', $user->client_id));
+    ->query(function (Builder $query, Model $user): void {
+        $query->where('client_id', $user->client_id);
+    })
+    ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user): void {
+        $query->where('client_id', $user->client_id);
+    });
+```
+
+- Unrestricted perimeter: `unrestricted()` marks a perimeter that reaches every row, such as an administrator's. It takes only `allowed`; declaring `query`, `should` or `scoutQuery` with it throws `UnrestrictedPerimeterCallbackException`. When it applies to the reader, the controlled query and the controlled search get no perimeter constraint, the policy grants the row without calling `should`, and the other perimeters are not evaluated, so an overlay never narrows it. Never write a global perimeter as `query(fn ($query) => $query)`: a `query` callback that adds no constraint throws `EmptyQueryCallbackException`. Example usage:
+
+```php
+GlobalPerimeter::new()
+    ->allowed(fn (Model $user, string $method) => $user->can("{$method} global models"))
+    ->unrestricted();
 ```
 
 - OverlayPerimeter: combines additively with other perimeters via OR instead of short-circuiting. In a Scout query the engine can only combine constraints with AND, so combined perimeters narrow each other there (see the pitfalls). Useful when several grants should stack (e.g. a user is both in the `client` perimeter and a `shared with me` perimeter). Example usage:
@@ -61,7 +73,7 @@ class PostControl extends Control
     protected function perimeters(): array
     {
         return [
-            GlobalPerimeter::new()->allowed(...)->should(...)->query(...),
+            GlobalPerimeter::new()->allowed(...)->unrestricted(),
             ClientPerimeter::new()->allowed(...)->should(...)->query(...)->scoutQuery(...),
         ];
     }
@@ -106,7 +118,7 @@ php artisan make:perimeter SharedPerimeter --overlay
 php artisan make:control PostControl --model=Post --perimeters=GlobalPerimeter --perimeters=ClientPerimeter
 ```
 
-- Laravel Scout integration: registers a `controlled()` macro on `Laravel\Scout\Builder` that uses each perimeter's `scoutQuery` closure. Scout only supports equality-style filters, so any field used in `scoutQuery` must be exposed via `toSearchableArray()`. If no perimeter matches, or no user is signed in, the search returns an empty page without querying the engine. Example usage:
+- Laravel Scout integration: registers a `controlled()` macro on `Laravel\Scout\Builder` that uses each perimeter's `scoutQuery` closure; an unrestricted perimeter adds no constraint. Scout only supports equality-style filters, so any field used in `scoutQuery` must be exposed via `toSearchableArray()`. If no perimeter matches, or no user is signed in, the search returns an empty page without querying the engine. Example usage:
 
 ```php
 Post::search('hello')->controlled()->get();
@@ -128,7 +140,8 @@ return [
 ## Common pitfalls to flag when reviewing or writing code
 
   - No perimeter matches → query is forced to `0=1` (Eloquent), or the search returns an empty page without querying the engine (Scout). Empty results after wiring control usually mean no `allowed()` returned true.
-  - Order matters for non-overlay perimeters: the first match short-circuits. Put admin grants first, or make them overlays.
+  - Order matters for non-overlay perimeters: the first match short-circuits. Put admin grants first, declared with `unrestricted()`.
+  - A `query` callback must constrain the builder it receives: returning another builder (e.g. `Model::query()->where(...)`) throws `QueryCallbackReturnedAnotherBuilderException`, and so does a `scoutQuery` callback that returns another Scout builder. A `query` callback that adds no `where` (nothing, only `orderBy`/`limit`/`join`, or a `when()` that skips) throws `EmptyQueryCallbackException`: use `unrestricted()` for every row, or `whereRaw('0=1')` for no row.
   - `should` is skipped for `viewAny`/`create` — use `allowed` for creation-time gates.
   - Scout cannot combine perimeters with OR: when an overlay perimeter and another perimeter both apply, their `scoutQuery` constraints are joined with AND, so a search returns fewer records than the Eloquent query. Search through a single perimeter, or denormalize the access into one indexed field (e.g. a `visible_to` array) and filter on it.
   - `scoutQuery` cannot run `whereHas`/`orWhereNotNull`; denormalize into the indexed payload.
