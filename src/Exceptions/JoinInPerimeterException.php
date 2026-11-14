@@ -21,6 +21,16 @@ final class JoinInPerimeterException extends LogicException
         ));
     }
 
+    public static function forPerimeterOf(Perimeter $perimeter, string $model): self
+    {
+        return new self(sprintf(
+            'The [query] callback of the [%s] perimeter adds a join to the query of the [%s] model. %s',
+            $perimeter::class,
+            $model,
+            self::ADVICE,
+        ));
+    }
+
     public static function forBoundary(Boundary $boundary, string $model): self
     {
         return new self(sprintf(
