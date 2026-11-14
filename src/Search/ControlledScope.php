@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
+use Laravel\Scout\Engines\NullEngine;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
@@ -15,6 +16,8 @@ final class ControlledScope implements SearchScope
     private ?SearchFilter $filter = null;
 
     private ?Closure $constraint = null;
+
+    private ?ContainsAnyFilter $containsAny = null;
 
     private function __construct(
         private readonly Control $control,
@@ -28,43 +31,62 @@ final class ControlledScope implements SearchScope
 
     /** @param  Builder<covariant Model>  $search */
     #[\Override]
-    public function prepare(Builder $search, mixed $engine): void
+    public function prepare(Builder $search, mixed $engine): mixed
     {
-        match (SearchEngineKind::of($engine, $search->model)) {
-            SearchEngineKind::Database => $this->constrainQuery($search),
-            SearchEngineKind::Index => $this->filterIndex($search),
+        return match (SearchEngineKind::of($engine, $search->model)) {
+            SearchEngineKind::Database => $this->constrainQuery($search, $engine),
+            SearchEngineKind::Index => $this->filterIndex($search, $engine),
+            SearchEngineKind::NativeFilters => $this->filterNatively($search, $engine),
         };
     }
 
-    /**
-     * @param  Builder<covariant Model>  $search
-     *
-     * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
-     */
-    private function filterIndex(Builder $search): void
+    /** @throws UnsearchableBoundaryException When the boundary of the control has no search form. */
+    private function filter(): SearchFilter
     {
         if (! $this->control->searchRules()->isSearchable()) {
             throw UnsearchableBoundaryException::for($this->control);
         }
 
-        $this->filter ??= $this->control->searchFilter($this->reader);
-
-        if ($this->filter->isClosed()) {
-            $search->callback = EmptySearchPage::callback();
-
-            return;
-        }
-
-        foreach ($this->filter->whereIns() as $field => $values) {
-            $search->whereIn($field, $values);
-        }
+        return $this->filter ??= $this->control->searchFilter($this->reader);
     }
 
     /** @param  Builder<covariant Model>  $search */
-    private function constrainQuery(Builder $search): void
+    private function filterIndex(Builder $search, mixed $engine): mixed
+    {
+        $filter = $this->filter();
+
+        if ($filter->isClosed()) {
+            $search->callback = EmptySearchPage::callback();
+
+            return $engine;
+        }
+
+        foreach ($filter->whereIns() as $field => $values) {
+            $search->whereIn($field, $values);
+        }
+
+        return $engine;
+    }
+
+    /** @param  Builder<covariant Model>  $search */
+    private function filterNatively(Builder $search, mixed $engine): mixed
+    {
+        $filter = $this->filter();
+
+        if ($filter->isClosed()) {
+            return new NullEngine;
+        }
+
+        ($this->containsAny ??= new ContainsAnyFilter)->apply($search, $filter);
+
+        return $engine;
+    }
+
+    /** @param  Builder<covariant Model>  $search */
+    private function constrainQuery(Builder $search, mixed $engine): mixed
     {
         if ($this->constraint !== null && $search->queryCallback === $this->constraint) {
-            return;
+            return $engine;
         }
 
         $callback = $search->queryCallback;
@@ -80,5 +102,7 @@ final class ControlledScope implements SearchScope
         };
 
         $search->queryCallback = $this->constraint;
+
+        return $engine;
     }
 }

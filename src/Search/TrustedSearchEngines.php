@@ -6,6 +6,7 @@ use Laravel\Scout\Engines\AlgoliaEngine;
 use Laravel\Scout\Engines\Engine;
 use Laravel\Scout\Engines\MeilisearchEngine;
 use Laravel\Scout\Engines\NullEngine;
+use Laravel\Scout\Engines\TurbopufferEngine;
 use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
 
@@ -16,6 +17,7 @@ final class TrustedSearchEngines
         AlgoliaEngine::class,
         MeilisearchEngine::class,
         TypesenseEngine::class,
+        TurbopufferEngine::class,
         NullEngine::class,
     ];
 

@@ -9,5 +9,8 @@ final class UncontrolledScope implements SearchScope
 {
     /** @param  Builder<covariant Model>  $search */
     #[\Override]
-    public function prepare(Builder $search, mixed $engine): void {}
+    public function prepare(Builder $search, mixed $engine): mixed
+    {
+        return $engine;
+    }
 }
