@@ -20,6 +20,10 @@ class TestCase extends BaseTestCase
 
     protected function setUp(): void
     {
+        Access::flush();
+
+        Access::$controlDiscoveryPaths = null;
+
         parent::setUp();
 
         (new Access)
@@ -27,6 +31,15 @@ class TestCase extends BaseTestCase
                 new ModelControl,
                 new SearchableModelControl,
             ]);
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+
+        Access::flush();
+
+        Access::$controlDiscoveryPaths = null;
     }
 
     /**
