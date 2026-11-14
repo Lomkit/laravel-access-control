@@ -8,6 +8,8 @@ parameters:
         - src
         # Analyses the HasControl trait through a model that uses it
         - tests/Fixtures/Discovery/Models/Note.php
+        # Analyses the InteractsWithAccess trait through a test case that uses it
+        - tests/Fixtures/Testing/AccessTestCase.php
     level: 10
     phpVersion: 80300
     checkMissingOverrideMethodAttribute: true
