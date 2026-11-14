@@ -203,22 +203,30 @@ $ability->name();          // 'view'
 "{$ability} client posts"; // 'view client posts'
 ```
 
-Type the closures with `Ability $ability`:
+Type the second parameter of every `allowed` closure `Ability $ability`, and compare it with `$ability->is('update')` instead of a string comparison:
 
 ```php
 // Before
 ClientPerimeter::new()
     ->allowed(fn (User $user, string $method) => $user->can("{$method} client posts"))
 
+OwnPerimeter::new()
+    ->allowed(fn (User $user, $method) => match ($method) {
+        'delete' => false,
+        default => $user->can("{$method} own posts"),
+    })
+
 // After
 use Lomkit\Access\Ability;
 
 ClientPerimeter::new()
     ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+
+OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => ! $ability->is('delete') && $user->can("{$ability} own posts"))
 ```
 
-The closures of 0.x keep working: an untyped parameter receives the ability's name as a string, a parameter typed `Ability` receives the object. The package reads the second parameter of each `allowed` closure once, when the perimeter is declared. A parameter typed `Ability`, `Stringable` or `object`, or with a union that contains one of them, receives the `Ability`. An untyped parameter, or one typed `string` or `mixed`, receives the name, so the `$method === 'view'`, `match ($method)` and `in_array($method, [...], true)` comparisons of 0.x keep matching. The documented form is `Ability $ability`.
-
+A closure whose second parameter is untyped, or typed with a type that cannot receive an `Ability` such as `string` or `?string`, now throws `AbilityParameterTypeException` when the perimeter is declared, with the fix in the message. In 0.x it received a string; given the `Ability` object, its `===`, `match` and strict `in_array` comparisons would never match, and a `default` arm would grant every ability. The second parameter may also be typed `?Ability`, a union that contains `Ability`, `Stringable`, `object` or `mixed`: it then receives the `Ability` object. A closure that takes only the reader, such as `fn (User $user) => true`, needs no change.
 
 Compare abilities with `is()`, never with `===`: two abilities with the same name are not the same object, and an ability restored by `unserialize()` is a new one.
 
@@ -269,7 +277,7 @@ $control->applies($user, Ability::update(), $post);
 $control->applies($user, $control->abilityFor('viewAny'), new Post);
 ```
 
-A perimeter class that overrides `applyAllowedCallback()` declares its second parameter as `Ability $ability`, and compares it with `$ability->is('view')`. An override typed `string $method` is a fatal error, and an untyped one throws `UntypedAbilityHookException` when the control resolves its perimeters, instead of receiving an object that a string comparison would never match:
+A perimeter class that overrides `applyAllowedCallback()` declares its second parameter as `Ability $ability`, and compares it with `$ability->is('view')`. An override typed `string $method` is a fatal error, and an untyped one throws `AbilityParameterTypeException` when the control resolves its perimeters, instead of receiving an object that a string comparison would never match. An override typed `mixed` receives the `Ability` object:
 
 ```php
 // Before
@@ -307,7 +315,7 @@ laravel-rest-api has its own `Lomkit\Rest\Authorization\Ability` enum, closed to
 | `config/access-control.php`, `--tag=access-control-config` | Removed: delete the published file |
 | `config('access-control.methods.view')`, `$this->viewMethod()` | `Ability::view()` (and `create()`, `update()`, `delete()`, `restore()`, `forceDelete()`) |
 | A custom `methods` map | `abilityFor()` overridden on the control |
-| `->allowed(fn (User $user, string $method) => ...)` | `->allowed(fn (User $user, Ability $ability) => ...)` (string still works) |
+| `->allowed(fn (User $user, string $method) => ...)`, or an untyped `$method` | `->allowed(fn (User $user, Ability $ability) => ...)`: an untyped or `string` parameter throws `AbilityParameterTypeException` |
 | `$control->applies($user, 'update', $post)` | `$control->applies($user, Ability::update(), $post)` |
 | `$ability === 'view'` | `$ability->is('view')` |
 | `applyAllowedCallback(Model $user, $method)` overridden on a perimeter | `applyAllowedCallback(Model $user, Ability $ability)` |

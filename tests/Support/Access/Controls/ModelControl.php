@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Support\Access\Controls;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\GlobalPerimeter;
@@ -18,8 +19,8 @@ class ModelControl extends Control
     {
         return [
             SharedPerimeter::new()
-                ->allowed(function (Model $user, string $method) {
-                    return $user->can(sprintf('%s shared models', $method));
+                ->allowed(function (Model $user, Ability $ability) {
+                    return $user->can(sprintf('%s shared models', $ability));
                 })
                 ->should(function (Model $user, Model $model) {
                     return $model->sharedWithUsers()->where('id', $user->getKey())->exists();
@@ -33,13 +34,13 @@ class ModelControl extends Control
                     });
                 }),
             GlobalPerimeter::new()
-                ->allowed(function (Model $user, string $method) {
-                    return $user->can(sprintf('%s global models', $method));
+                ->allowed(function (Model $user, Ability $ability) {
+                    return $user->can(sprintf('%s global models', $ability));
                 })
                 ->unrestricted(),
             ClientPerimeter::new()
-                ->allowed(function (Model $user, string $method) {
-                    return $user->can(sprintf('%s client models', $method));
+                ->allowed(function (Model $user, Ability $ability) {
+                    return $user->can(sprintf('%s client models', $ability));
                 })
                 ->should(function (Model $user, Model $model) {
                     return $model->client()->is($user->client);
@@ -51,8 +52,8 @@ class ModelControl extends Control
                     return $query->where('client_id', $user->client->getKey());
                 }),
             OwnPerimeter::new()
-                ->allowed(function (Model $user, string $method) {
-                    return $user->can(sprintf('%s own models', $method));
+                ->allowed(function (Model $user, Ability $ability) {
+                    return $user->can(sprintf('%s own models', $ability));
                 })
                 ->should(function (Model $user, Model $model) {
                     return $model->user()->is($user);

@@ -4,6 +4,7 @@ namespace Lomkit\Access\Perimeters;
 
 use Closure;
 use Lomkit\Access\Ability;
+use Lomkit\Access\Exceptions\AbilityParameterTypeException;
 use ReflectionFunction;
 use ReflectionIntersectionType;
 use ReflectionMethod;
@@ -12,44 +13,42 @@ use ReflectionParameter;
 use ReflectionType;
 use ReflectionUnionType;
 
-enum AbilityArgument
+final class AbilityParameter
 {
-    case Instance;
-    case Name;
-
-    public static function expectedBy(Closure $callback): self
+    /**
+     * @throws AbilityParameterTypeException When the closure takes a second parameter that is not typed to receive an Ability.
+     */
+    public static function ensureTypedIn(Perimeter $perimeter, Closure $allowedCallback): void
     {
-        return self::expectedByParameter((new ReflectionFunction($callback))->getParameters()[1] ?? null);
+        $parameter = (new ReflectionFunction($allowedCallback))->getParameters()[1] ?? null;
+
+        if ($parameter === null || self::receivesAbility($parameter)) {
+            return;
+        }
+
+        throw AbilityParameterTypeException::forAllowedCallback($perimeter, $parameter);
     }
 
-    public static function expectedByHookOf(Perimeter $perimeter): self
+    /**
+     * @throws AbilityParameterTypeException When the perimeter overrides the hook without typing its ability to receive an Ability.
+     */
+    public static function ensureTypedInHookOf(Perimeter $perimeter): void
     {
         $hook = new ReflectionMethod($perimeter, 'applyAllowedCallback');
+        $parameter = $hook->getParameters()[1] ?? null;
 
-        if ($hook->getDeclaringClass()->getName() === Perimeter::class) {
-            return self::Instance;
+        if ($parameter === null || self::receivesAbility($parameter)) {
+            return;
         }
 
-        return self::expectedByParameter($hook->getParameters()[1] ?? null);
+        throw AbilityParameterTypeException::forHook($perimeter, $parameter);
     }
 
-    public function of(Ability $ability): Ability|string
+    private static function receivesAbility(ReflectionParameter $parameter): bool
     {
-        return match ($this) {
-            self::Instance => $ability,
-            self::Name => $ability->name(),
-        };
-    }
+        $type = $parameter->getType();
 
-    private static function expectedByParameter(?ReflectionParameter $parameter): self
-    {
-        $type = $parameter?->getType();
-
-        if ($type === null || ! self::accepts($type)) {
-            return self::Name;
-        }
-
-        return self::Instance;
+        return $type !== null && self::accepts($type);
     }
 
     private static function accepts(ReflectionType $type): bool
@@ -66,7 +65,7 @@ enum AbilityArgument
             return false;
         }
 
-        return $type->getName() === 'object' || is_a(Ability::class, $type->getName(), true);
+        return in_array($type->getName(), ['mixed', 'object'], true) || is_a(Ability::class, $type->getName(), true);
     }
 
     /** @param  array<ReflectionType>  $types */

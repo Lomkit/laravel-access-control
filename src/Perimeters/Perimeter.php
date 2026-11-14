@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
+use Lomkit\Access\Exceptions\AbilityParameterTypeException;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
 
@@ -19,8 +20,6 @@ class Perimeter
     protected ?Closure $shouldCallback = null;
 
     protected ?Closure $allowedCallback = null;
-
-    private AbilityArgument $allowedArgument = AbilityArgument::Instance;
 
     private bool $unrestricted = false;
 
@@ -72,16 +71,20 @@ class Perimeter
      */
     public function applyAllowedCallback(Model $user, Ability $ability): bool
     {
-        /** @var Closure(Model, Ability|string): bool $callback */
+        /** @var Closure(Model, Ability): bool $callback */
         $callback = $this->allowedCallback ?? throw MissingPerimeterCallbackException::for($this, 'allowed');
 
-        return $callback($user, $this->allowedArgument->of($ability));
+        return $callback($user, $ability);
     }
 
+    /**
+     * @throws AbilityParameterTypeException When the callback takes a second parameter that is not typed to receive an Ability.
+     */
     public function allowed(Closure $allowedCallback): self
     {
+        AbilityParameter::ensureTypedIn($this, $allowedCallback);
+
         $this->allowedCallback = $allowedCallback;
-        $this->allowedArgument = AbilityArgument::expectedBy($allowedCallback);
 
         return $this;
     }
