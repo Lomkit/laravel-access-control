@@ -4,7 +4,6 @@ namespace Lomkit\Access\Tests\Feature\Configuration;
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
-use Laravel\Scout\ScoutServiceProvider;
 use Lomkit\Access\AccessServiceProvider;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
@@ -12,8 +11,6 @@ use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\RecordingConfig;
-use Lomkit\Access\Tests\Fixtures\Search\Article;
-use Lomkit\Access\Tests\Fixtures\Search\Search;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -28,16 +25,7 @@ class WithoutConfigurationTest extends PackageTestCase
     #[\Override]
     protected function fixtures(): array
     {
-        return [new Blog, new Search];
-    }
-
-    #[\Override]
-    protected function getPackageProviders($app): array
-    {
-        return [
-            ...parent::getPackageProviders($app),
-            ScoutServiceProvider::class,
-        ];
+        return [new Blog];
     }
 
     #[\Override]
@@ -53,7 +41,6 @@ class WithoutConfigurationTest extends PackageTestCase
         $warehouse = Project::factory()->for($globex)->createOne(['name' => 'Warehouse']);
         $this->releaseNotes = Post::factory()->for($website)->for($this->ada, 'author')->createOne(['title' => 'Release notes']);
         $this->roadmap = Post::factory()->for($warehouse)->for($hank, 'author')->createOne(['title' => 'Roadmap']);
-        Article::factory()->createOne(['author_id' => $this->ada->getKey(), 'title' => 'Scout primer']);
     }
 
     #[Test]
@@ -80,7 +67,6 @@ class WithoutConfigurationTest extends PackageTestCase
         $config = new RecordingConfig(config()->all());
         $this->app->instance('config', $config);
         Gate::define('view own posts', fn (User $user): bool => true);
-        Gate::define('view own articles', fn (User $user): bool => true);
         $this->actingAs($this->ada);
 
         foreach (['viewAny', 'create'] as $policyMethod) {
@@ -92,7 +78,6 @@ class WithoutConfigurationTest extends PackageTestCase
         }
 
         $this->assertSame(['Release notes'], Post::controlled()->pluck('title')->all());
-        $this->assertSame(['Scout primer'], Article::search('Scout')->controlled()->get()->pluck('title')->all());
         $this->assertNotSame([], $config->readKeys);
         $this->assertSame([], array_values(array_filter(
             $config->readKeys,
