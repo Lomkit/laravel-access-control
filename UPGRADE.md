@@ -398,6 +398,18 @@ Declare the two attributes as filterable in the settings of each searchable mode
 
 // Algolia: in attributesForFaceting
 'attributesForFaceting' => ['filterOnly(_access)', 'filterOnly(_boundary)'],
+
+// Turbopuffer: in the schema of the model, which Scout sends with each write
+'turbopuffer' => [
+    'model-settings' => [
+        Post::class => [
+            'schema' => [
+                '_access' => ['type' => '[]string', 'filterable' => true],
+                '_boundary' => ['type' => '[]string', 'filterable' => true],
+            ],
+        ],
+    ],
+],
 ```
 
 - Algolia, Meilisearch and Typesense filter the documents with `whereIn`. Scout's `null` engine is accepted too, since it finds nothing.
@@ -409,7 +421,7 @@ Access::trustSearchEngine(ElasticsearchEngine::class);
 
 - The `database` engine searches with SQL: a controlled search applies the control's SQL inside the search query, through Scout's `query()` callback, which still runs the callback you pass to `query()`. No keys are computed for it.
 - The `collection` engine paginates before it filters: a controlled search throws `UnsupportedSearchEngineException`. Use the `database` engine, in tests too.
-- The Turbopuffer engine is refused the same way for now: Scout cannot express the `ContainsAny` filter it needs on an array attribute.
+- Turbopuffer is filtered with its native `ContainsAny` operator, since Scout renders `whereIn` as `In`, which compares the whole array. A controlled search adds `['_access', 'ContainsAny', [...]]` (and the same for `_boundary`) to the native filters in `options['filters']`, joined with `And` to the filters you pass there, before or after `controlled()`; the filter is applied again when the search runs, so a later `options()` or `whereIn()` cannot remove or widen it. Declare the schema above before the first write: Turbopuffer sets the type of an attribute on its first write and cannot change it, so a namespace written without it must be deleted (`scout:flush`) and imported again.
 
 The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. The same holds when a key rule changes: documents keep the keys of the former rule until they are indexed again. Declare what reindexes the documents when a key reads another model in [Keeping the keys fresh](#keeping-the-keys-fresh).
 
@@ -492,6 +504,43 @@ The same holds for `DB::table()` writes, `Model::withoutEvents()`, `withoutSynci
 The document's own model needs nothing: Scout reindexes it when it is saved. When the model overrides `searchIndexShouldBeUpdated()` and it returns `false`, the package compares the keys of the row before and after the save, after the commit, each state loading its own `load:` relations (so a changed `project_id` counts), and reindexes the document when they differ: keep your override for the other attributes.
 
 The engine stays the only barrier, and freshness has a limit: between the change and the end of the job, the documents keep their former keys. Without a queue the window closes right after the commit; with one it lasts as long as the queue's backlog, and a failed job leaves the keys stale until it is retried or the model reindexed. Turn on Scout's `after_commit` option so that Scout's own indexing never writes the keys of a change that is rolled back.
+
+#### Search from the browser
+
+A front end that queries Meilisearch, Typesense or Algolia directly needs a key that finds only what its reader may see. `Access::searchToken()` signs the reader's filter into a key derived from a search-only key, and the browser cannot widen it:
+
+```php
+use Lomkit\Access\Access;
+use Lomkit\Access\Search\Tokens\SearchTokenKey;
+
+class PostSearchTokenController
+{
+    public function __invoke(Request $request): JsonResponse
+    {
+        $token = Access::searchToken(
+            reader: $request->user(),
+            model: Post::class,
+            key: SearchTokenKey::meilisearch(uid: config('services.meilisearch.search_key_uid'), key: config('services.meilisearch.search_key')),
+            expiresAt: now()->addMinutes(15),
+        );
+
+        return response()->json($token); // {"token": "...", "index": "posts", "expires_at": "2026-11-14T10:15:00+00:00"}
+    }
+}
+```
+
+- The engine is the one the model searches with (`searchableUsing()`): a tenant token for Meilisearch, a scoped search key for Typesense, a secured API key for Algolia. Pass the key of that engine, `SearchTokenKey::meilisearch(uid:, key:)`, `SearchTokenKey::typesense(key:)` or `SearchTokenKey::algolia(key:)`, or `MismatchedSearchTokenKeyException` is thrown. The package has no configuration file: read the key from your own, such as `config/services.php`.
+- The filter in the token is the one `controlled()` applies, rendered in the engine's syntax from the same `searchFilter()`, with the same meaning: a document is found when it shares at least one key with the reader, inside the boundary. A reader that `controlled()` would show an empty page (no reader, no perimeter that allows them, no key) gets a token whose filter asks for an `_access` key that no document can carry, so it finds nothing. An unrestricted reader without a boundary gets a token with no filter, over the whole index of the model.
+- The token keeps the keys of its reader until it expires: a permission change reaches the browser at the next token. The expiry is required, and one that is not in the future throws `PastSearchTokenExpiryException`. Keep it short, from a few minutes to an hour, and fetch a new token when it expires.
+- Never sign with the admin key: a key equal to the one Scout uses (`scout.meilisearch.key`, `scout.typesense.client-settings.api_key`, `scout.algolia.secret`) throws `AdminSearchTokenKeyException`. Create a search-only key for each engine:
+  - Meilisearch: `POST /keys` with the master key and `{"actions": ["search"], "indexes": ["posts"], "expiresAt": null}`; pass the `uid` and the `key` it returns. The token is limited to the model's index in its `searchRules`.
+  - Typesense: `POST /keys` with the admin key and `{"description": "Search posts", "actions": ["documents:search"], "collections": ["posts"]}`; pass the `value`, which Typesense returns only once. A scoped key cannot narrow the collections of its parent key, so limit the parent key to the model's collection, as here: a parent key over every collection gives a token over every collection, filtered by fields that the other collections may not have.
+  - Algolia: in the dashboard, under API Keys, create a key with the `search` ACL and the model's index, or use the search-only API key. The token is limited to the model's index with `restrictIndices`.
+- `scout.prefix` is part of the index name, and the token restricts to the prefixed name. `SearchToken::index()` returns it, for the front end to query.
+- Meilisearch and Typesense sign with their official client, `meilisearch/meilisearch-php` or `typesense/typesense-php`, which Scout already needs for those engines; without it `MissingSearchClientException` names the package. Algolia keys are signed by the package, with the documented HMAC-SHA256 of the restrictions, so the Algolia client is not needed.
+- The `database`, `collection` and `null` engines, Turbopuffer and the engines passed to `Access::trustSearchEngine()` have no browser token: `UnsupportedSearchTokenEngineException`. A model that does not use `ControlledSearchable` throws `MissingControlledSearchableException`, a boundary class without `searchKeys()` `UnsearchableBoundaryException`.
+- `SearchToken::filter()` returns the rendered filter, or `null` without one, for an application that proxies the search on its server. `toArray()` and the JSON form hold the token, the index and the expiry only.
+- The engine applies the token's filter with any filter the browser sends, joined with AND. The browser can narrow its search, never widen it, and the index's lag applies as on the server.
 
 #### Testing the search
 
@@ -1073,6 +1122,7 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |
 | `UnsearchableBoundaryException` for every boundary | `Boundary::where()` searches; a boundary class declares `searchKeys()` |
 | The `collection` Scout engine with `controlled()` | The `database` engine |
+| A Meilisearch tenant token, a Typesense scoped key or an Algolia secured API key whose filter is written by hand | `Access::searchToken($user, Post::class, SearchTokenKey::meilisearch(uid: ..., key: ...), now()->addMinutes(15))` |
 | A `saved` listener on `Project` that calls `$project->posts()->searchable()` | `->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts())` |
 | A custom pivot whose `saved` / `deleted` listeners reindex the post | `use ReindexesSearch` on the pivot |
 | `->query(fn ($query) => $query->join('projects', ...)->where('projects.client_id', ...))` | `->query(fn ($query) => $query->whereHas('project', fn ($q) => $q->where('client_id', ...)))`: a join throws `JoinInPerimeterException` |

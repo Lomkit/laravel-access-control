@@ -32,4 +32,12 @@ final class MissingControlledSearchableException extends LogicException
             $model,
         ));
     }
+
+    public static function forSearchToken(string $model): self
+    {
+        return new self(sprintf(
+            'No search token can be signed for [%s]: it is not an Eloquent model that uses the ControlledSearchable trait, so its documents carry no access keys to filter. Use Lomkit\Access\Search\ControlledSearchable on the model.',
+            $model,
+        ));
+    }
 }

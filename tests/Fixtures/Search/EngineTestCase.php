@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\Gate;
 use Laravel\Scout\Builder;
 use Laravel\Scout\EngineManager;
 use Laravel\Scout\ScoutServiceProvider;
+use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Search\Tokens\SearchToken;
+use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
@@ -26,6 +29,14 @@ abstract class EngineTestCase extends PackageTestCase
 
     /** @param  Application  $app */
     abstract protected function configureDriver($app): void;
+
+    abstract protected function searchOnlyKey(string $index): SearchTokenKey;
+
+    /** @return class-string<\Throwable> */
+    abstract protected function refusedSearch(): string;
+
+    /** @return list<string> */
+    abstract protected function titlesFoundWith(SearchToken $token, string $index): array;
 
     protected function prepareIndex(string $index): void {}
 
@@ -167,5 +178,137 @@ abstract class EngineTestCase extends PackageTestCase
         $this->waitForDocuments(4);
 
         $this->assertSame(['Scout internals', 'Scout primer', 'Scout recipes'], $this->searchedTitles());
+    }
+
+    /** @return list<string> */
+    protected function controlledTitles(?User $reader): array
+    {
+        return Article::search('Scout')
+            ->controlledFor($reader)
+            ->get()
+            ->pluck('title')
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /** @return list<string> */
+    protected function tokenTitles(?User $reader, SearchTokenKey $key): array
+    {
+        $token = Access::searchToken($reader, Article::class, $key, now()->addMinutes(10));
+        $titles = $this->titlesFoundWith($token, $token->index());
+        sort($titles);
+
+        return $titles;
+    }
+
+    /** @param  array<string, list<int>>  $grants */
+    protected function grant(array $grants): void
+    {
+        foreach ($grants as $ability => $readers) {
+            Gate::define($ability, fn (User $user): bool => in_array($user->getKey(), $readers, true));
+        }
+    }
+
+    protected function reader(string $name, int $workspace = 1): User
+    {
+        return User::factory()->createOne(['name' => $name, 'email' => strtolower($name).'@example.com', 'current_workspace_id' => $workspace]);
+    }
+
+    #[Test]
+    public function it_finds_with_a_search_token_exactly_the_documents_of_a_controlled_search(): void
+    {
+        $key = $this->searchOnlyKey((new Article)->searchableAs());
+        $carol = $this->reader('Carol');
+        $dan = $this->reader('Dan');
+        $this->grant([
+            'view global articles' => [$dan->getKey()],
+            'view own articles' => [$this->ada->getKey(), $this->grace->getKey()],
+            'view featured articles' => [$this->ada->getKey()],
+        ]);
+
+        $readers = [
+            'no reader' => [null, []],
+            'a reader no perimeter allows' => [$carol, []],
+            'an unrestricted reader' => [$dan, ['Scout internals', 'Scout primer', 'Scout recipes']],
+            'a reader of one level' => [$this->grace, ['Scout internals', 'Scout recipes']],
+            'a reader with several keys' => [$this->ada, ['Scout primer', 'Scout recipes']],
+        ];
+
+        foreach ($readers as $label => [$reader, $expected]) {
+            $this->assertSame($expected, $this->controlledTitles($reader), "The controlled search for {$label}.");
+            $this->assertSame($expected, $this->tokenTitles($reader, $key), "The search token for {$label}.");
+        }
+    }
+
+    #[Test]
+    public function it_finds_with_a_search_token_exactly_the_documents_inside_the_boundary_of_the_reader(): void
+    {
+        ConfiguredArticleControl::bindWithin(
+            Boundary::where('workspace_id', fn (User $user): ?int => $user->current_workspace_id),
+            AuthorPerimeter::new()
+                ->allowed(fn (User $user): bool => true)
+                ->searchKeys('author', fn (Article $article): array => [$article->author_id, 'Ada'], fn (User $user): array => [$user->getKey(), $user->name]),
+        );
+        $eve = $this->reader('Eve', workspace: 2);
+        Article::factory()->createOne(['author_id' => $eve->getKey(), 'title' => 'Scout drafts', 'workspace_id' => 2]);
+        Article::query()->get()->searchable();
+        $this->waitForDocuments(4);
+        $key = $this->searchOnlyKey((new Article)->searchableAs());
+
+        $readers = [
+            'a reader whose escaped name is a key of every row' => [$this->ada, ['Scout internals', 'Scout primer', 'Scout recipes']],
+            'a reader with one key' => [$this->grace, ['Scout internals', 'Scout recipes']],
+            'a reader in another workspace' => [$eve, ['Scout drafts']],
+        ];
+
+        foreach ($readers as $label => [$reader, $expected]) {
+            $this->assertSame($expected, $this->controlledTitles($reader), "The controlled search for {$label}.");
+            $this->assertSame($expected, $this->tokenTitles($reader, $key), "The search token for {$label}.");
+        }
+    }
+
+    #[Test]
+    public function it_signs_a_token_that_finds_nothing_for_a_closed_reader(): void
+    {
+        $key = $this->searchOnlyKey((new Article)->searchableAs());
+        $token = Access::searchToken($this->ada, Article::class, $key, now()->addMinutes(10));
+
+        $this->assertNotNull($token->filter());
+        $this->assertStringContainsString('#closed', $token->filter());
+        $this->assertSame([], $this->titlesFoundWith($token, $token->index()));
+        $this->assertSame([], $this->titlesFoundWith(Access::searchToken(null, Article::class, $key, now()->addMinutes(10)), $token->index()));
+    }
+
+    #[Test]
+    public function it_signs_a_token_without_a_filter_for_an_unrestricted_reader(): void
+    {
+        $this->allow(['view global articles']);
+        $token = Access::searchToken($this->ada, Article::class, $this->searchOnlyKey((new Article)->searchableAs()), now()->addMinutes(10));
+
+        $this->assertNull($token->filter());
+        $this->assertCount(3, $this->titlesFoundWith($token, $token->index()));
+    }
+
+    #[Test]
+    public function it_signs_a_token_that_cannot_search_another_index(): void
+    {
+        $this->allow(['view global articles']);
+        $token = Access::searchToken($this->ada, Article::class, $this->searchOnlyKey((new Article)->searchableAs()), now()->addMinutes(10));
+
+        $this->assertSearchIsRefused(fn () => $this->titlesFoundWith($token, (new Article)->searchableAs().'_other'));
+    }
+
+    protected function assertSearchIsRefused(callable $search): void
+    {
+        try {
+            $search();
+        } catch (\Throwable $exception) {
+            $this->assertInstanceOf($this->refusedSearch(), $exception);
+
+            return;
+        }
+
+        $this->fail('The search token searched another index.');
     }
 }

@@ -3,9 +3,12 @@
 namespace Lomkit\Access\Tests\Feature\Engines;
 
 use Lomkit\Access\Access;
+use Lomkit\Access\Search\Tokens\SearchToken;
+use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
 use Meilisearch\Client;
 use Meilisearch\Contracts\TasksQuery;
+use Meilisearch\Exceptions\ApiException;
 use PHPUnit\Framework\Attributes\Group;
 
 #[Group('scout')]
@@ -51,5 +54,32 @@ class MeilisearchEngineTest extends EngineTestCase
         if ($uids !== []) {
             $client->waitForTasks($uids);
         }
+    }
+
+    #[\Override]
+    protected function searchOnlyKey(string $index): SearchTokenKey
+    {
+        $client = $this->app->make(Client::class);
+        $key = $client->createKey(['description' => 'Search-only key of a test', 'actions' => ['search'], 'indexes' => [$index], 'expiresAt' => null]);
+        $this->beforeApplicationDestroyed(fn () => $client->deleteKey($key->getUid() ?? ''));
+
+        return SearchTokenKey::meilisearch(uid: $key->getUid() ?? '', key: $key->getKey() ?? '');
+    }
+
+    #[\Override]
+    protected function titlesFoundWith(SearchToken $token, string $index): array
+    {
+        $hits = (new Client((string) getenv('MEILISEARCH_HOST'), $token->token()))
+            ->index($index)
+            ->search('Scout', ['limit' => 100])
+            ->getHits();
+
+        return array_values(array_map(fn (array $hit): string => $hit['title'], $hits));
+    }
+
+    #[\Override]
+    protected function refusedSearch(): string
+    {
+        return ApiException::class;
     }
 }

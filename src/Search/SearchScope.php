@@ -8,5 +8,5 @@ use Laravel\Scout\Builder;
 interface SearchScope
 {
     /** @param  Builder<covariant Model>  $search */
-    public function prepare(Builder $search, mixed $engine): void;
+    public function prepare(Builder $search, mixed $engine): mixed;
 }

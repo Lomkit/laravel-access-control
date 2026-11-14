@@ -12,6 +12,7 @@ use Lomkit\Access\Exceptions\UnsupportedSearchEngineException;
 enum SearchEngineKind
 {
     case Index;
+    case NativeFilters;
     case Database;
 
     /** @throws UnsupportedSearchEngineException When the engine cannot filter a controlled search by the access keys. */
@@ -20,7 +21,7 @@ enum SearchEngineKind
         return match (true) {
             $engine instanceof DatabaseEngine => self::Database,
             $engine instanceof CollectionEngine => throw UnsupportedSearchEngineException::collection($model),
-            $engine instanceof TurbopufferEngine => throw UnsupportedSearchEngineException::turbopuffer($model),
+            $engine instanceof TurbopufferEngine => self::NativeFilters,
             Container::getInstance()->make(TrustedSearchEngines::class)->trusts($engine) => self::Index,
             default => throw UnsupportedSearchEngineException::untrusted($model, $engine),
         };

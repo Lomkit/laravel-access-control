@@ -5,7 +5,6 @@ namespace Lomkit\Access\Tests\Feature\Search;
 use Illuminate\Database\Eloquent\Builder;
 use Laravel\Scout\EngineManager;
 use Laravel\Scout\Engines\Engine;
-use Laravel\Scout\Engines\TurbopufferEngine;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
 use Lomkit\Access\Exceptions\UnsupportedSearchEngineException;
@@ -102,23 +101,6 @@ class DatabaseEngineSearchTest extends SearchTestCase
     public function it_runs_an_uncontrolled_search_on_the_collection_engine(): void
     {
         $this->assertCount(3, Article::search('Scout')->uncontrolled()->get());
-    }
-
-    #[Test]
-    public function it_refuses_a_controlled_search_on_the_turbopuffer_engine(): void
-    {
-        if (! class_exists(TurbopufferEngine::class)) {
-            $this->markTestSkipped('This Scout version has no Turbopuffer engine.');
-        }
-
-        $engine = $this->createStub(TurbopufferEngine::class);
-        $this->app->make(EngineManager::class)->extend('turbopuffer-stub', fn (): TurbopufferEngine => $engine);
-        config(['scout.driver' => 'turbopuffer-stub']);
-
-        $this->expectException(UnsupportedSearchEngineException::class);
-        $this->expectExceptionMessage(sprintf('A controlled search of the [%s] model cannot run on the Turbopuffer engine yet', Article::class));
-
-        Article::search('Scout')->controlled();
     }
 
     #[Test]

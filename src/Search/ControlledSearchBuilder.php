@@ -51,11 +51,7 @@ final class ControlledSearchBuilder extends Builder
     #[\Override]
     protected function engine(): mixed
     {
-        $engine = parent::engine();
-
-        ($this->scope ?? throw UndeclaredSearchScopeException::for($this->model))->prepare($this, $engine);
-
-        return $engine;
+        return ($this->scope ?? throw UndeclaredSearchScopeException::for($this->model))->prepare($this, parent::engine());
     }
 
     /** @throws ConflictingSearchScopeException When the search already declared the other scope. */
