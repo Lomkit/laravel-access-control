@@ -15,6 +15,6 @@ class Search implements Fixture
     #[\Override]
     public function controls(): array
     {
-        return [];
+        return [ArticleControl::class];
     }
 }

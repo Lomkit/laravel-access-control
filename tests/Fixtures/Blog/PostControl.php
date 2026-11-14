@@ -13,6 +13,10 @@ class PostControl extends Control
     protected function perimeters(): array
     {
         return [
+            SharedPerimeter::new()
+                ->allowed(fn (User $user, string $method): bool => $user->can("{$method} shared posts"))
+                ->should(fn (User $user, Post $post): bool => $post->sharedWith()->whereKey($user->getKey())->exists())
+                ->query(fn (Builder $query, User $user): Builder => $query->whereHas('sharedWith', fn (Builder $users) => $users->whereKey($user->getKey()))),
             GlobalPerimeter::new()
                 ->allowed(fn (User $user, string $method): bool => $user->can("{$method} global posts"))
                 ->should(fn (User $user, Post $post): bool => true)

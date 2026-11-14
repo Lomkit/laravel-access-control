@@ -16,6 +16,7 @@ class PostFactory extends Factory
             'project_id' => ProjectFactory::new(),
             'author_id' => UserFactory::new(),
             'title' => 'Release notes',
+            'published' => true,
         ];
     }
 }

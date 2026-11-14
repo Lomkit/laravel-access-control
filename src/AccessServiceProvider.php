@@ -3,7 +3,9 @@
 namespace Lomkit\Access;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\PublishingStubs;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\Builder;
@@ -12,7 +14,6 @@ use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
 use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Controls\HasControlScope;
 use Lomkit\Access\Exceptions\MissingControlException;
 
 class AccessServiceProvider extends ServiceProvider
@@ -71,7 +72,9 @@ class AccessServiceProvider extends ServiceProvider
                 /** @var Control $control */
                 $control = method_exists($model, 'newControl') ? $model->newControl() : throw MissingControlException::forModel($model::class);
 
-                return $control->scoutQueried($this, HasControlScope::resolveUser());
+                $reader = Auth::user();
+
+                return $control->scoutQueried($this, $reader instanceof Model ? $reader : null);
             });
         }
     }

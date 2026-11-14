@@ -13,6 +13,7 @@ return new class extends Migration
             $table->foreignId('project_id')->constrained();
             $table->foreignId('author_id')->constrained('users');
             $table->string('title');
+            $table->boolean('published')->default(true);
             $table->timestamps();
         });
     }
