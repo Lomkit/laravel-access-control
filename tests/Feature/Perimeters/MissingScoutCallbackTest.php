@@ -9,7 +9,7 @@ use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
-use Lomkit\Access\Tests\Fixtures\ConfiguredControl;
+use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\Search;
@@ -44,8 +44,7 @@ class MissingScoutCallbackTest extends PackageTestCase
 
         $this->ada = User::factory()->createOne(['name' => 'Ada', 'email' => 'ada@example.com']);
 
-        ConfiguredControl::register(
-            Article::class,
+        ConfiguredArticleControl::bind(
             AuthorPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->query(function (Builder $query, User $user): void {

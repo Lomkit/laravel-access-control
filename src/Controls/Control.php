@@ -6,9 +6,9 @@ use Illuminate\Container\Container;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Registry\ControlRegistry;
 use Throwable;
 
-/** @phpstan-consistent-constructor */
 class Control
 {
     use ControlsQueries;
@@ -46,8 +46,7 @@ class Control
 
     public function applies(Model $user, string $method, Model $model): bool
     {
-        /** @var string $appliesMethod */
-        $appliesMethod = config(sprintf('access-control.methods.%s', $method)) ?? $method;
+        $appliesMethod = config()->string(sprintf('access-control.methods.%s', $method), $method);
 
         $perimeters = $this->applicablePerimeters($user, $appliesMethod);
 
@@ -102,16 +101,14 @@ class Control
 
     final protected function viewMethod(): string
     {
-        /** @var string $viewMethod */
-        $viewMethod = config('access-control.methods.view');
-
-        return $viewMethod;
+        return config()->string('access-control.methods.view');
     }
 
-    /** @return static */
-    public static function new(): self
+    public static function new(): static
     {
-        return new static;
+        return Container::getInstance()
+            ->make(ControlRegistry::class)
+            ->control(static::class);
     }
 
     protected static function appNamespace(): string

@@ -11,10 +11,4 @@ class Search implements Fixture
     {
         return __DIR__.'/migrations';
     }
-
-    #[\Override]
-    public function controls(): array
-    {
-        return [ArticleControl::class];
-    }
 }

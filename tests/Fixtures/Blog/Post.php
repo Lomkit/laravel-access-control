@@ -12,11 +12,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Lomkit\Access\Attributes\ControlledBy;
 use Lomkit\Access\Controls\HasControl;
 
 #[Unguarded]
 #[UseFactory(PostFactory::class)]
 #[UsePolicy(PostPolicy::class)]
+#[ControlledBy(PostControl::class)]
 class Post extends Model
 {
     use HasControl;

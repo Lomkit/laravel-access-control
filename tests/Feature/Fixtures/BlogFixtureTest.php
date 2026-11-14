@@ -55,10 +55,10 @@ class BlogFixtureTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_registers_the_controls_of_its_fixtures(): void
+    public function it_links_the_posts_to_their_control(): void
     {
-        $this->assertInstanceOf(PostControl::class, Access::controlForModel(Post::class));
-        $this->assertNull(Access::controlForModel(Comment::class));
+        $this->assertInstanceOf(PostControl::class, Access::controlFor(Post::class));
+        $this->assertFalse(Access::hasControl(Comment::class));
     }
 
     #[Test]

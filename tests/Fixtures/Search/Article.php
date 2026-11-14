@@ -7,10 +7,12 @@ use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Searchable;
+use Lomkit\Access\Attributes\ControlledBy;
 use Lomkit\Access\Controls\HasControl;
 
 #[Unguarded]
 #[UseFactory(ArticleFactory::class)]
+#[ControlledBy(ArticleControl::class)]
 class Article extends Model
 {
     use HasControl;

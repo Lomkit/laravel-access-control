@@ -21,7 +21,7 @@ trait HasControl
      */
     public function newControl(): Control
     {
-        return Access::controlForModel(static::class) ?? throw MissingControlException::forModel(static::class);
+        return Access::controlFor(static::class);
     }
 
     /**

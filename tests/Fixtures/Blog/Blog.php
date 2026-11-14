@@ -11,10 +11,4 @@ class Blog implements Fixture
     {
         return __DIR__.'/migrations';
     }
-
-    #[\Override]
-    public function controls(): array
-    {
-        return [PostControl::class, UserControl::class];
-    }
 }

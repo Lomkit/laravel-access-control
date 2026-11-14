@@ -118,6 +118,73 @@ An unrestricted perimeter takes no `query`, `should` or `scoutQuery` callback: d
 
 This fixes a reader with both a global and an overlay permission, such as an administrator who also has "view shared posts": in 0.x the empty global group was dropped and the administrator only saw the shared posts. Such a reader now sees every row, which may widen what your tests expect.
 
+### Linking a model to its control
+
+A model names its control with the `#[ControlledBy]` attribute. Add it to each controlled model:
+
+```php
+use Lomkit\Access\Attributes\ControlledBy;
+
+#[ControlledBy(PostControl::class)]
+class Post extends Model
+{
+    use HasControl;
+}
+```
+
+A model without the attribute falls back to the discovery: the control found in `app/Access/Controls` whose `$model` is that model. A control outside the discovered directories is only found through the attribute: in 0.x it was registered when a policy asked for it, so queries could run without it.
+
+A control declares its model as the default value of its `$model` property, such as `protected string $model = Post::class;`. A control whose `$model` is missing, is not a class or is not an Eloquent model now throws `InvalidControlModelException` when it is registered: move a `$model` assigned in a constructor to the property declaration.
+
+A model has a single control. Two controls for the same model, two discovered controls, or a discovered control and the one the attribute names, now throw `DuplicateControlException`, which names both. In 0.x the first control found won, in the order of the files on disk. Remove one of them, or point its `$model` at the right model.
+
+### The Access facade
+
+`Lomkit\Access\Access` is now a facade over the control registry, a singleton of the container. Keep the import, and replace the calls that are gone:
+
+```php
+// Before
+$control = Access::controlForModel($post); // ?Control
+
+// After
+$control = Access::controlFor($post);      // throws MissingControlException
+$controlled = Access::hasControl($post);
+```
+
+`Access::controlFor()` throws `MissingControlException` instead of returning `null`: check `Access::hasControl()` first where a model may have no control.
+
+`Access::$controlDiscoveryPaths` is replaced by `Access::discoverControlsIn()`, called from the `boot()` method of a service provider:
+
+```php
+// Before
+Access::$controlDiscoveryPaths = [app_path('Domain/*/Controls')];
+
+// After
+Access::discoverControlsIn([app_path('Domain/*/Controls')]);
+```
+
+`addControl()`, `addControls()` and `discoverControls()` are removed: declare the control on its model with `#[ControlledBy]`. `Access::flush()` is removed with every other static state: each container, so each test, gets a new registry. Remove the `Access::flush()` calls from your tests. `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` and `discoverControlsWithin()` are removed: run `php artisan access:cache` and `php artisan access:clear`.
+
+`Control::new()` and `Access::control(PostControl::class)` return the control instance of the registry, resolved through the container: one instance per control class and per container. A control can take constructor dependencies, and a test can swap one with `$this->app->instance(PostControl::class, $control)`.
+
+`access:cache` now writes the control of each model instead of a list of controls. Run `php artisan access:cache` again after upgrading, or `php artisan optimize` in your deployment. A cached control class that was deleted since is skipped instead of failing.
+
+`MissingControlException` is now final.
+
+### Policies
+
+A `ControlledPolicy` must name the control of its model. A policy whose `$control` is not the control registered for the model it decides on now throws `PolicyControlMismatchException`, which names both controls. In 0.x the decision and the controlled queries could use two different controls. Name the model's control in the policy:
+
+```php
+#[ControlledBy(PostControl::class)]
+class Post extends Model {}
+
+class PostPolicy extends ControlledPolicy
+{
+    protected string $control = PostControl::class;
+}
+```
+
 ### Correspondence table
 
 | 0.x | 1.0 |
@@ -128,3 +195,8 @@ This fixes a reader with both a global and an overlay permission, such as an adm
 | `HasControlScope::retrievingUser()` | Removed, no replacement |
 | `->query(fn ($query) => $query)`, `->should(fn () => true)` on a global perimeter | `->unrestricted()` |
 | `->query(fn ($query) => Model::query()->where(...))` | `->query(function ($query): void { $query->where(...); })` |
+| `Access::controlForModel($model)` (returns `?Control`) | `Access::controlFor($model)` (throws `MissingControlException`) and `Access::hasControl($model)` |
+| `(new Access)->addControl($control)`, `addControls()`, `discoverControls()` | `#[ControlledBy(PostControl::class)]` on the model |
+| `Access::$controlDiscoveryPaths = [...]` | `Access::discoverControlsIn([...])` in a service provider's `boot()` |
+| `Access::flush()` | Removed: the registry is a container singleton |
+| `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` | `php artisan access:cache`, `php artisan access:clear` |

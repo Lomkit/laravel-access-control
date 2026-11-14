@@ -11,7 +11,7 @@ use Lomkit\Access\Tests\Fixtures\Blog\ClientPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
-use Lomkit\Access\Tests\Fixtures\ConfiguredControl;
+use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -47,7 +47,7 @@ class MissingCallbackTest extends PackageTestCase
     #[Test]
     public function it_throws_when_the_allowed_callback_is_missing_from_a_query(): void
     {
-        ConfiguredControl::register(Post::class, ClientPerimeter::new()->query(fn (Builder $query) => $query->whereRaw('1=1')));
+        ConfiguredPostControl::bind(ClientPerimeter::new()->query(fn (Builder $query) => $query->whereRaw('1=1')));
 
         $this->expectMissing(ClientPerimeter::class, 'allowed');
 
@@ -57,7 +57,7 @@ class MissingCallbackTest extends PackageTestCase
     #[Test]
     public function it_throws_when_the_allowed_callback_is_missing_from_a_decision(): void
     {
-        $control = ConfiguredControl::register(Post::class, ClientPerimeter::new()->unrestricted());
+        $control = ConfiguredPostControl::bind(ClientPerimeter::new()->unrestricted());
 
         $this->expectMissing(ClientPerimeter::class, 'allowed');
 
@@ -67,7 +67,7 @@ class MissingCallbackTest extends PackageTestCase
     #[Test]
     public function it_throws_when_the_query_callback_of_an_allowed_perimeter_is_missing(): void
     {
-        ConfiguredControl::register(Post::class, ClientPerimeter::new()->allowed(fn (User $user): bool => true));
+        ConfiguredPostControl::bind(ClientPerimeter::new()->allowed(fn (User $user): bool => true));
 
         $this->expectMissing(ClientPerimeter::class, 'query');
 
@@ -77,7 +77,7 @@ class MissingCallbackTest extends PackageTestCase
     #[Test]
     public function it_needs_no_query_callback_on_a_perimeter_that_does_not_allow_the_reader(): void
     {
-        ConfiguredControl::register(Post::class, ClientPerimeter::new()->allowed(fn (User $user): bool => false));
+        ConfiguredPostControl::bind(ClientPerimeter::new()->allowed(fn (User $user): bool => false));
 
         $this->assertSame(0, Post::controlledFor($this->ada)->count());
     }
@@ -85,7 +85,7 @@ class MissingCallbackTest extends PackageTestCase
     #[Test]
     public function it_throws_when_the_should_callback_of_an_allowed_perimeter_is_missing_for_a_saved_row(): void
     {
-        $control = ConfiguredControl::register(Post::class, ClientPerimeter::new()->allowed(fn (User $user): bool => true));
+        $control = ConfiguredPostControl::bind(ClientPerimeter::new()->allowed(fn (User $user): bool => true));
 
         $this->expectMissing(ClientPerimeter::class, 'should');
 
@@ -95,7 +95,7 @@ class MissingCallbackTest extends PackageTestCase
     #[Test]
     public function it_needs_no_should_callback_without_a_saved_row(): void
     {
-        $control = ConfiguredControl::register(Post::class, ClientPerimeter::new()->allowed(fn (User $user): bool => true));
+        $control = ConfiguredPostControl::bind(ClientPerimeter::new()->allowed(fn (User $user): bool => true));
 
         $this->assertTrue($control->applies($this->ada, 'create', new Post));
         $this->assertTrue($control->applies($this->ada, 'viewAny', new Post));

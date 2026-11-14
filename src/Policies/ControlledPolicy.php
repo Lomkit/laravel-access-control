@@ -6,107 +6,76 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Exceptions\PolicyControlMismatchException;
 
 class ControlledPolicy
 {
     // @TODO: what to do for other methods like attach / restore / force_delete ? It only has view / etc basic methods
 
-    /**
-     * The control class the policy relies on.
-     *
-     * @var class-string<Control>
-     */
+    /** @var class-string<Control> */
     protected string $control;
 
     /**
-     * Retrieves the registered instance of the policy control.
-     *
-     * @return Control The control instance, registered in Access when needed.
+     * @throws PolicyControlMismatchException When the model of the control is controlled by another control.
      */
     protected function getControl(): Control
     {
-        return Access::control($this->control);
+        return $this->controlOf(Access::control($this->control)->getModel());
     }
 
-    /**
-     * Determine if the user is authorized to view any instances of the model.
-     *
-     * @param  Model  $user  The user for which the permission check is performed.
-     * @return bool|Response True if the user is authorized to view any instances, false otherwise.
-     */
     public function viewAny(Model $user): bool|Response
     {
-        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getControl()->getModel()));
+        $control = $this->getControl();
+
+        return $control->applies($user, __FUNCTION__, new ($control->getModel()));
     }
 
-    /**
-     * Checks whether a specific model instance is viewable by the given user.
-     *
-     * @param  Model  $user  The user whose permission to view the model is being evaluated.
-     * @param  Model  $model  The model instance for which view permission is checked.
-     * @return bool|Response True if the user is authorized to view the model instance, false otherwise.
-     */
     public function view(Model $user, Model $model): bool|Response
     {
-        return $this->getControl()->applies($user, __FUNCTION__, $model);
+        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
     }
 
-    /**
-     * Checks if the given user has permission to create a new instance of the model.
-     *
-     * @param  Model  $user  The user whose permission to create the model is being verified.
-     * @return bool|Response True if the user is allowed to create a new model instance, false otherwise.
-     */
     public function create(Model $user): bool|Response
     {
-        return $this->getControl()->applies($user, __FUNCTION__, new ($this->getControl()->getModel()));
+        $control = $this->getControl();
+
+        return $control->applies($user, __FUNCTION__, new ($control->getModel()));
     }
 
-    /**
-     * Determines whether the user is authorized to update the specified model instance.
-     *
-     * @param  Model  $user  The user attempting to perform the update.
-     * @param  Model  $model  The model instance targeted for update.
-     * @return bool|Response True if the update action is permitted, false otherwise.
-     */
     public function update(Model $user, Model $model): bool|Response
     {
-        return $this->getControl()->applies($user, __FUNCTION__, $model);
+        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
     }
 
-    /**
-     * Determines if the specified user is authorized to delete the given model instance.
-     *
-     * @param  Model  $user  The user attempting the deletion.
-     * @param  Model  $model  The model instance to be deleted.
-     * @return bool|Response True if deletion is permitted, false otherwise.
-     */
     public function delete(Model $user, Model $model): bool|Response
     {
-        return $this->getControl()->applies($user, __FUNCTION__, $model);
+        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
     }
 
-    /**
-     * Determines if the specified user is authorized to restore the given model instance.
-     *
-     * @param  Model  $user  The user attempting the restoration.
-     * @param  Model  $model  The model instance to be restored.
-     * @return bool|Response True if restoration is permitted, false otherwise.
-     */
     public function restore(Model $user, Model $model): bool|Response
     {
-        return $this->getControl()->applies($user, __FUNCTION__, $model);
+        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
+    }
+
+    public function forceDelete(Model $user, Model $model): bool|Response
+    {
+        return $this->controlOf($model::class)->applies($user, __FUNCTION__, $model);
     }
 
     /**
-     * Determines if the specified user is authorized to force delete the given model instance.
+     * @param  class-string<Model>  $model
      *
-     * @param  Model  $user  The user attempting the force deletion.
-     * @param  Model  $model  The model instance to be force deleted.
-     * @return bool|Response True if force deletion is permitted, false otherwise.
+     * @throws PolicyControlMismatchException When the model is controlled by another control.
      */
-    public function forceDelete(Model $user, Model $model): bool|Response
+    private function controlOf(string $model): Control
     {
-        return $this->getControl()->applies($user, __FUNCTION__, $model);
+        $control = Access::control($this->control);
+        $registered = Access::controlFor($model);
+
+        if ($registered !== $control) {
+            throw PolicyControlMismatchException::for(static::class, $this->control, $model, $registered::class);
+        }
+
+        return $control;
     }
 }

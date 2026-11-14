@@ -3,7 +3,10 @@
 namespace Lomkit\Access\Tests\Support\Models;
 
 use Laravel\Scout\Searchable;
+use Lomkit\Access\Attributes\ControlledBy;
+use Lomkit\Access\Tests\Support\Access\Controls\SearchableModelControl;
 
+#[ControlledBy(SearchableModelControl::class)]
 class SearchableModel extends Model
 {
     use Searchable;

@@ -2,21 +2,14 @@
 
 namespace Lomkit\Access\Exceptions;
 
-use Illuminate\Database\Eloquent\Model;
 use LogicException;
 
-/** @phpstan-consistent-constructor */
-class MissingControlException extends LogicException
+final class MissingControlException extends LogicException
 {
-    /**
-     * Create the exception for a model that has no registered control.
-     *
-     * @param  class-string<Model>  $model
-     */
-    public static function forModel(string $model): static
+    public static function forModel(string $model): self
     {
-        return new static(sprintf(
-            'No control is registered for the [%s] model. Create one with "php artisan make:control" or register it with Access::addControl().',
+        return new self(sprintf(
+            'No control is registered for the [%s] model. Declare its control on the model with #[ControlledBy(PostControl::class)], or create one with "php artisan make:control" in a directory the controls are discovered in.',
             $model,
         ));
     }
