@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Search;
 
+use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Engines\CollectionEngine;
 use Laravel\Scout\Engines\DatabaseEngine;
@@ -20,7 +21,8 @@ enum SearchEngineKind
             $engine instanceof DatabaseEngine => self::Database,
             $engine instanceof CollectionEngine => throw UnsupportedSearchEngineException::collection($model),
             $engine instanceof TurbopufferEngine => throw UnsupportedSearchEngineException::turbopuffer($model),
-            default => self::Index,
+            Container::getInstance()->make(TrustedSearchEngines::class)->trusts($engine) => self::Index,
+            default => throw UnsupportedSearchEngineException::untrusted($model, $engine),
         };
     }
 

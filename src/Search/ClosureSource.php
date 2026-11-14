@@ -27,7 +27,22 @@ final class ClosureSource
             return $function->getName();
         }
 
-        return implode('', array_slice($lines, $start - 1, $end - $start + 1));
+        return self::significantTokens(implode('', array_slice($lines, $start - 1, $end - $start + 1)));
+    }
+
+    private static function significantTokens(string $code): string
+    {
+        $tokens = [];
+
+        foreach (token_get_all('<?php '.$code) as $token) {
+            if (is_string($token)) {
+                $tokens[] = $token;
+            } elseif (! in_array($token[0], [T_OPEN_TAG, T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                $tokens[] = $token[1];
+            }
+        }
+
+        return implode(' ', $tokens);
     }
 
     private static function describe(mixed $value): mixed

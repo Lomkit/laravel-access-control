@@ -4,7 +4,10 @@ namespace Lomkit\Access\Tests\Feature\Search;
 
 use Illuminate\Database\Eloquent\Builder;
 use Laravel\Scout\EngineManager;
+use Laravel\Scout\Engines\Engine;
 use Laravel\Scout\Engines\TurbopufferEngine;
+use Lomkit\Access\Access;
+use Lomkit\Access\Exceptions\InvalidSearchEngineException;
 use Lomkit\Access\Exceptions\UnsupportedSearchEngineException;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
@@ -104,6 +107,10 @@ class DatabaseEngineSearchTest extends SearchTestCase
     #[Test]
     public function it_refuses_a_controlled_search_on_the_turbopuffer_engine(): void
     {
+        if (! class_exists(TurbopufferEngine::class)) {
+            $this->markTestSkipped('This Scout version has no Turbopuffer engine.');
+        }
+
         $engine = $this->createStub(TurbopufferEngine::class);
         $this->app->make(EngineManager::class)->extend('turbopuffer-stub', fn (): TurbopufferEngine => $engine);
         config(['scout.driver' => 'turbopuffer-stub']);
@@ -112,5 +119,58 @@ class DatabaseEngineSearchTest extends SearchTestCase
         $this->expectExceptionMessage(sprintf('A controlled search of the [%s] model cannot run on the Turbopuffer engine yet', Article::class));
 
         Article::search('Scout')->controlled();
+    }
+
+    #[Test]
+    public function it_refuses_a_controlled_search_on_an_engine_the_package_does_not_trust(): void
+    {
+        $engine = $this->createStub(Engine::class);
+        $this->app->make(EngineManager::class)->extend('custom', fn (): Engine => $engine);
+        config(['scout.driver' => 'custom']);
+
+        $this->expectException(UnsupportedSearchEngineException::class);
+        $this->expectExceptionMessage(sprintf('A controlled search of the [%s] model cannot run on the [%s] engine', Article::class, $engine::class));
+
+        Article::search('Scout')->controlled();
+    }
+
+    #[Test]
+    public function it_filters_a_controlled_search_on_an_engine_the_application_trusts(): void
+    {
+        $engine = $this->createStub(Engine::class);
+        $this->app->make(EngineManager::class)->extend('custom', fn (): Engine => $engine);
+        config(['scout.driver' => 'custom']);
+        Access::trustSearchEngine($engine::class);
+        $this->allow(['view own articles']);
+
+        $search = Article::search('Scout')->controlled();
+
+        $this->assertSame(['_access_version', '_access'], array_keys($search->whereIns));
+    }
+
+    #[Test]
+    public function it_runs_an_uncontrolled_search_on_an_engine_the_package_does_not_trust(): void
+    {
+        $engine = $this->createStub(Engine::class);
+        $this->app->make(EngineManager::class)->extend('custom', fn (): Engine => $engine);
+        config(['scout.driver' => 'custom']);
+
+        $this->assertSame([], Article::search('Scout')->uncontrolled()->whereIns);
+    }
+
+    #[Test]
+    #[WithConfig('scout.driver', 'null')]
+    public function it_runs_a_controlled_search_on_the_null_engine(): void
+    {
+        $this->assertCount(0, Article::search('Scout')->controlled()->get());
+    }
+
+    #[Test]
+    public function it_refuses_to_trust_a_class_that_is_not_a_search_engine(): void
+    {
+        $this->expectException(InvalidSearchEngineException::class);
+        $this->expectExceptionMessage(sprintf('The [%s] class cannot be trusted as a search engine', User::class));
+
+        Access::trustSearchEngine(User::class);
     }
 }

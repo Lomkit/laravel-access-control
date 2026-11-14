@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Search;
 
 use Illuminate\Support\Facades\Auth;
 use Lomkit\Access\Access;
+use Lomkit\Access\Exceptions\ConflictingSearchScopeException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Tests\Fixtures\Agencies\Member;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -63,6 +64,39 @@ class ControlledSearchTest extends SearchTestCase
             '_access_version' => [$this->version()],
             '_access' => ["author.{$this->ada->getKey()}", 'featured.yes'],
         ], $this->filterOf());
+    }
+
+    #[Test]
+    public function it_searches_with_the_keys_of_the_reader_given_to_controlled_for(): void
+    {
+        $this->allow(['view own articles']);
+
+        $titles = Article::search('Scout')
+            ->controlledFor($this->grace)
+            ->get()
+            ->pluck('title')
+            ->sort()
+            ->values()
+            ->all();
+
+        $this->assertSame(['Scout internals', 'Scout recipes'], $titles);
+    }
+
+    #[Test]
+    public function it_returns_an_empty_page_without_calling_the_engine_when_controlled_for_no_reader(): void
+    {
+        $this->allow(['view global articles']);
+
+        $this->assertCount(0, Article::search('Scout')->controlledFor(null)->get());
+        $this->assertSame([], $this->engine->searches);
+    }
+
+    #[Test]
+    public function it_refuses_a_search_controlled_for_a_reader_and_uncontrolled(): void
+    {
+        $this->expectException(ConflictingSearchScopeException::class);
+
+        Article::search('Scout')->controlledFor($this->grace)->uncontrolled();
     }
 
     #[Test]

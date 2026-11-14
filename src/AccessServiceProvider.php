@@ -17,6 +17,7 @@ use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Registry\PerimeterPurity;
+use Lomkit\Access\Search\TrustedSearchEngines;
 
 class AccessServiceProvider extends ServiceProvider
 {
@@ -50,6 +51,8 @@ class AccessServiceProvider extends ServiceProvider
         ));
 
         $this->app->singleton(ControlDiscovery::class);
+
+        $this->app->singleton(TrustedSearchEngines::class);
     }
 
     /**

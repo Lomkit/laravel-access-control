@@ -374,11 +374,12 @@ The search of a `ControlledSearchable` model must say whether it is controlled. 
 
 ```php
 Post::search('budget')->controlled()->paginate(25);   // the rows the signed-in user may view
+Post::search('budget')->controlledFor($user)->get();   // the rows a named reader may view (jobs, listeners, commands)
 Post::search('budget')->uncontrolled()->paginate(25); // every row, on purpose (back office, exports)
 Post::search('budget')->paginate(25);                  // throws UndeclaredSearchScopeException
 ```
 
-Without a signed-in user, or for a reader that no perimeter allows, a controlled search returns an empty page without calling the engine.
+Without a signed-in user, with `controlledFor(null)`, or for a reader that no perimeter allows, a controlled search returns an empty page without calling the engine.
 
 #### Engines
 
@@ -401,12 +402,18 @@ Declare the three attributes as filterable in the settings of each searchable mo
 'attributesForFaceting' => ['filterOnly(_access)', 'filterOnly(_boundary)', 'filterOnly(_access_version)'],
 ```
 
-- Algolia, Meilisearch and Typesense filter the documents with `whereIn`. A custom engine must render `whereIn` on an array attribute as "at least one element in common".
+- Algolia, Meilisearch and Typesense filter the documents with `whereIn`. Scout's `null` engine is accepted too, since it finds nothing.
+- Any other engine is refused with `UnsupportedSearchEngineException`: an engine that ignored `whereIn` would return every document. If your engine renders `whereIn` on an array attribute as "at least one element in common", trust it in a service provider:
+
+```php
+Access::trustSearchEngine(ElasticsearchEngine::class);
+```
+
 - The `database` engine searches with SQL: a controlled search applies the control's SQL inside the search query, through Scout's `query()` callback, which still runs the callback you pass to `query()`. No keys are computed for it.
 - The `collection` engine paginates before it filters: a controlled search throws `UnsupportedSearchEngineException`. Use the `database` engine, in tests too.
 - The Turbopuffer engine is refused the same way for now: Scout cannot express the `ContainsAny` filter it needs on an array attribute.
 
-The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. `_access_version` makes sure that a change of key rules narrows the results, never widens them: documents indexed with the former rules no longer match.
+The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. `_access_version` makes sure that a change of key rules narrows the results, never widens them: documents indexed with the former rules no longer match. The fingerprint reads the code of the row closures and the boundary, without whitespace or comments: reformatting the code keeps it, changing what a closure does or captures changes it. The reader closures are not part of it, since the documents store only the row side.
 
 #### Reindex
 

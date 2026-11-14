@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Fixtures\Search;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Scout\EngineManager;
 use Laravel\Scout\ScoutServiceProvider;
+use Lomkit\Access\Access;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -37,6 +38,7 @@ abstract class SearchTestCase extends AccessTestCase
     {
         parent::setUp();
 
+        Access::trustSearchEngine(MemoryEngine::class);
         $engine = $this->engine = new MemoryEngine;
         $this->app->make(EngineManager::class)->extend('memory', fn (): MemoryEngine => $engine);
     }

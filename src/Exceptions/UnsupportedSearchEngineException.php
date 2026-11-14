@@ -22,4 +22,15 @@ final class UnsupportedSearchEngineException extends LogicException
             $model::class,
         ));
     }
+
+    public static function untrusted(Model $model, mixed $engine): self
+    {
+        $class = get_debug_type($engine);
+
+        return new self(sprintf(
+            'A controlled search of the [%1$s] model cannot run on the [%2$s] engine: the package only knows that the Algolia, Meilisearch and Typesense engines render whereIn on an array attribute as "at least one element in common", and an engine that ignores it would return every document. If [%2$s] filters that way, call Access::trustSearchEngine(%2$s::class) in a service provider.',
+            $model::class,
+            $class,
+        ));
+    }
 }

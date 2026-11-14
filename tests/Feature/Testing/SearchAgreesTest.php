@@ -108,16 +108,15 @@ class SearchAgreesTest extends SearchTestCase
     #[Test]
     public function it_fails_when_the_search_keys_describe_other_rows_than_the_query(): void
     {
+        $website = Project::query()->where('name', 'Website')->firstOrFail();
         ConfiguredArticleControl::bind(
             AuthorPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->query(function (Builder $query, User $user): void {
                     $query->where('author_id', $user->getKey());
                 })
-                ->searchKeys('author', fn (Article $article): mixed => $article->project_id, fn (User $user): mixed => $user->getKey()),
+                ->searchKeys('author', fn (Article $article): mixed => $article->project_id, fn (User $user): mixed => $website->getKey()),
         );
-        $website = Project::query()->where('name', 'Website')->firstOrFail();
-        $this->ada->forceFill(['id' => $website->getKey()]);
         $recipes = Article::query()->where('title', 'Scout recipes')->firstOrFail();
 
         $this->expectException(AssertionFailedError::class);
@@ -125,7 +124,7 @@ class SearchAgreesTest extends SearchTestCase
             'The search keys of the [%s] control do not agree with its SQL for the [%s] reader with key [%s]: the keys find the rows [%s] that the SQL does not, and miss the rows [] that the SQL finds.',
             ArticleControl::class,
             User::class,
-            $website->getKey(),
+            $this->ada->getKey(),
             $recipes->getKey(),
         ));
 

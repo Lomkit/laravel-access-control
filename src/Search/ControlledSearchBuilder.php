@@ -32,6 +32,16 @@ final class ControlledSearchBuilder extends Builder
         return $this->declare(ControlledScope::for($this->model, $reader instanceof Model ? $reader : null));
     }
 
+    /**
+     * @throws MissingControlException When no control is registered for the model.
+     * @throws UnsupportedSearchEngineException When the engine of the model cannot filter by the access keys.
+     * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
+     */
+    public function controlledFor(?Model $reader): static
+    {
+        return $this->declare(ControlledScope::for($this->model, $reader));
+    }
+
     public function uncontrolled(): static
     {
         return $this->declare(new UncontrolledScope);
