@@ -729,6 +729,57 @@ $control->applies($user, Ability::create(), Draft::of($post));
 
 The policy decides a row on the values it has in the database. After `fill()`, the `should` callbacks and the boundary receive a copy built from the original attributes (`getRawOriginal()`), without the loaded relations; a row without changes is passed as it is. In 0.x, `$post->fill(['author_id' => $me->id])` before `authorize('update', $post)` granted the update in memory. Authorize the new values through a draft, not through the modified row.
 
+#### Row checks in SQL
+
+A perimeter without a `should` callback, and whose class does not override `includes()`, now decides a saved row in SQL instead of throwing `MissingPerimeterCallbackException`. The check is derived from its `query()`: one query on the model's table, constrained to the row's key and to the OR of the `query()` scopes of every reached perimeter that has no in-memory form. The mode never depends on runtime state, such as loaded relations, so a decision costs the same number of queries in tests and in production:
+
+| The reader reaches | Queries for one row |
+| --- | --- |
+| No perimeter | None: `no_perimeter` |
+| An unrestricted perimeter, with no boundary or a boundary with an in-memory form | None |
+| A perimeter with an in-memory form that contains the row | None, or one on the boundary when it has no in-memory form |
+| Only perimeters without an in-memory form | One, with the boundary in it when it has no in-memory form |
+
+The in-memory form of the boundary is checked first, then the perimeters that have one (`should`, `includes()`, `unrestricted()`); the SQL runs only when none of them grants. The codes and their order do not change. A query callback that adds no constraint or a join throws `EmptyQueryCallbackException` or `JoinInPerimeterException`, as for the controlled queries. A draft is still judged only in memory: a perimeter checked in SQL never grants it.
+
+Remove the `should` callbacks that only repeated their `query()`:
+
+```php
+// Before
+OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} own posts"))
+    ->should(fn (User $user, Post $post) => $post->author_id === $user->id)
+    ->query(fn (Builder $query, User $user) => $query->where('author_id', $user->id)),
+
+// After: the row is checked through the query
+OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} own posts"))
+    ->query(fn (Builder $query, User $user) => $query->where('author_id', $user->id)),
+```
+
+Keep a `should` callback on the perimeters through which readers create rows, since a draft needs it, and where checking in memory saves a query. `Perimeter::admits()` still checks the row in memory, so it needs the `should` callback or the `includes()` hook.
+
+#### The decision context
+
+`Access::decisionContextUsing()` declares, once and for the whole application, the values outside the reader that change a decision, such as the current brand or tenant:
+
+```php
+use Lomkit\Access\Access;
+
+public function boot(): void
+{
+    Access::decisionContextUsing(fn (): array => ['brand' => Brand::current()?->id]);
+}
+```
+
+The resolver returns an array of strings, ints, booleans or nulls keyed by name; anything else, such as a model or a float, throws `InvalidDecisionContextException`. It runs each time the package builds an `AccessContext`, and the hooks of a perimeter class read it with `$context->decisionContext()`, sorted by key. Without a resolver, the context is `[]`. The package files the decisions it keeps for a request under this context, so a decision made for one brand is never reused for another.
+
+#### Kept decisions
+
+The package keeps decisions for the length of a request or a job, under the reader (its morph class and key), the decision context, the model, the row key and the ability; a reader without a key, or not saved, is never kept. The perimeters that apply and the in-memory checks are always evaluated again; only the SQL check of a row can be answered from what was kept. Everything kept is forgotten when any Eloquent model is saved or deleted, when a transaction rolls back, at the end of each request or job, and when the application calls `Access::forgetDecisions()`. The number of kept decisions is capped, and the oldest is dropped first.
+
+Call `Access::forgetDecisions()` after a write that Eloquent does not see and that changes a decision: `attach()`, `detach()` and `sync()` on a relation, `DB::table()` and mass updates, `saveQuietly()` and writes inside `withoutEvents()`. An attribute of the reader changed in memory, without saving it, does not change what was kept either.
+
 #### Business abilities
 
 A policy declares a business ability, such as `approve` or `attach`, by calling the protected `decide()` helper with the name of its method. The control maps the method to an ability through `abilityFor()`, and the helper returns the same `Response` as the standard methods:
@@ -1117,6 +1168,9 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `$control->applies($user, $ability, new Post)` | `$control->applies($user, $ability)`, or `Draft::of($post)` for a creation |
 | `$control->applies($user, $control->abilityFor('approve'), $post)` in a policy | `$this->decide(__FUNCTION__, $user, $post)` |
 | `$post->fill($data)` then `authorize('update', $post)` to check the new values | Decided on the stored row: check the new values through a draft |
+| A `should` callback that repeats the `query()` of its perimeter | Removed: the row is checked in SQL through the `query()` |
+| `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
+| A brand or tenant read inside the callbacks, with decisions cached by hand | `Access::decisionContextUsing(fn () => ['brand' => ...])`, read in hooks with `$context->decisionContext()` |
 | `use Searchable` on a controlled model | `use ControlledSearchable`, then reindex |
 | `->scoutQuery(fn ($query, $user) => $query->where('client_id', $user->client_id))` | `->searchKeys(name: 'client', row: fn ($post) => $post->client_id, reader: fn ($user) => $user->client_id)` |
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |
