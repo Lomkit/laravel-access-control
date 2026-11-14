@@ -4,6 +4,7 @@ namespace Lomkit\Access\Controls;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 
 /** @phpstan-require-extends Control */
@@ -36,7 +37,7 @@ trait ControlsScoutQueries
      */
     protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
-        $perimeters = $this->applicablePerimeters($user, $this->viewMethod());
+        $perimeters = $this->applicablePerimeters($user, Ability::view());
 
         if ($perimeters === []) {
             return $this->noResultScoutQuery($query);

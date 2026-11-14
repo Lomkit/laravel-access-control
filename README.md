@@ -26,13 +26,13 @@ class PostControl extends Control
     {
         return [
             GlobalPerimeter::new()
-                ->allowed(function (Model $user, string $method) {
-                    return $user->can(sprintf('%s global models', $method));
+                ->allowed(function (Model $user, Ability $ability): bool {
+                    return $user->can("{$ability} global models");
                 })
                 ->unrestricted(),
             ClientPerimeter::new()
-                ->allowed(function (Model $user, string $method) {
-                    return $user->can(sprintf('%s client models', $method));
+                ->allowed(function (Model $user, Ability $ability): bool {
+                    return $user->can("{$ability} client models");
                 })
                 ->should(function (Model $user, Model $model) {
                     return $model->client()->is($user->client);

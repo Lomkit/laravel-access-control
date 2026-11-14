@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Tests\Feature\Perimeters;
 
 use Illuminate\Database\Eloquent\Builder;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -61,7 +62,7 @@ class MissingCallbackTest extends PackageTestCase
 
         $this->expectMissing(ClientPerimeter::class, 'allowed');
 
-        $control->applies($this->ada, 'create', new Post);
+        $control->applies($this->ada, Ability::create(), new Post);
     }
 
     #[Test]
@@ -89,7 +90,7 @@ class MissingCallbackTest extends PackageTestCase
 
         $this->expectMissing(ClientPerimeter::class, 'should');
 
-        $control->applies($this->ada, 'update', $this->releaseNotes);
+        $control->applies($this->ada, Ability::update(), $this->releaseNotes);
     }
 
     #[Test]
@@ -97,8 +98,8 @@ class MissingCallbackTest extends PackageTestCase
     {
         $control = ConfiguredPostControl::bind(ClientPerimeter::new()->allowed(fn (User $user): bool => true));
 
-        $this->assertTrue($control->applies($this->ada, 'create', new Post));
-        $this->assertTrue($control->applies($this->ada, 'viewAny', new Post));
+        $this->assertTrue($control->applies($this->ada, Ability::create(), new Post));
+        $this->assertTrue($control->applies($this->ada, Ability::view(), new Post));
     }
 
     #[Test]
@@ -107,7 +108,7 @@ class MissingCallbackTest extends PackageTestCase
         $perimeter = Perimeter::new();
 
         foreach ([
-            'allowed' => fn () => $perimeter->applyAllowedCallback($this->ada, 'view'),
+            'allowed' => fn () => $perimeter->applyAllowedCallback($this->ada, Ability::view()),
             'should' => fn () => $perimeter->applyShouldCallback($this->ada, $this->releaseNotes),
             'query' => fn () => $perimeter->applyQueryCallback(Post::query(), $this->ada),
         ] as $callback => $apply) {

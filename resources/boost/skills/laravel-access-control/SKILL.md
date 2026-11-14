@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, Perimeters, ControlledPolicy, unrestricted perimeters, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
+description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters, ControlledPolicy, unrestricted perimeters, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
 ---
 
 # Laravel Access Control
@@ -13,22 +13,24 @@ Use this skill when working with Lomkit Access Control in a Laravel project that
 - Needs row-level filtering on Eloquent queries (multi-tenant, per-client, per-team, ownership).
 - Runs `php artisan make:control` or `php artisan make:perimeter`.
 - Mentions `#[ControlledBy]`, `Access::controlFor()`, `Access::hasControl()`, or `access:cache`.
+- Mentions `Ability`, `Ability::of()`, `abilityFor()`, or a business ability such as `approve` on a controlled model.
 - Mentions `Control`, `Perimeter`, `OverlayPerimeter`, `unrestricted()`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
 - Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules.
 
-Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that `config/access-control.php` only maps Gate methods to perimeter methods: publish it with `php artisan vendor:publish --tag=access-control-config` only to change that map. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
+Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that the package has no configuration file: a leftover `config/access-control.php` is ignored and can be deleted. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
 
 ## Features
 
 - Perimeter: fluent definition of `allowed`/`should`/`query`/`scoutQuery` for one access rule. Non-overlay perimeters short-circuit — the first match wins. The `query` and `scoutQuery` callbacks constrain the builder they receive and return nothing (returning that same builder is accepted, e.g. from an arrow function); their return value is never used. Example usage:
 
 ```php
+use Lomkit\Access\Ability;
 use Lomkit\Access\Perimeters\Perimeter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 Perimeter::new()
-    ->allowed(fn (Model $user, string $method) => $user->can("{$method} client models"))
+    ->allowed(fn (Model $user, Ability $ability) => $user->can("{$ability} client models"))
     ->should(fn (Model $user, Model $model)    => $model->client_id === $user->client_id)
     ->query(function (Builder $query, Model $user): void {
         $query->where('client_id', $user->client_id);
@@ -42,7 +44,7 @@ Perimeter::new()
 
 ```php
 GlobalPerimeter::new()
-    ->allowed(fn (Model $user, string $method) => $user->can("{$method} global models"))
+    ->allowed(fn (Model $user, Ability $ability) => $user->can("{$ability} global models"))
     ->unrestricted();
 ```
 
@@ -119,7 +121,27 @@ Post::uncontrolled()->count();                  // every row, stated on purpose 
 Post::query()->get();                           // every row: a plain query is not controlled
 ```
 
-- ControlledPolicy: drop-in policy that delegates every Gate method (`view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`) to the Control. Its `$control` must be the control registered for the model it decides on, or it throws `PolicyControlMismatchException`. `viewAny` and `create` only run `allowed` (no instance to check `should`). Example usage:
+- Ability: `Lomkit\Access\Ability` is the immutable value object every `allowed` callback receives as its second parameter. `Ability::view()`, `create()`, `update()`, `delete()`, `restore()` and `forceDelete()` name the standard abilities; `Ability::of('approve')` names any business ability and throws `InvalidAbilityException` for an empty name or one with whitespace. Compare with `$ability->is('view')` or `$ability->is(Ability::view())`, never with `===`; it converts to its name in a string (`"{$ability} posts"`), and `name()` returns it. It is not laravel-rest-api's closed `Lomkit\Rest\Authorization\Ability` enum. `Control::abilityFor(string $policyMethod)` maps a policy method to its ability: `viewAny` and `view` → `view`, the other standard methods → themselves, any other method → `Ability::of($method)`; override it on a control to change the mapping. Example usage:
+
+```php
+use Lomkit\Access\Ability;
+
+class PostControl extends Control
+{
+    public function abilityFor(string $policyMethod): Ability
+    {
+        return match ($policyMethod) {
+            'viewAny' => Ability::of('list'),
+            default => parent::abilityFor($policyMethod),
+        };
+    }
+}
+
+$control->applies($user, Ability::update(), $post);
+$control->applies($user, $control->abilityFor('approve'), $post); // Ability::of('approve')
+```
+
+- ControlledPolicy: drop-in policy that delegates every Gate method (`view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`) to the Control, passing the `Ability` that `abilityFor()` maps the method to. Its `$control` must be the control registered for the model it decides on, or it throws `PolicyControlMismatchException`. `viewAny` and `create` only run `allowed` (no instance to check `should`). Example usage:
 
 ```php
 use Lomkit\Access\Policies\ControlledPolicy;
@@ -130,8 +152,8 @@ class PostPolicy extends ControlledPolicy
     protected string $control = PostControl::class;
 }
 
-$user->can('view', $post);          // → PostControl perimeters with method='view'
-$user->can('viewAny', Post::class); // → method='view' (via the methods map)
+$user->can('view', $post);          // → PostControl perimeters with Ability::view()
+$user->can('viewAny', Post::class); // → Ability::view(), through abilityFor()
 ```
 
 - Artisan generators: scaffold Controls and Perimeters. Generated files land in `app/Access/Controls` and `app/Access/Perimeters`. Example usage:
@@ -149,18 +171,6 @@ Post::search('hello')->controlled()->get();
 Post::search('hello')->controlled()->paginate(15);
 ```
 
-- Configuration: `config/access-control.php` maps each Gate method to the method its perimeters receive. Example usage:
-
-```php
-return [
-    'methods' => [
-        'viewAny' => 'view', 'view' => 'view', 'create' => 'create',
-        'update'  => 'update', 'delete' => 'delete',
-        'restore' => 'restore', 'forceDelete' => 'forceDelete',
-    ],
-];
-```
-
 ## Common pitfalls to flag when reviewing or writing code
 
   - No perimeter matches → query is forced to `0=1` (Eloquent), or the search returns an empty page without querying the engine (Scout). Empty results after wiring control usually mean no `allowed()` returned true.
@@ -174,4 +184,6 @@ return [
   - A model is linked to its control by `#[ControlledBy]` or by the discovery, never by a policy: a control outside the discovered directories without the attribute leaves the model without control (`MissingControlException`).
   - Never write two controls for one model (e.g. an admin variant): `DuplicateControlException`. Put the variation in perimeters of the single control.
   - After adding, moving or deleting a control in production, run `php artisan access:cache` again (or `optimize`): the cache maps each model to its control.
+  - Type the second parameter of every `allowed` closure `Ability $ability` and compare with `$ability->is('update')`. A closure whose second parameter is untyped, or typed `string`/`?string` (or any type that cannot receive an `Ability`), throws `AbilityParameterTypeException` when the perimeter is declared; `?Ability`, unions containing `Ability`, `Stringable`, `object` and `mixed` receive the `Ability` object, and a closure that takes only the user is fine. A perimeter class that overrides `applyAllowedCallback()` must type it `Ability $ability` (or `mixed`): an untyped override throws `AbilityParameterTypeException` when the control resolves its perimeters.
+  - Abilities are compared by name with `is()`: two `Ability::view()` are not the same object, and an unserialized ability is a new one, so `===` between abilities is never reliable.
   - Controls may execute `allowed()` twice in `index`-style endpoints (policy + `controlled()` scope); cache it on the user if expensive.
