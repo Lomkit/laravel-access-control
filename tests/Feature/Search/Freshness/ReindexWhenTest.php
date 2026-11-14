@@ -5,10 +5,12 @@ namespace Lomkit\Access\Tests\Feature\Search\Freshness;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\DuplicateReindexException;
 use Lomkit\Access\Exceptions\InvalidReindexRowsException;
 use Lomkit\Access\Exceptions\MissingReindexDeclarationException;
 use Lomkit\Access\Search\Freshness\ReindexWatchedRows;
+use Lomkit\Access\Search\Freshness\WatchedEvent;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
@@ -354,14 +356,19 @@ class ReindexWhenTest extends FreshnessTestCase
     }
 
     #[Test]
-    public function it_reindexes_a_watched_row_whose_attributes_are_not_utf8(): void
+    public function it_keeps_a_queue_payload_valid_for_attributes_that_are_not_utf8(): void
     {
-        $folder = Folder::query()->create(['client_id' => $this->acme->getKey(), 'name' => "Archive \xff\xfe"]);
-        $article = $this->article($folder);
+        $folder = (new Folder)->newFromBuilder(['id' => 7, 'client_id' => $this->acme->getKey(), 'name' => "Archive \xff\xfe"]);
+        $reindex = Access::control(ArticleControl::class)->searchRules()->reindexFor('client', Folder::class);
+        $this->assertNotNull($reindex);
 
-        $folder->update(['client_id' => $this->globex->getKey()]);
+        $job = ReindexWatchedRows::of(ArticleControl::class, 'client', $reindex, $folder, WatchedEvent::Deleted);
+        $payload = json_encode(['command' => serialize($job)], JSON_THROW_ON_ERROR);
+        $command = json_decode($payload, true, flags: JSON_THROW_ON_ERROR)['command'];
+        $restored = unserialize($command);
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->accessOf($article));
+        $this->assertInstanceOf(ReindexWatchedRows::class, $restored);
+        $this->assertSame("Archive \xff\xfe", $restored->states->instancesOf(new Folder)[0]->getAttribute('name'));
     }
 
     #[Test]

@@ -8,6 +8,7 @@ use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\UnwatchableReindexException;
 use Lomkit\Access\Registry\ControlVersion;
 use Lomkit\Access\Search\Freshness\ReindexWatchedRows;
+use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Search\ArchiveFolder;
 use Lomkit\Access\Tests\Fixtures\Search\Folder;
 use Lomkit\Access\Tests\Fixtures\Search\FreshnessTestCase;
@@ -135,7 +136,7 @@ class WatchedModelsTest extends FreshnessTestCase
         Queue::fake();
 
         $this->ada->update(['name' => 'Ada Lovelace']);
-        $this->acme->delete();
+        Client::factory()->createOne(['name' => 'Initech'])->delete();
 
         Queue::assertNotPushed(ReindexWatchedRows::class);
     }
