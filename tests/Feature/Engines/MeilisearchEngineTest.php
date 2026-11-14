@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Feature\Engines;
 use Lomkit\Access\Access;
 use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
 use Meilisearch\Client;
+use Meilisearch\Contracts\TasksQuery;
 use PHPUnit\Framework\Attributes\Group;
 
 #[Group('scout')]
@@ -38,5 +39,17 @@ class MeilisearchEngineTest extends EngineTestCase
         $task = $client->index($index)->updateFilterableAttributes(Access::searchFilterables());
 
         $client->waitForTask($task['taskUid']);
+    }
+
+    #[\Override]
+    protected function waitForIndexing(string $index): void
+    {
+        $client = $this->app->make(Client::class);
+        $pending = $client->getTasks((new TasksQuery)->setIndexUids([$index])->setStatuses(['enqueued', 'processing']));
+        $uids = array_map(fn (array $task): int => $task['uid'], $pending->getResults());
+
+        if ($uids !== []) {
+            $client->waitForTasks($uids);
+        }
     }
 }
