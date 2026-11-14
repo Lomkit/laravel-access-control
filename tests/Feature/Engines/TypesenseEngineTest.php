@@ -2,9 +2,13 @@
 
 namespace Lomkit\Access\Tests\Feature\Engines;
 
+use Lomkit\Access\Search\Tokens\SearchToken;
+use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
 use PHPUnit\Framework\Attributes\Group;
+use Typesense\Client;
+use Typesense\Exceptions\RequestUnauthorized;
 
 #[Group('scout')]
 #[Group('typesense')]
@@ -50,5 +54,38 @@ class TypesenseEngineTest extends EngineTestCase
                 'search-parameters' => ['query_by' => 'title'],
             ],
         ]);
+    }
+
+    /** @return array<string, mixed> */
+    protected function clientSettings(string $key): array
+    {
+        return [...config('scout.typesense.client-settings'), 'api_key' => $key];
+    }
+
+    #[\Override]
+    protected function searchOnlyKey(string $index): SearchTokenKey
+    {
+        $client = new Client($this->clientSettings((string) getenv('TYPESENSE_API_KEY')));
+        $key = $client->keys->create(['description' => 'Search-only key of a test', 'actions' => ['documents:search'], 'collections' => [$index]]);
+        $this->beforeApplicationDestroyed(fn () => $client->keys[$key['id']]->delete());
+
+        return SearchTokenKey::typesense($key['value']);
+    }
+
+    #[\Override]
+    protected function titlesFoundWith(SearchToken $token, string $index): array
+    {
+        $results = (new Client($this->clientSettings($token->token())))
+            ->collections[$index]
+            ->documents
+            ->search(['q' => 'Scout', 'query_by' => 'title', 'per_page' => 100]);
+
+        return array_values(array_map(fn (array $hit): string => $hit['document']['title'], $results['hits']));
+    }
+
+    #[\Override]
+    protected function refusedSearch(): string
+    {
+        return RequestUnauthorized::class;
     }
 }
