@@ -4,7 +4,4 @@ namespace {{ namespace }};
 
 use Lomkit\Access\Perimeters\Perimeter;
 
-class {{ class }} extends Perimeter
-{
-    //
-}
+class {{ class }} extends Perimeter {}

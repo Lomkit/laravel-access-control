@@ -15,7 +15,7 @@ use Lomkit\Access\Controls\HasControl;
 #[Unguarded]
 #[UseFactory(UserFactory::class)]
 #[ControlledBy(UserControl::class)]
-class User extends Authenticatable
+class User extends Authenticatable implements Writer
 {
     use HasControl;
     use HasFactory;

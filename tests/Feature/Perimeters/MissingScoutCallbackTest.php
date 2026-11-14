@@ -5,6 +5,8 @@ namespace Lomkit\Access\Tests\Feature\Perimeters;
 use Illuminate\Database\Eloquent\Builder;
 use Laravel\Scout\Builder as ScoutBuilder;
 use Laravel\Scout\ScoutServiceProvider;
+use Lomkit\Access\Ability;
+use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -79,6 +81,6 @@ class MissingScoutCallbackTest extends PackageTestCase
         $this->expectException(MissingPerimeterCallbackException::class);
         $this->expectExceptionMessage(sprintf('The [%s] perimeter has no [scoutQuery] callback.', Perimeter::class));
 
-        Perimeter::new()->applyScoutQueryCallback(new ScoutBuilder(new Article, 'Scout'), $this->ada);
+        Perimeter::new()->applyScoutQueryCallback(new ScoutBuilder(new Article, 'Scout'), AccessContext::of($this->ada, Ability::view()));
     }
 }

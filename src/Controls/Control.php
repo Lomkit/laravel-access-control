@@ -3,15 +3,14 @@
 namespace Lomkit\Access\Controls;
 
 use Illuminate\Container\Container;
-use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
-use Lomkit\Access\Exceptions\AbilityParameterTypeException;
+use Lomkit\Access\AccessContext;
+use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
-use Lomkit\Access\Perimeters\AbilityParameter;
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Registry\ControlRegistry;
-use Throwable;
 
 class Control
 {
@@ -21,8 +20,7 @@ class Control
     /** @var class-string<Model> */
     protected string $model;
 
-    /** @var array<Perimeter>|null */
-    private ?array $resolvedPerimeters = null;
+    private ?PerimeterList $declaredPerimeters = null;
 
     /** @param  class-string<Model>  $model */
     public function isModel(string $model): bool
@@ -43,16 +41,6 @@ class Control
     }
 
     /**
-     * @return array<Perimeter>
-     *
-     * @throws AbilityParameterTypeException When a perimeter overrides applyAllowedCallback() without typing its ability to receive an Ability.
-     */
-    public function getPerimeters(): array
-    {
-        return $this->resolvedPerimeters ??= $this->typedPerimeters($this->perimeters());
-    }
-
-    /**
      * @throws InvalidAbilityException When the policy method is not a valid ability name.
      */
     public function abilityFor(string $policyMethod): Ability
@@ -70,7 +58,8 @@ class Control
 
     public function applies(Model $user, Ability $ability, Model $model): bool
     {
-        $perimeters = $this->applicablePerimeters($user, $ability);
+        $context = AccessContext::of($user, $ability);
+        $perimeters = $this->perimetersApplicableTo($context);
 
         if ($perimeters === []) {
             return false;
@@ -81,7 +70,7 @@ class Control
         }
 
         foreach ($perimeters as $perimeter) {
-            if ($perimeter->applyShouldCallback($user, $model)) {
+            if ($perimeter->applyShouldCallback($model, $context)) {
                 return true;
             }
         }
@@ -90,23 +79,9 @@ class Control
     }
 
     /** @return list<Perimeter> */
-    final protected function applicablePerimeters(Model $user, Ability $ability): array
+    final protected function applicablePerimeters(Model $reader, Ability $ability): array
     {
-        $applicable = [];
-
-        foreach ($this->getPerimeters() as $perimeter) {
-            if (! $perimeter->applyAllowedCallback($user, $ability)) {
-                continue;
-            }
-
-            $applicable[] = $perimeter;
-
-            if (! $perimeter->overlays()) {
-                break;
-            }
-        }
-
-        return $applicable;
+        return $this->perimetersApplicableTo(AccessContext::of($reader, $ability));
     }
 
     /** @param  list<Perimeter>  $perimeters */
@@ -122,16 +97,40 @@ class Control
     }
 
     /**
-     * @param  array<Perimeter>  $perimeters
-     * @return array<Perimeter>
+     * @internal
+     *
+     * @throws ImpurePerimetersException When perimeters() builds perimeters of another shape than the ones it built first.
      */
-    private function typedPerimeters(array $perimeters): array
+    final public function verifyPerimeters(): void
     {
-        foreach ($perimeters as $perimeter) {
-            AbilityParameter::ensureTypedInHookOf($perimeter);
+        if (! $this->declaredPerimeters()->matches(new PerimeterList($this->perimeters()))) {
+            throw ImpurePerimetersException::for($this);
+        }
+    }
+
+    /** @return list<Perimeter> */
+    private function perimetersApplicableTo(AccessContext $context): array
+    {
+        $applicable = [];
+
+        foreach ($this->declaredPerimeters()->all() as $perimeter) {
+            if (! $perimeter->applyAllowedCallback($context)) {
+                continue;
+            }
+
+            $applicable[] = $perimeter;
+
+            if (! $perimeter->overlays()) {
+                break;
+            }
         }
 
-        return $perimeters;
+        return $applicable;
+    }
+
+    private function declaredPerimeters(): PerimeterList
+    {
+        return $this->declaredPerimeters ??= new PerimeterList($this->perimeters());
     }
 
     public static function new(): static
@@ -139,16 +138,5 @@ class Control
         return Container::getInstance()
             ->make(ControlRegistry::class)
             ->control(static::class);
-    }
-
-    protected static function appNamespace(): string
-    {
-        try {
-            return Container::getInstance()
-                ->make(Application::class)
-                ->getNamespace();
-        } catch (Throwable) {
-            return 'App\\';
-        }
     }
 }

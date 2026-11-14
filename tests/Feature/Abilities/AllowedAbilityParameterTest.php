@@ -3,16 +3,17 @@
 namespace Lomkit\Access\Tests\Feature\Abilities;
 
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Exceptions\AbilityParameterTypeException;
+use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
+use Lomkit\Access\Tests\Fixtures\Blog\ClientPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\GlobalPerimeter;
-use Lomkit\Access\Tests\Fixtures\Blog\MixedHookPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
-use Lomkit\Access\Tests\Fixtures\Blog\TypedHookPerimeter;
-use Lomkit\Access\Tests\Fixtures\Blog\UntypedHookPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
@@ -23,6 +24,8 @@ use Stringable;
 class AllowedAbilityParameterTest extends PackageTestCase
 {
     protected User $ada;
+
+    protected Post $releaseNotes;
 
     protected Post $roadmap;
 
@@ -41,7 +44,9 @@ class AllowedAbilityParameterTest extends PackageTestCase
         $globex = Client::factory()->createOne(['name' => 'Globex']);
         $this->ada = User::factory()->for($acme)->createOne(['name' => 'Ada', 'email' => 'ada@example.com']);
         $hank = User::factory()->for($globex)->createOne(['name' => 'Hank', 'email' => 'hank@example.com']);
+        $website = Project::factory()->for($acme)->createOne(['name' => 'Website']);
         $warehouse = Project::factory()->for($globex)->createOne(['name' => 'Warehouse']);
+        $this->releaseNotes = Post::factory()->for($website)->for($hank, 'author')->createOne(['title' => 'Release notes']);
         $this->roadmap = Post::factory()->for($warehouse)->for($hank, 'author')->createOne(['title' => 'Roadmap']);
     }
 
@@ -50,34 +55,8 @@ class AllowedAbilityParameterTest extends PackageTestCase
         ConfiguredPostControl::bind(GlobalPerimeter::new()->allowed($allowed)->unrestricted());
     }
 
-    /** @return array<string, array{Closure, string}> */
-    public static function closuresThatCannotReceiveTheAbility(): array
-    {
-        return [
-            'untyped' => [fn (User $user, $method): bool => $method === 'update', '$method'],
-            'typed string' => [fn (User $user, string $method): bool => $method === 'update', 'string $method'],
-            'typed nullable string' => [fn (User $user, ?string $method): bool => $method === 'update', '?string $method'],
-            'typed int' => [fn (User $user, int $level): bool => $level > 1, 'int $level'],
-            'variadic' => [fn (User $user, ...$arguments): bool => $arguments === ['update'], '$arguments'],
-        ];
-    }
-
-    #[Test]
-    #[DataProvider('closuresThatCannotReceiveTheAbility')]
-    public function it_refuses_at_declaration_a_closure_whose_second_parameter_cannot_receive_the_ability(Closure $allowed, string $parameter): void
-    {
-        $this->expectException(AbilityParameterTypeException::class);
-        $this->expectExceptionMessage(sprintf(
-            'The [allowed] callback of the [%s] perimeter declares its second parameter as [%s], which cannot receive the ability. Type the second parameter Ability $ability, and compare it with $ability->is(\'update\').',
-            GlobalPerimeter::class,
-            $parameter,
-        ));
-
-        GlobalPerimeter::new()->allowed($allowed);
-    }
-
     /** @return array<string, array{Closure}> */
-    public static function closuresThatReceiveTheAbility(): array
+    public static function closuresReceivingTheAbility(): array
     {
         return [
             'typed Ability' => [fn (User $user, Ability $ability): bool => $ability->is('update')],
@@ -90,32 +69,41 @@ class AllowedAbilityParameterTest extends PackageTestCase
     }
 
     #[Test]
-    #[DataProvider('closuresThatReceiveTheAbility')]
-    public function it_passes_the_ability_object_to_a_parameter_that_receives_it(Closure $allowed): void
+    #[DataProvider('closuresReceivingTheAbility')]
+    public function it_passes_the_ability_to_a_parameter_that_takes_an_ability(Closure $allowed): void
     {
         $this->bindGlobal($allowed);
 
         $this->assertTrue($this->ada->can('update', $this->roadmap));
         $this->assertFalse($this->ada->can('view', $this->roadmap));
-        $this->assertSame(0, Post::controlledFor($this->ada)->count());
     }
 
     #[Test]
-    public function it_compares_the_ability_with_a_name(): void
+    public function it_passes_the_mapped_ability_of_each_policy_method(): void
     {
         $received = [];
-        $this->bindGlobal(function (User $user, Ability $ability) use (&$received): bool {
-            $received[] = $ability;
+        ConfiguredPostControl::bind(
+            ClientPerimeter::new()
+                ->allowed(function (User $user, Ability $ability) use (&$received): bool {
+                    $received[] = $ability->name();
 
-            return $ability->is('view') || $ability->is('approve');
-        });
+                    return $user->can("{$ability} client posts");
+                })
+                ->should(fn (User $user, Post $post): bool => $post->project->client()->is($user->client))
+                ->query(function (Builder $query, User $user): void {
+                    $query->whereHas('project', fn (Builder $projects) => $projects->whereBelongsTo($user->client));
+                }),
+        );
+        Gate::define('view client posts', fn (User $user): bool => true);
+        Gate::define('approve client posts', fn (User $user): bool => true);
 
-        $this->assertTrue($this->ada->can('view', $this->roadmap));
         $this->assertTrue($this->ada->can('viewAny', Post::class));
-        $this->assertTrue($this->ada->can('approve', $this->roadmap));
-        $this->assertFalse($this->ada->can('update', $this->roadmap));
-        $this->assertSame(1, Post::controlledFor($this->ada)->count());
-        $this->assertContainsOnlyInstancesOf(Ability::class, $received);
+        $this->assertTrue($this->ada->can('view', $this->releaseNotes));
+        $this->assertFalse($this->ada->can('view', $this->roadmap));
+        $this->assertFalse($this->ada->can('update', $this->releaseNotes));
+        $this->assertTrue($this->ada->can('approve', $this->releaseNotes));
+        $this->assertSame(['Release notes'], Post::controlledFor($this->ada)->pluck('title')->all());
+        $this->assertSame(['view', 'view', 'view', 'update', 'approve', 'view'], $received);
     }
 
     #[Test]
@@ -124,48 +112,35 @@ class AllowedAbilityParameterTest extends PackageTestCase
         $this->bindGlobal(fn (User $user): bool => $user->is($this->ada));
 
         $this->assertTrue($this->ada->can('update', $this->roadmap));
-        $this->assertSame(1, Post::controlledFor($this->ada)->count());
+        $this->assertSame(2, Post::controlledFor($this->ada)->count());
     }
 
-    #[Test]
-    public function it_passes_the_ability_object_to_a_hook_typed_with_ability(): void
+    /** @return array<string, array{string, Closure(Perimeter): Perimeter}> */
+    public static function abilityParametersOfAnotherType(): array
     {
-        ConfiguredPostControl::bind(TypedHookPerimeter::new()->unrestricted());
-
-        $this->assertTrue($this->ada->can('view', $this->roadmap));
-        $this->assertFalse($this->ada->can('update', $this->roadmap));
+        return [
+            'untyped allowed' => ['allowed', fn (Perimeter $perimeter): Perimeter => $perimeter->allowed(fn (User $user, $method): bool => $method !== 'delete')],
+            'string allowed' => ['allowed', fn (Perimeter $perimeter): Perimeter => $perimeter->allowed(fn (User $user, string $method): bool => $method === 'view')],
+            'nullable string allowed' => ['allowed', fn (Perimeter $perimeter): Perimeter => $perimeter->allowed(fn (User $user, ?string $method): bool => $method === 'view')],
+            'variadic allowed' => ['allowed', fn (Perimeter $perimeter): Perimeter => $perimeter->allowed(fn (User $user, ...$arguments): bool => true)],
+            'untyped should' => ['should', fn (Perimeter $perimeter): Perimeter => $perimeter->should(fn (User $user, Post $post, $method): bool => $method === 'view')],
+            'string query' => ['query', fn (Perimeter $perimeter): Perimeter => $perimeter->query(fn (Builder $query, User $user, string $method) => $query->whereRaw('1=1'))],
+            'untyped scoutQuery' => ['scoutQuery', fn (Perimeter $perimeter): Perimeter => $perimeter->scoutQuery(fn ($query, User $user, $method) => null)],
+        ];
     }
 
+    /** @param  Closure(Perimeter): Perimeter  $declare */
     #[Test]
-    public function it_passes_the_ability_object_to_a_hook_typed_mixed(): void
+    #[DataProvider('abilityParametersOfAnotherType')]
+    public function it_refuses_at_declaration_an_ability_parameter_that_does_not_take_an_ability(string $callback, Closure $declare): void
     {
-        ConfiguredPostControl::bind(MixedHookPerimeter::new()->unrestricted());
-
-        $this->assertTrue($this->ada->can('view', $this->roadmap));
-        $this->assertFalse($this->ada->can('update', $this->roadmap));
-    }
-
-    #[Test]
-    public function it_refuses_a_hook_that_does_not_type_its_ability(): void
-    {
-        ConfiguredPostControl::bind(UntypedHookPerimeter::new()->unrestricted());
-
         $this->expectException(AbilityParameterTypeException::class);
         $this->expectExceptionMessage(sprintf(
-            'The [%s] perimeter overrides applyAllowedCallback() with its second parameter declared as [$ability], which cannot receive the ability. Type the second parameter Ability $ability',
-            UntypedHookPerimeter::class,
+            'The [%s] callback of the [%s] perimeter declares its ability parameter as',
+            $callback,
+            ClientPerimeter::class,
         ));
 
-        $this->ada->can('delete', $this->roadmap);
-    }
-
-    #[Test]
-    public function it_refuses_a_hook_that_does_not_type_its_ability_in_a_controlled_query(): void
-    {
-        ConfiguredPostControl::bind(UntypedHookPerimeter::new()->unrestricted());
-
-        $this->expectException(AbilityParameterTypeException::class);
-
-        Post::controlledFor($this->ada)->get();
+        $declare(ClientPerimeter::new());
     }
 }

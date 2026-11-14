@@ -45,7 +45,7 @@ trait HasControl
 
         $query->withoutGlobalScope(HasControlScope::class);
 
-        $control->queried($query, $reader);
+        $control->restrict($query, $reader);
     }
 
     /**

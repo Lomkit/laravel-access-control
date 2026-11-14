@@ -8,6 +8,7 @@ use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\DuplicateControlException;
+use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidControlException;
 use Lomkit\Access\Exceptions\MissingControlException;
 
@@ -25,6 +26,7 @@ final class ControlRegistry
         private readonly Container $container,
         private readonly ControlDiscovery $discovery,
         private readonly DiscoveryCache $cache,
+        private readonly PerimeterPurity $purity,
     ) {}
 
     /**
@@ -54,6 +56,7 @@ final class ControlRegistry
      * @return TControl
      *
      * @throws InvalidControlException When the class is not a control, or the container resolves another class.
+     * @throws ImpurePerimetersException When the control builds perimeters of another shape than the ones it built first, in debug mode and in tests.
      */
     public function control(string $control): Control
     {
@@ -62,6 +65,8 @@ final class ControlRegistry
         if (! $instance instanceof $control) {
             throw InvalidControlException::resolvedAs($control, $instance);
         }
+
+        $this->purity->check($instance);
 
         return $this->controls[$control] = $instance;
     }

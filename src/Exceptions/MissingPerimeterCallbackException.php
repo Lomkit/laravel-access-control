@@ -4,20 +4,18 @@ namespace Lomkit\Access\Exceptions;
 
 use LogicException;
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\PerimeterHook;
 
-/** @phpstan-consistent-constructor */
-class MissingPerimeterCallbackException extends LogicException
+final class MissingPerimeterCallbackException extends LogicException
 {
-    /**
-     * Create the exception for a callback the perimeter needs but does not declare.
-     */
-    public static function for(Perimeter $perimeter, string $callback): static
+    public static function for(Perimeter $perimeter, PerimeterHook $hook): self
     {
-        return new static(sprintf(
-            'The [%s] perimeter has no [%s] callback. Declare it with ->%s(...) so access is never granted by default.',
+        return new self(sprintf(
+            'The [%s] perimeter has no [%s] callback. Declare it with ->%s(...), or override %s() in the perimeter, so access is never granted by default.',
             $perimeter::class,
-            $callback,
-            $callback,
+            $hook->callback(),
+            $hook->callback(),
+            $hook->value,
         ));
     }
 }

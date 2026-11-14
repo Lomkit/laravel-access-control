@@ -122,9 +122,9 @@ class UnrestrictedSearchTest extends PackageTestCase
 
         $this->expectException(QueryCallbackReturnedAnotherBuilderException::class);
         $this->expectExceptionMessage(sprintf(
-            'The [scoutQuery] callback of the [%s] perimeter in the [%s] control returned another builder.',
+            'The [scoutQuery] callback of the [%s] perimeter returned another builder for the [%s] model.',
             AuthorPerimeter::class,
-            ConfiguredArticleControl::class,
+            Article::class,
         ));
 
         $this->searchedTitles();

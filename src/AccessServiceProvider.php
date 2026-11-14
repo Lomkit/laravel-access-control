@@ -3,6 +3,7 @@
 namespace Lomkit\Access;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\PublishingStubs;
 use Illuminate\Support\Facades\Auth;
@@ -14,7 +15,9 @@ use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
 use Lomkit\Access\Discovery\ControlDiscovery;
+use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Registry\ControlRegistry;
+use Lomkit\Access\Registry\PerimeterPurity;
 
 class AccessServiceProvider extends ServiceProvider
 {
@@ -40,7 +43,12 @@ class AccessServiceProvider extends ServiceProvider
 
         $this->registerCommands($this->devCommands);
 
-        $this->app->singleton(ControlRegistry::class);
+        $this->app->singleton(ControlRegistry::class, fn (Application $app): ControlRegistry => new ControlRegistry(
+            $app,
+            $app->make(ControlDiscovery::class),
+            $app->make(DiscoveryCache::class),
+            PerimeterPurity::for($app),
+        ));
 
         $this->app->singleton(ControlDiscovery::class);
     }
@@ -101,6 +109,7 @@ class AccessServiceProvider extends ServiceProvider
         Event::listen(function (PublishingStubs $event) {
             $event->add(__DIR__.'/Console/stubs/control.stub', 'control.stub');
             $event->add(__DIR__.'/Console/stubs/perimeter.plain.stub', 'perimeter.plain.stub');
+            $event->add(__DIR__.'/Console/stubs/perimeter.hooks.stub', 'perimeter.hooks.stub');
             $event->add(__DIR__.'/Console/stubs/perimeter.overlay.stub', 'perimeter.overlay.stub');
         });
     }

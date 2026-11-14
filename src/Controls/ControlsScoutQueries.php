@@ -5,12 +5,15 @@ namespace Lomkit\Access\Controls;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
+use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 
 /** @phpstan-require-extends Control */
 trait ControlsScoutQueries
 {
     /**
+     * @internal
+     *
      * @template TModel of Model
      *
      * @param  \Laravel\Scout\Builder<TModel>  $query
@@ -37,7 +40,8 @@ trait ControlsScoutQueries
      */
     protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
-        $perimeters = $this->applicablePerimeters($user, Ability::view());
+        $context = AccessContext::of($user, Ability::view());
+        $perimeters = $this->perimetersApplicableTo($context);
 
         if ($perimeters === []) {
             return $this->noResultScoutQuery($query);
@@ -48,9 +52,7 @@ trait ControlsScoutQueries
         }
 
         foreach ($perimeters as $perimeter) {
-            if ($perimeter->applyScoutQueryCallback($query, $user) !== $query) {
-                throw QueryCallbackReturnedAnotherBuilderException::for($this, $perimeter, 'scoutQuery');
-            }
+            $perimeter->applyScoutQueryCallback($query, $context);
         }
 
         return $query;

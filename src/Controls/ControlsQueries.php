@@ -5,6 +5,7 @@ namespace Lomkit\Access\Controls;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
+use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\EmptyQueryCallbackException;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 use Lomkit\Access\Perimeters\Perimeter;
@@ -13,19 +14,22 @@ use Lomkit\Access\Perimeters\Perimeter;
 trait ControlsQueries
 {
     /**
+     * @internal
+     *
      * @template TModel of Model
      *
      * @param  Builder<TModel>  $query
-     * @return Builder<TModel>
      */
-    public function queried(Builder $query, ?Model $user): Builder
+    final public function restrict(Builder $query, ?Model $reader): void
     {
-        if (is_null($user)) {
-            return $this->noResultQuery($query);
+        if ($reader === null) {
+            $this->noResultQuery($query);
+
+            return;
         }
 
-        return $query->where(function (Builder $query) use ($user) {
-            $this->applyQueryControl($query, $user);
+        $query->where(function (Builder $query) use ($reader) {
+            $this->applyQueryControl($query, $reader);
         });
     }
 
@@ -40,7 +44,8 @@ trait ControlsQueries
      */
     protected function applyQueryControl(Builder $query, Model $user): Builder
     {
-        $perimeters = $this->applicablePerimeters($user, Ability::view());
+        $context = AccessContext::of($user, Ability::view());
+        $perimeters = $this->perimetersApplicableTo($context);
 
         if ($perimeters === []) {
             return $this->noResultQuery($query);
@@ -51,8 +56,8 @@ trait ControlsQueries
         }
 
         foreach ($perimeters as $perimeter) {
-            $query->orWhere(function (Builder $query) use ($user, $perimeter) {
-                $this->constrainByPerimeter($query, $perimeter, $user);
+            $query->orWhere(function (Builder $query) use ($context, $perimeter) {
+                $this->constrainByPerimeter($query, $perimeter, $context);
             });
         }
 
@@ -75,13 +80,11 @@ trait ControlsQueries
      *
      * @param  Builder<TModel>  $query
      */
-    private function constrainByPerimeter(Builder $query, Perimeter $perimeter, Model $user): void
+    private function constrainByPerimeter(Builder $query, Perimeter $perimeter, AccessContext $context): void
     {
         $constraints = count($query->getQuery()->wheres);
 
-        if ($perimeter->applyQueryCallback($query, $user) !== $query) {
-            throw QueryCallbackReturnedAnotherBuilderException::for($this, $perimeter, 'query');
-        }
+        $perimeter->applyQueryCallback($query, $context);
 
         if (count($query->getQuery()->wheres) === $constraints) {
             throw EmptyQueryCallbackException::for($this, $perimeter);
