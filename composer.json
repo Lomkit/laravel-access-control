@@ -31,9 +31,6 @@
   "suggest": {
     "laravel/scout": "Scopes Scout searches to the perimeters of the user through the controlled() builder macro."
   },
-  "conflict": {
-    "laravel/scout": "<11.0"
-  },
   "autoload": {
     "psr-4": {
       "Lomkit\\Access\\": "src/"
