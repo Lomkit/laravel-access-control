@@ -3,19 +3,23 @@
 namespace Lomkit\Access\Tests\Fixtures;
 
 use Illuminate\Container\Container;
+use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 
 trait ConfiguresPerimeters
 {
-    /** @var list<Perimeter> */
+    /** @var list<Perimeter|Levels> */
     private array $declaredPerimeters;
 
-    final public function __construct(Perimeter ...$perimeters)
+    private ?Boundary $declaredBoundary = null;
+
+    final public function __construct(Perimeter|Levels ...$perimeters)
     {
         $this->declaredPerimeters = array_values($perimeters);
     }
 
-    public static function bind(Perimeter ...$perimeters): static
+    public static function bind(Perimeter|Levels ...$perimeters): static
     {
         $control = new static(...$perimeters);
 
@@ -24,9 +28,23 @@ trait ConfiguresPerimeters
         return $control;
     }
 
+    public static function bindWithin(Boundary $boundary, Perimeter|Levels ...$perimeters): static
+    {
+        $control = static::bind(...$perimeters);
+        $control->declaredBoundary = $boundary;
+
+        return $control;
+    }
+
     #[\Override]
     protected function perimeters(): array
     {
         return $this->declaredPerimeters;
+    }
+
+    #[\Override]
+    protected function boundary(): Boundary
+    {
+        return $this->declaredBoundary ?? parent::boundary();
     }
 }

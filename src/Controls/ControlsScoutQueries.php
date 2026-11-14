@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Boundaries\NoBoundary;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
+use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 
 /** @phpstan-require-extends Control */
 trait ControlsScoutQueries
@@ -37,21 +39,26 @@ trait ControlsScoutQueries
      * @return \Laravel\Scout\Builder<TModel>
      *
      * @throws QueryCallbackReturnedAnotherBuilderException If a Scout query callback returns another builder.
+     * @throws UnsearchableBoundaryException If the control declares a boundary.
      */
     protected function applyScoutQueryControl(\Laravel\Scout\Builder $query, Model $user): \Laravel\Scout\Builder
     {
-        $context = AccessContext::of($user, Ability::view());
-        $perimeters = $this->perimetersApplicableTo($context);
+        if (! $this->declaration()->boundary() instanceof NoBoundary) {
+            throw UnsearchableBoundaryException::for($this);
+        }
 
-        if ($perimeters === []) {
+        $context = AccessContext::of($user, Ability::view());
+        $perimeters = $this->declaration()->reachedBy($context);
+
+        if ($perimeters->isEmpty()) {
             return $this->noResultScoutQuery($query);
         }
 
-        if ($this->reachesEveryRow($perimeters)) {
+        if ($perimeters->reachesEveryRow()) {
             return $query;
         }
 
-        foreach ($perimeters as $perimeter) {
+        foreach ($perimeters->all() as $perimeter) {
             $perimeter->applyScoutQueryCallback($query, $context);
         }
 

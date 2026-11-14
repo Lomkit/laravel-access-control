@@ -15,6 +15,7 @@ use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
+use Symfony\Component\Console\Exception\InvalidOptionException;
 
 class PerimeterMakeCommandTest extends PackageTestCase
 {
@@ -109,14 +110,6 @@ class PerimeterMakeCommandTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_generates_an_overlay_perimeter(): void
-    {
-        $this->artisan('make:perimeter', ['name' => 'LedgerPerimeter', '--overlay' => true])->assertOk();
-
-        $this->assertStringContainsString('class LedgerPerimeter extends OverlayPerimeter', File::get(app_path('Access/Perimeters/LedgerPerimeter.php')));
-    }
-
-    #[Test]
     public function it_asks_whether_the_rules_go_in_hooks_when_no_option_is_given(): void
     {
         $this->artisan('make:perimeter')
@@ -128,14 +121,21 @@ class PerimeterMakeCommandTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_asks_whether_the_perimeter_overlays_when_no_option_is_given(): void
+    public function it_generates_an_empty_perimeter_when_the_rules_do_not_go_in_hooks(): void
     {
         $this->artisan('make:perimeter')
             ->expectsQuestion('What should the perimeter be named?', 'LedgerPerimeter')
             ->expectsConfirmation('Should the rules be written in the perimeter class, with hooks?', 'no')
-            ->expectsConfirmation('Should this perimeter be an overlay?', 'yes')
             ->assertOk();
 
-        $this->assertStringContainsString('class LedgerPerimeter extends OverlayPerimeter', File::get(app_path('Access/Perimeters/LedgerPerimeter.php')));
+        $this->assertStringContainsString('class LedgerPerimeter extends Perimeter {}', File::get(app_path('Access/Perimeters/LedgerPerimeter.php')));
+    }
+
+    #[Test]
+    public function it_no_longer_offers_an_overlay_option(): void
+    {
+        $this->expectException(InvalidOptionException::class);
+
+        $this->artisan('make:perimeter', ['name' => 'LedgerPerimeter', '--overlay' => true]);
     }
 }

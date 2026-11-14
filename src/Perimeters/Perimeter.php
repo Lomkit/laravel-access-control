@@ -76,11 +76,6 @@ class Perimeter
         return $this->unrestricted;
     }
 
-    public function overlays(): bool
-    {
-        return false;
-    }
-
     final public function admits(Model $reader, Ability $ability, Model $row): bool
     {
         $context = AccessContext::of($reader, $ability);

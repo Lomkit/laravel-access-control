@@ -110,7 +110,6 @@ class AccessServiceProvider extends ServiceProvider
             $event->add(__DIR__.'/Console/stubs/control.stub', 'control.stub');
             $event->add(__DIR__.'/Console/stubs/perimeter.plain.stub', 'perimeter.plain.stub');
             $event->add(__DIR__.'/Console/stubs/perimeter.hooks.stub', 'perimeter.hooks.stub');
-            $event->add(__DIR__.'/Console/stubs/perimeter.overlay.stub', 'perimeter.overlay.stub');
         });
     }
 

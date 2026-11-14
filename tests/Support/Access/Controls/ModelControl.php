@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Tests\Support\Access\Perimeters\ClientPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\GlobalPerimeter;
 use Lomkit\Access\Tests\Support\Access\Perimeters\OwnPerimeter;
@@ -33,37 +34,39 @@ class ModelControl extends Control
                         return $query->where('id', $user->getKey());
                     });
                 }),
-            GlobalPerimeter::new()
-                ->allowed(function (Model $user, Ability $ability) {
-                    return $user->can(sprintf('%s global models', $ability));
-                })
-                ->unrestricted(),
-            ClientPerimeter::new()
-                ->allowed(function (Model $user, Ability $ability) {
-                    return $user->can(sprintf('%s client models', $ability));
-                })
-                ->should(function (Model $user, Model $model) {
-                    return $model->client()->is($user->client);
-                })
-                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query->where('client_id', $user->client->getKey());
-                })
-                ->query(function (Builder $query, Model $user) {
-                    return $query->where('client_id', $user->client->getKey());
-                }),
-            OwnPerimeter::new()
-                ->allowed(function (Model $user, Ability $ability) {
-                    return $user->can(sprintf('%s own models', $ability));
-                })
-                ->should(function (Model $user, Model $model) {
-                    return $model->user()->is($user);
-                })
-                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query->where('author_id', $user->getKey());
-                })
-                ->query(function (Builder $query, Model $user) {
-                    return $query->where('author_id', $user->getKey());
-                }),
+            Levels::of(
+                GlobalPerimeter::new()
+                    ->allowed(function (Model $user, Ability $ability) {
+                        return $user->can(sprintf('%s global models', $ability));
+                    })
+                    ->unrestricted(),
+                ClientPerimeter::new()
+                    ->allowed(function (Model $user, Ability $ability) {
+                        return $user->can(sprintf('%s client models', $ability));
+                    })
+                    ->should(function (Model $user, Model $model) {
+                        return $model->client()->is($user->client);
+                    })
+                    ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
+                        return $query->where('client_id', $user->client->getKey());
+                    })
+                    ->query(function (Builder $query, Model $user) {
+                        return $query->where('client_id', $user->client->getKey());
+                    }),
+                OwnPerimeter::new()
+                    ->allowed(function (Model $user, Ability $ability) {
+                        return $user->can(sprintf('%s own models', $ability));
+                    })
+                    ->should(function (Model $user, Model $model) {
+                        return $model->user()->is($user);
+                    })
+                    ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
+                        return $query->where('author_id', $user->getKey());
+                    })
+                    ->query(function (Builder $query, Model $user) {
+                        return $query->where('author_id', $user->getKey());
+                    }),
+            ),
         ];
     }
 }

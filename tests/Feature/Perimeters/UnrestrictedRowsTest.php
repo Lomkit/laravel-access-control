@@ -60,7 +60,7 @@ class UnrestrictedRowsTest extends PackageTestCase
         $query = Post::controlledFor($this->ada);
 
         $this->assertSame(['Draft', 'Inventory', 'Release notes', 'Roadmap'], $query->orderBy('title')->pluck('title')->all());
-        $this->assertSame('select * from posts order by title asc', $this->sql($query));
+        $this->assertSame('select * from posts where ((posts.workspace_id = ?)) order by title asc', $this->sql($query));
     }
 
     #[Test]
@@ -71,7 +71,7 @@ class UnrestrictedRowsTest extends PackageTestCase
         $query = Post::controlledFor($this->ada);
 
         $this->assertSame(['Draft', 'Inventory', 'Release notes', 'Roadmap'], $query->orderBy('title')->pluck('title')->all());
-        $this->assertSame('select * from posts order by title asc', $this->sql($query));
+        $this->assertSame('select * from posts where ((posts.workspace_id = ?)) order by title asc', $this->sql($query));
     }
 
     #[Test]
@@ -82,7 +82,7 @@ class UnrestrictedRowsTest extends PackageTestCase
         $query = Post::where('published', true)->controlledFor($this->ada);
 
         $this->assertSame(['Inventory', 'Release notes', 'Roadmap'], $query->orderBy('title')->pluck('title')->all());
-        $this->assertSame('select * from posts where published = ? order by title asc', $this->sql($query));
+        $this->assertSame('select * from posts where published = ? and ((posts.workspace_id = ?)) order by title asc', $this->sql($query));
     }
 
     #[Test]
@@ -111,23 +111,6 @@ class UnrestrictedRowsTest extends PackageTestCase
 
         $this->assertSame(4, Post::controlledFor($this->ada)->count());
         $this->assertSame([], $evaluated);
-    }
-
-    #[Test]
-    public function it_reads_every_post_through_an_unrestricted_overlay_before_another_perimeter(): void
-    {
-        ConfiguredPostControl::bind(
-            SharedPerimeter::new()
-                ->allowed(fn (User $user): bool => true)
-                ->unrestricted(),
-            ClientPerimeter::new()
-                ->allowed(fn (User $user): bool => true)
-                ->query(function (Builder $query, User $user): void {
-                    $query->whereHas('project', fn (Builder $projects) => $projects->whereBelongsTo($user->client));
-                }),
-        );
-
-        $this->assertSame(4, Post::controlledFor($this->ada)->count());
     }
 
     #[Test]

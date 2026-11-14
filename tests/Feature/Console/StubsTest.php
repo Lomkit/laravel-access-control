@@ -50,7 +50,6 @@ class StubsTest extends PackageTestCase
             (string) realpath(__DIR__.'/../../../src/Console/stubs/control.stub') => 'control.stub',
             (string) realpath(__DIR__.'/../../../src/Console/stubs/perimeter.plain.stub') => 'perimeter.plain.stub',
             (string) realpath(__DIR__.'/../../../src/Console/stubs/perimeter.hooks.stub') => 'perimeter.hooks.stub',
-            (string) realpath(__DIR__.'/../../../src/Console/stubs/perimeter.overlay.stub') => 'perimeter.overlay.stub',
         ];
     }
 
@@ -79,7 +78,6 @@ class StubsTest extends PackageTestCase
             'control' => ['make:control', ['name' => 'StubbedControl', '--model' => 'Lomkit\\Access\\Tests\\Fixtures\\Blog\\Comment'], 'control.stub', 'Access/Controls/StubbedControl.php'],
             'perimeter' => ['make:perimeter', ['name' => 'StubbedPerimeter'], 'perimeter.plain.stub', 'Access/Perimeters/StubbedPerimeter.php'],
             'perimeter with hooks' => ['make:perimeter', ['name' => 'StubbedPerimeter', '--hooks' => true], 'perimeter.hooks.stub', 'Access/Perimeters/StubbedPerimeter.php'],
-            'overlay perimeter' => ['make:perimeter', ['name' => 'StubbedPerimeter', '--overlay' => true], 'perimeter.overlay.stub', 'Access/Perimeters/StubbedPerimeter.php'],
         ];
     }
 

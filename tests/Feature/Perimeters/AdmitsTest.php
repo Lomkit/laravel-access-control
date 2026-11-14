@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Feature\Perimeters;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
+use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
@@ -14,7 +15,7 @@ use Lomkit\Access\Tests\Fixtures\Blog\GlobalPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\OwnPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
-use Lomkit\Access\Tests\Fixtures\Blog\SharedOverlayPerimeter;
+use Lomkit\Access\Tests\Fixtures\Blog\SharedPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
@@ -112,12 +113,12 @@ class AdmitsTest extends PackageTestCase
     #[Test]
     public function it_lists_the_perimeters_that_apply_to_a_reader_for_an_ability(): void
     {
-        $shared = SharedOverlayPerimeter::new()->allowed(fn (User $user, Ability $ability): bool => $ability->is('view'));
+        $shared = SharedPerimeter::new()->allowed(fn (User $user, Ability $ability): bool => $ability->is('view'));
         $client = $this->clientPerimeter();
         $own = OwnPerimeter::new()->allowed(fn (User $user): bool => true);
-        $control = ConfiguredPostControl::bind($shared, $client, $own);
+        $control = ConfiguredPostControl::bind(Levels::of($client, $own), $shared);
 
-        $this->assertSame([$shared, $client], $control->applicableTo($this->ada, Ability::view()));
+        $this->assertSame([$client, $shared], $control->applicableTo($this->ada, Ability::view()));
         $this->assertSame([$own], $control->applicableTo($this->ada, Ability::update()));
     }
 
@@ -132,11 +133,11 @@ class AdmitsTest extends PackageTestCase
     #[Test]
     public function it_tells_which_applicable_perimeters_admit_a_row(): void
     {
-        $shared = SharedOverlayPerimeter::new()
+        $shared = SharedPerimeter::new()
             ->allowed(fn (User $user): bool => true)
             ->should(fn (User $user, Post $post): bool => $post->sharedWith()->whereKey($user->getKey())->exists());
         $client = $this->clientPerimeter();
-        $control = ConfiguredPostControl::bind($shared, $client);
+        $control = ConfiguredPostControl::bind($client, $shared);
         $this->roadmap->sharedWith()->attach($this->ada);
 
         $admitting = fn (Post $post): array => array_values(array_filter(

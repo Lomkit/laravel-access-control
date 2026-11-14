@@ -166,7 +166,7 @@ class ImmutablePerimeterTest extends PackageTestCase
         $this->assertFalse((new ReflectionMethod(Control::class, 'perimeters'))->isPublic());
         $this->assertTrue((new ReflectionMethod(Control::class, 'applicablePerimeters'))->isFinal());
         $this->assertTrue((new ReflectionMethod(Control::class, 'applicablePerimeters'))->isProtected());
-        $this->assertTrue((new ReflectionProperty(Control::class, 'declaredPerimeters'))->isPrivate());
+        $this->assertTrue((new ReflectionProperty(Control::class, 'declaration'))->isPrivate());
     }
 
     #[Test]

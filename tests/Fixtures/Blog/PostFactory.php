@@ -17,6 +17,7 @@ class PostFactory extends Factory
             'author_id' => UserFactory::new(),
             'title' => 'Release notes',
             'published' => true,
+            'workspace_id' => 1,
         ];
     }
 }

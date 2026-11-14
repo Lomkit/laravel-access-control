@@ -114,48 +114,6 @@ class ControlsScoutQueryTest extends TestCase
         $this->assertNull($query->callback);
     }
 
-    public function test_control_scout_queried_using_shared_overlayed_perimeter(): void
-    {
-        Gate::define('view client models', function (User $user) {
-            return true;
-        });
-        Gate::define('view shared models', function (User $user) {
-            return true;
-        });
-
-        $query = SearchableModel::search();
-        $query = (new ModelControl)->scoutQueried($query, Auth::user());
-
-        $this->assertEquals(['client_id' => Auth::user()->client->getKey(), 'shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
-    }
-
-    public function test_control_scout_queried_using_shared_overlayed_perimeter_with_distant_perimeter(): void
-    {
-        Gate::define('view own models', function (User $user) {
-            return true;
-        });
-        Gate::define('view shared models', function (User $user) {
-            return true;
-        });
-
-        $query = SearchableModel::search();
-        $query = (new ModelControl)->scoutQueried($query, Auth::user());
-
-        $this->assertEquals(['shared_with_users' => Auth::user()->getKey(), 'author_id' => Auth::user()->getKey()], $this->whereMap($query));
-    }
-
-    public function test_control_scout_queried_using_only_shared_overlayed_perimeter(): void
-    {
-        Gate::define('view shared models', function (User $user) {
-            return true;
-        });
-
-        $query = SearchableModel::search();
-        $query = (new ModelControl)->scoutQueried($query, Auth::user());
-
-        $this->assertEquals(['shared_with_users' => Auth::user()->getKey()], $this->whereMap($query));
-    }
-
     public function test_control_scout_queried_without_authenticated_user_returns_no_results(): void
     {
         Gate::define('view client models', function (User $user) {

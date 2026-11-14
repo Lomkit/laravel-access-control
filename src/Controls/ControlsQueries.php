@@ -9,6 +9,7 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\EmptyQueryCallbackException;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\ReachedPerimeters;
 
 /** @phpstan-require-extends Control */
 trait ControlsQueries
@@ -19,67 +20,58 @@ trait ControlsQueries
      * @template TModel of Model
      *
      * @param  Builder<TModel>  $query
-     */
-    final public function restrict(Builder $query, ?Model $reader): void
-    {
-        if ($reader === null) {
-            $this->noResultQuery($query);
-
-            return;
-        }
-
-        $query->where(function (Builder $query) use ($reader) {
-            $this->applyQueryControl($query, $reader);
-        });
-    }
-
-    /**
-     * @template TModel of Model
-     *
-     * @param  Builder<TModel>  $query
-     * @return Builder<TModel>
      *
      * @throws QueryCallbackReturnedAnotherBuilderException If a query callback returns another builder.
      * @throws EmptyQueryCallbackException If a query callback adds no constraint.
      */
-    protected function applyQueryControl(Builder $query, Model $user): Builder
+    final public function restrict(Builder $query, ?Model $reader): void
     {
-        $context = AccessContext::of($user, Ability::view());
-        $perimeters = $this->perimetersApplicableTo($context);
+        if ($reader === null) {
+            $query->whereRaw('0=1');
 
-        if ($perimeters === []) {
-            return $this->noResultQuery($query);
+            return;
         }
 
-        if ($this->reachesEveryRow($perimeters)) {
-            return $query;
+        $context = AccessContext::of($reader, Ability::view());
+
+        $query->where(function (Builder $controlled) use ($context): void {
+            $this->constrainControlled($controlled, $context);
+        });
+    }
+
+    /** @param  Builder<covariant Model>  $query */
+    private function constrainControlled(Builder $query, AccessContext $context): void
+    {
+        $perimeters = $this->declaration()->reachedBy($context);
+
+        if ($perimeters->isEmpty()) {
+            $query->whereRaw('0=1');
+
+            return;
         }
 
-        foreach ($perimeters as $perimeter) {
-            $query->orWhere(function (Builder $query) use ($context, $perimeter) {
-                $this->constrainByPerimeter($query, $perimeter, $context);
+        $this->declaration()->boundary()->applyScope($query, $context);
+
+        if ($perimeters->reachesEveryRow()) {
+            return;
+        }
+
+        $query->where(function (Builder $rows) use ($perimeters, $context): void {
+            $this->constrainByPerimeters($rows, $perimeters, $context);
+        });
+    }
+
+    /** @param  Builder<covariant Model>  $query */
+    private function constrainByPerimeters(Builder $query, ReachedPerimeters $perimeters, AccessContext $context): void
+    {
+        foreach ($perimeters->all() as $perimeter) {
+            $query->orWhere(function (Builder $rows) use ($context, $perimeter): void {
+                $this->constrainByPerimeter($rows, $perimeter, $context);
             });
         }
-
-        return $query;
     }
 
-    /**
-     * @template TModel of Model
-     *
-     * @param  Builder<TModel>  $query
-     * @return Builder<TModel>
-     */
-    protected function noResultQuery(Builder $query): Builder
-    {
-        return $query->whereRaw('0=1');
-    }
-
-    /**
-     * @template TModel of Model
-     *
-     * @param  Builder<TModel>  $query
-     */
+    /** @param  Builder<covariant Model>  $query */
     private function constrainByPerimeter(Builder $query, Perimeter $perimeter, AccessContext $context): void
     {
         $constraints = count($query->getQuery()->wheres);
