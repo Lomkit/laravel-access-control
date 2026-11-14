@@ -7,7 +7,7 @@ parameters:
     paths:
         - src
         # Analyses the HasControl trait through a model that uses it
-        - tests/Support/Registry/Models/Post.php
+        - tests/Fixtures/Discovery/Models/Note.php
     level: 10
     phpVersion: 80300
     checkMissingOverrideMethodAttribute: true

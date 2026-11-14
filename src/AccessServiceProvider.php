@@ -13,8 +13,8 @@ use Lomkit\Access\Console\AccessCacheCommand;
 use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
-use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Exceptions\MissingControlException;
+use Lomkit\Access\Discovery\ControlDiscovery;
+use Lomkit\Access\Registry\ControlRegistry;
 
 class AccessServiceProvider extends ServiceProvider
 {
@@ -39,6 +39,10 @@ class AccessServiceProvider extends ServiceProvider
         $this->registerCommands($this->commands);
 
         $this->registerCommands($this->devCommands);
+
+        $this->app->singleton(ControlRegistry::class);
+
+        $this->app->singleton(ControlDiscovery::class);
 
         $this->mergeConfigFrom(
             __DIR__.'/../config/access-control.php',
@@ -67,10 +71,7 @@ class AccessServiceProvider extends ServiceProvider
     {
         if (class_exists(Builder::class)) {
             Builder::macro('controlled', function () {
-                $model = $this->model;
-
-                /** @var Control $control */
-                $control = method_exists($model, 'newControl') ? $model->newControl() : throw MissingControlException::forModel($model::class);
+                $control = Access::controlFor($this->model);
 
                 $reader = Auth::user();
 

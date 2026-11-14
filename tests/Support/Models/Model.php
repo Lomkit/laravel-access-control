@@ -4,16 +4,16 @@ namespace Lomkit\Access\Tests\Support\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model as BaseModel;
+use Lomkit\Access\Attributes\ControlledBy;
 use Lomkit\Access\Controls\HasControl;
 use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
 use Lomkit\Access\Tests\Support\Database\Factories\ModelFactory;
 
+#[ControlledBy(ModelControl::class)]
 class Model extends BaseModel
 {
     use HasControl;
     use HasFactory;
-
-    protected static string $control = ModelControl::class;
 
     protected static function newFactory()
     {

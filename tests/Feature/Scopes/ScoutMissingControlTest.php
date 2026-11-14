@@ -4,7 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Scopes;
 
 use Laravel\Scout\ScoutServiceProvider;
 use Lomkit\Access\Exceptions\MissingControlException;
-use Lomkit\Access\Tests\Fixtures\Search\Article;
+use Lomkit\Access\Tests\Fixtures\Search\Page;
 use Lomkit\Access\Tests\Fixtures\Search\Search;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -16,16 +16,7 @@ class ScoutMissingControlTest extends PackageTestCase
     #[\Override]
     protected function fixtures(): array
     {
-        return [
-            new class extends Search
-            {
-                #[\Override]
-                public function controls(): array
-                {
-                    return [];
-                }
-            },
-        ];
+        return [new Search];
     }
 
     #[\Override]
@@ -41,8 +32,8 @@ class ScoutMissingControlTest extends PackageTestCase
     public function it_throws_on_a_controlled_search_without_a_control(): void
     {
         $this->expectException(MissingControlException::class);
-        $this->expectExceptionMessage(sprintf('No control is registered for the [%s] model.', Article::class));
+        $this->expectExceptionMessage(sprintf('No control is registered for the [%s] model.', Page::class));
 
-        Article::search('Scout')->controlled();
+        Page::search('Scout')->controlled();
     }
 }

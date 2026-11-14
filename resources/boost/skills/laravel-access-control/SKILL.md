@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls, Perimeters, ControlledPolicy, unrestricted perimeters, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
+description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, Perimeters, ControlledPolicy, unrestricted perimeters, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
 ---
 
 # Laravel Access Control
@@ -12,6 +12,7 @@ Use this skill when working with Lomkit Access Control in a Laravel project that
 - Writes or modifies a `Policy` and wants authorization centralized in a single class.
 - Needs row-level filtering on Eloquent queries (multi-tenant, per-client, per-team, ownership).
 - Runs `php artisan make:control` or `php artisan make:perimeter`.
+- Mentions `#[ControlledBy]`, `Access::controlFor()`, `Access::hasControl()`, or `access:cache`.
 - Mentions `Control`, `Perimeter`, `OverlayPerimeter`, `unrestricted()`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
 - Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules.
 
@@ -56,7 +57,7 @@ class SharedPerimeter extends OverlayPerimeter
 }
 ```
 
-- Control: one class per model declaring `$model` and an ordered array of perimeters. Auto-discovered from `app/Access/Controls`; override with `Access::$controlDiscoveryPaths`. Example usage:
+- Control: one class per model declaring `$model` (as the property default, an Eloquent model class) and an ordered array of perimeters. The model names its control with `#[ControlledBy(PostControl::class)]`; a model without the attribute falls back to the control discovered in `app/Access/Controls` whose `$model` is that model (change the directories with `Access::discoverControlsIn([...])` in a service provider's `boot()`). A model has a single control: two controls for one model, declared or discovered, throw `DuplicateControlException`; a `$model` that is missing, not a class or not an Eloquent model throws `InvalidControlModelException`. Example usage:
 
 ```php
 namespace App\Access\Controls;
@@ -78,6 +79,29 @@ class PostControl extends Control
         ];
     }
 }
+
+namespace App\Models;
+
+use App\Access\Controls\PostControl;
+use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Attributes\ControlledBy;
+use Lomkit\Access\Controls\HasControl;
+
+#[ControlledBy(PostControl::class)]
+class Post extends Model
+{
+    use HasControl;
+}
+```
+
+- Access facade: `Lomkit\Access\Access` is a facade over the control registry, a container singleton (one per container, so one per test). `Access::controlFor($model)` returns the model's control or throws `MissingControlException`; `Access::hasControl($model)` checks first. Both take a model instance or class name. `Access::control(PostControl::class)` and `PostControl::new()` return the registry's single instance, resolved through the container (constructor injection works; bind a replacement with `$this->app->instance(PostControl::class, $control)` in tests). `php artisan access:cache` (hooked into `optimize`) caches the control of each discovered model; `php artisan access:clear` removes it. Example usage:
+
+```php
+use Lomkit\Access\Access;
+
+if (Access::hasControl($model)) {
+    $control = Access::controlFor($model);
+}
 ```
 
 - HasControl trait: adds three local scopes, declared with Laravel's `#[Scope]` attribute, and exposes the model's Control via `newControl()`. A query is never controlled unless it says so: `controlled()` applies the control for `Auth::user()`, read when the query is built; `controlledFor($reader)` applies it for a reader you name, for jobs, listeners and commands, which have no signed-in user; `uncontrolled()` states that the query reads every row on purpose. Without a signed-in user, `controlled()` reads nothing, and so does `controlledFor(null)`. The perimeters are grouped in one nested `where`, so the caller's own constraints are never widened. The trait also registers `HasControlScope` as a global scope that filters nothing; the three scopes remove it, and `withoutGlobalScope(HasControlScope::class)` still works. Each scope works on relations and subqueries too. The Scout `controlled()` macro is registered independently by `AccessServiceProvider` whenever Laravel Scout is installed (see Laravel Scout integration below); `controlledFor()` and `uncontrolled()` are Eloquent-only. Example usage:
@@ -95,7 +119,7 @@ Post::uncontrolled()->count();                  // every row, stated on purpose 
 Post::query()->get();                           // every row: a plain query is not controlled
 ```
 
-- ControlledPolicy: drop-in policy that delegates every Gate method (`view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`) to the Control. `viewAny` and `create` only run `allowed` (no instance to check `should`). Example usage:
+- ControlledPolicy: drop-in policy that delegates every Gate method (`view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`) to the Control. Its `$control` must be the control registered for the model it decides on, or it throws `PolicyControlMismatchException`. `viewAny` and `create` only run `allowed` (no instance to check `should`). Example usage:
 
 ```php
 use Lomkit\Access\Policies\ControlledPolicy;
@@ -147,4 +171,7 @@ return [
   - `scoutQuery` cannot run `whereHas`/`orWhereNotNull`; denormalize into the indexed payload.
   - Plain queries, relations, lazy loads and route model binding are never controlled: every query that must be filtered says `controlled()`, or `controlledFor($reader)` where no user is signed in. Authorize a bound model through its policy.
   - `controlled()` and the Scout macro read `Auth::user()` when they run: do not call them from an event of the user model that the guard fires while it retrieves the user (such as `retrieved`), or the guard is asked for the user again.
+  - A model is linked to its control by `#[ControlledBy]` or by the discovery, never by a policy: a control outside the discovered directories without the attribute leaves the model without control (`MissingControlException`).
+  - Never write two controls for one model (e.g. an admin variant): `DuplicateControlException`. Put the variation in perimeters of the single control.
+  - After adding, moving or deleting a control in production, run `php artisan access:cache` again (or `optimize`): the cache maps each model to its control.
   - Controls may execute `allowed()` twice in `index`-style endpoints (policy + `controlled()` scope); cache it on the user if expensive.

@@ -2,33 +2,19 @@
 
 namespace Lomkit\Access\Console;
 
+use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Command;
-use Lomkit\Access\Access;
+use Lomkit\Access\Discovery\ControlDiscovery;
+use Lomkit\Access\Discovery\DiscoveryCache;
 use Symfony\Component\Console\Attribute\AsCommand;
 
 #[AsCommand(name: 'access:cache')]
+#[Description('Discover the access controls and cache the control of each model')]
 class AccessCacheCommand extends Command
 {
-    /**
-     * The console command name.
-     *
-     * @var string
-     */
-    protected $name = 'access:cache';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Discover and cache the access controls';
-
-    /**
-     * Execute the console command.
-     */
-    public function handle(): void
+    public function handle(ControlDiscovery $discovery, DiscoveryCache $cache): void
     {
-        Access::cache();
+        $cache->write($discovery->map());
 
         $this->components->info('Access controls cached successfully.');
     }

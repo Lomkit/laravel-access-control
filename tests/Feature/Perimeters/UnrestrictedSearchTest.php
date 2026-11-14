@@ -8,7 +8,7 @@ use Laravel\Scout\ScoutServiceProvider;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
-use Lomkit\Access\Tests\Fixtures\ConfiguredControl;
+use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\FeaturedPerimeter;
@@ -114,8 +114,7 @@ class UnrestrictedSearchTest extends PackageTestCase
     #[Test]
     public function it_throws_when_a_scout_callback_returns_another_builder(): void
     {
-        ConfiguredControl::register(
-            Article::class,
+        ConfiguredArticleControl::bind(
             AuthorPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->scoutQuery(fn (ScoutBuilder $query, User $user): ScoutBuilder => Article::search('Scout')->where('author_id', $user->getKey())),
@@ -125,7 +124,7 @@ class UnrestrictedSearchTest extends PackageTestCase
         $this->expectExceptionMessage(sprintf(
             'The [scoutQuery] callback of the [%s] perimeter in the [%s] control returned another builder.',
             AuthorPerimeter::class,
-            ConfiguredControl::class,
+            ConfiguredArticleControl::class,
         ));
 
         $this->searchedTitles();
@@ -136,8 +135,7 @@ class UnrestrictedSearchTest extends PackageTestCase
     {
         $evaluated = [];
 
-        ConfiguredControl::register(
-            Article::class,
+        ConfiguredArticleControl::bind(
             FeaturedPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->scoutQuery(function (ScoutBuilder $query) use (&$evaluated): void {

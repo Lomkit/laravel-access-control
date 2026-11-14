@@ -1,6 +1,6 @@
 <?php
 
-namespace Lomkit\Access\Tests\Support\Registry\Controls;
+namespace Lomkit\Access\Tests\Fixtures\Discovery\Controls;
 
 use Lomkit\Access\Controls\Control;
 

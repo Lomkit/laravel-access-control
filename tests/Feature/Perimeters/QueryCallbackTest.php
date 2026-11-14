@@ -14,7 +14,7 @@ use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\SharedPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
-use Lomkit\Access\Tests\Fixtures\ConfiguredControl;
+use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -49,8 +49,7 @@ class QueryCallbackTest extends PackageTestCase
 
     protected function controlPostsWith(Closure $query): void
     {
-        ConfiguredControl::register(
-            Post::class,
+        ConfiguredPostControl::bind(
             OwnPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->query($query),
@@ -90,7 +89,7 @@ class QueryCallbackTest extends PackageTestCase
         $this->expectExceptionMessage(sprintf(
             'The [query] callback of the [%s] perimeter in the [%s] control returned another builder.',
             OwnPerimeter::class,
-            ConfiguredControl::class,
+            ConfiguredPostControl::class,
         ));
 
         $this->readTitles();
@@ -113,8 +112,7 @@ class QueryCallbackTest extends PackageTestCase
     #[Test]
     public function it_names_the_perimeter_among_several_when_one_returns_another_builder(): void
     {
-        ConfiguredControl::register(
-            Post::class,
+        ConfiguredPostControl::bind(
             SharedPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->query(function (Builder $query, User $user): void {
@@ -165,7 +163,7 @@ class QueryCallbackTest extends PackageTestCase
         $this->expectExceptionMessage(sprintf(
             'The [query] callback of the [%s] perimeter in the [%s] control added no constraint to the query it receives',
             OwnPerimeter::class,
-            ConfiguredControl::class,
+            ConfiguredPostControl::class,
         ));
         $this->expectExceptionMessage('Declare ->unrestricted()');
 
@@ -175,8 +173,7 @@ class QueryCallbackTest extends PackageTestCase
     #[Test]
     public function it_throws_when_the_global_form_of_0_x_is_combined_with_another_perimeter(): void
     {
-        ConfiguredControl::register(
-            Post::class,
+        ConfiguredPostControl::bind(
             SharedPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->query(function (Builder $query, User $user): void {

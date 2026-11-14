@@ -12,7 +12,7 @@ use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\SharedPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
-use Lomkit\Access\Tests\Fixtures\ConfiguredControl;
+use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -90,8 +90,7 @@ class UnrestrictedRowsTest extends PackageTestCase
     {
         $evaluated = [];
 
-        ConfiguredControl::register(
-            Post::class,
+        ConfiguredPostControl::bind(
             SharedPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->query(function (Builder $query) use (&$evaluated): void {
@@ -117,8 +116,7 @@ class UnrestrictedRowsTest extends PackageTestCase
     #[Test]
     public function it_reads_every_post_through_an_unrestricted_overlay_before_another_perimeter(): void
     {
-        ConfiguredControl::register(
-            Post::class,
+        ConfiguredPostControl::bind(
             SharedPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->unrestricted(),

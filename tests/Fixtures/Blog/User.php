@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Lomkit\Access\Attributes\ControlledBy;
 use Lomkit\Access\Controls\HasControl;
 
 #[Unguarded]
 #[UseFactory(UserFactory::class)]
+#[ControlledBy(UserControl::class)]
 class User extends Authenticatable
 {
     use HasControl;

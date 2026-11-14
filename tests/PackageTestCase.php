@@ -4,7 +4,6 @@ namespace Lomkit\Access\Tests;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Lomkit\Access\Access;
 use Lomkit\Access\AccessServiceProvider;
 use Lomkit\Access\Tests\Fixtures\Fixture;
 use Orchestra\Testbench\Attributes\ResetRefreshDatabaseState;
@@ -20,19 +19,9 @@ abstract class PackageTestCase extends TestCase
     #[\Override]
     protected function setUp(): void
     {
-        Access::flush();
-
-        Access::$controlDiscoveryPaths = [];
-
         parent::setUp();
 
         Model::preventAccessingMissingAttributes();
-
-        foreach ($this->fixtures() as $fixture) {
-            foreach ($fixture->controls() as $control) {
-                (new Access)->addControl(new $control);
-            }
-        }
     }
 
     #[\Override]
@@ -41,10 +30,6 @@ abstract class PackageTestCase extends TestCase
         Model::preventAccessingMissingAttributes(false);
 
         parent::tearDown();
-
-        Access::flush();
-
-        Access::$controlDiscoveryPaths = null;
     }
 
     /** @return list<Fixture> */

@@ -10,7 +10,7 @@ use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\SharedPerimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
-use Lomkit\Access\Tests\Fixtures\ConfiguredControl;
+use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -86,8 +86,7 @@ class UnrestrictedPolicyTest extends PackageTestCase
     {
         $checked = [];
 
-        $control = ConfiguredControl::register(
-            Post::class,
+        $control = ConfiguredPostControl::bind(
             SharedPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->should(function (User $user, Post $post) use (&$checked): bool {

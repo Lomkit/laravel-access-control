@@ -8,39 +8,12 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\RefreshDatabaseState;
 use Illuminate\Support\ServiceProvider;
-use Lomkit\Access\Access;
 use Lomkit\Access\AccessServiceProvider;
-use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
-use Lomkit\Access\Tests\Support\Access\Controls\SearchableModelControl;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
 class TestCase extends BaseTestCase
 {
     use RefreshDatabase;
-
-    protected function setUp(): void
-    {
-        Access::flush();
-
-        Access::$controlDiscoveryPaths = null;
-
-        parent::setUp();
-
-        (new Access)
-            ->addControls([
-                new ModelControl,
-                new SearchableModelControl,
-            ]);
-    }
-
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-
-        Access::flush();
-
-        Access::$controlDiscoveryPaths = null;
-    }
 
     /**
      * Refresh a conventional test database.
