@@ -80,7 +80,7 @@ class EditorialPerimeter extends Perimeter
 }
 ```
 
-- Which perimeter grants a row: `Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` (public, final) tells whether a perimeter applies to the reader for the ability and contains the row; inside a control, `applicablePerimeters(Model $reader, Ability $ability)` (protected, final) lists the perimeters that apply: the level reached in each group, then the loose perimeters that allow the reader (an unrestricted one alone). It does not check the boundary against a row: the policy does. `getPerimeters()` no longer exists. Example usage:
+- Which perimeter grants a row: `Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` (public, final) tells whether a perimeter applies to the reader for the ability and contains the row (in memory with `should`, otherwise one `exists` on the stored row through `query()`; an unsaved row is never admitted that way); inside a control, `applicablePerimeters(Model $reader, Ability $ability)` (protected, final) lists the perimeters that apply: the level reached in each group, then the loose perimeters that allow the reader (an unrestricted one alone). It does not check the boundary against a row: the policy does. `getPerimeters()` no longer exists. Example usage:
 
 ```php
 foreach ($this->applicablePerimeters($reader, Ability::update()) as $perimeter) {

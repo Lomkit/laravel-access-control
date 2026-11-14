@@ -2,8 +2,12 @@
 
 namespace Lomkit\Access\Tests\Feature\Perimeters;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
+use Lomkit\Access\Exceptions\EmptyQueryCallbackException;
+use Lomkit\Access\Exceptions\JoinInPerimeterException;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
@@ -99,13 +103,91 @@ class AdmitsTest extends PackageTestCase
         $this->assertFalse(EditorialPerimeter::new()->admits($this->ada, Ability::view(), $this->draft));
     }
 
+    protected function ownPerimeterInSql(): Perimeter
+    {
+        return OwnPerimeter::new()
+            ->allowed(fn (User $user): bool => true)
+            ->query(function (Builder $query, User $user): void {
+                $query->where('author_id', $user->getKey());
+            });
+    }
+
     #[Test]
-    public function it_throws_when_the_perimeter_has_no_row_check(): void
+    public function it_checks_the_stored_row_through_the_query_of_a_perimeter_without_should(): void
+    {
+        DB::enableQueryLog();
+
+        $this->assertTrue($this->ownPerimeterInSql()->admits($this->ada, Ability::update(), $this->draft));
+        $this->assertFalse($this->ownPerimeterInSql()->admits($this->ada, Ability::update(), $this->releaseNotes));
+        $this->assertCount(2, DB::getQueryLog());
+    }
+
+    #[Test]
+    public function it_checks_the_stored_values_of_a_row_changed_in_memory(): void
+    {
+        $this->releaseNotes->author_id = $this->ada->getKey();
+
+        $this->assertFalse($this->ownPerimeterInSql()->admits($this->ada, Ability::update(), $this->releaseNotes));
+    }
+
+    #[Test]
+    public function it_does_not_admit_an_unsaved_row_through_a_perimeter_without_should_and_runs_no_query(): void
+    {
+        DB::enableQueryLog();
+
+        $this->assertFalse($this->ownPerimeterInSql()->admits($this->ada, Ability::create(), new Post(['author_id' => $this->ada->getKey()])));
+        $this->assertSame([], DB::getQueryLog());
+    }
+
+    #[Test]
+    public function it_runs_no_query_for_a_reader_the_perimeter_does_not_allow(): void
+    {
+        $perimeter = OwnPerimeter::new()
+            ->allowed(fn (User $user): bool => false)
+            ->query(function (Builder $query, User $user): void {
+                $query->where('author_id', $user->getKey());
+            });
+        DB::enableQueryLog();
+
+        $this->assertFalse($perimeter->admits($this->ada, Ability::view(), $this->draft));
+        $this->assertSame([], DB::getQueryLog());
+    }
+
+    #[Test]
+    public function it_throws_when_the_perimeter_has_neither_should_nor_query(): void
     {
         $perimeter = OwnPerimeter::new()->allowed(fn (User $user): bool => true);
 
         $this->expectException(MissingPerimeterCallbackException::class);
-        $this->expectExceptionMessage(sprintf('The [%s] perimeter has no [should] callback.', OwnPerimeter::class));
+        $this->expectExceptionMessage(sprintf('The [%s] perimeter has no [query] callback.', OwnPerimeter::class));
+
+        $perimeter->admits($this->ada, Ability::view(), $this->draft);
+    }
+
+    #[Test]
+    public function it_throws_when_the_query_of_a_perimeter_without_should_adds_no_constraint(): void
+    {
+        $perimeter = OwnPerimeter::new()
+            ->allowed(fn (User $user): bool => true)
+            ->query(function (Builder $query): void {});
+
+        $this->expectException(EmptyQueryCallbackException::class);
+        $this->expectExceptionMessage(sprintf('The [query] callback of the [%s] perimeter added no constraint to the query of the [%s] model', OwnPerimeter::class, Post::class));
+
+        $perimeter->admits($this->ada, Ability::view(), $this->draft);
+    }
+
+    #[Test]
+    public function it_throws_when_the_query_of_a_perimeter_without_should_adds_a_join(): void
+    {
+        $perimeter = OwnPerimeter::new()
+            ->allowed(fn (User $user): bool => true)
+            ->query(function (Builder $query, User $user): void {
+                $query->join('projects', 'projects.id', '=', 'posts.project_id')->where('author_id', $user->getKey());
+            });
+
+        $this->expectException(JoinInPerimeterException::class);
+        $this->expectExceptionMessage(sprintf('The [query] callback of the [%s] perimeter adds a join to the query of the [%s] model.', OwnPerimeter::class, Post::class));
 
         $perimeter->admits($this->ada, Ability::view(), $this->draft);
     }

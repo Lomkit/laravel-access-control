@@ -779,7 +779,7 @@ OwnPerimeter::new()
     ->query(fn (Builder $query, User $user) => $query->where('author_id', $user->id)),
 ```
 
-Keep a `should` callback on the perimeters through which readers create rows, since a draft needs it, and where checking in memory saves a query. `Perimeter::admits()` still checks the row in memory, so it needs the `should` callback or the `includes()` hook.
+Keep a `should` callback on the perimeters through which readers create rows, since a draft needs it, and where checking in memory saves a query. `Perimeter::admits()` follows the same rule: in memory through the `should` callback or the `includes()` hook, otherwise one `exists` on the stored row through `query()`, and never for an unsaved row.
 
 #### The decision context
 
@@ -1066,7 +1066,7 @@ A hook receives the reader as `Model`, the type of every reader: a perimeter cla
 
 `applyScoutQueryCallback()` has no hook in 1.0: a perimeter is searched through its search keys (see [Search](#search)). Remove the override and declare `searchKeys()` on the perimeter.
 
-`Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` tells whether the perimeter applies to the reader for the ability and contains the row, through its hooks or its callbacks. Inside a control, `applicablePerimeters(Model $reader, Ability $ability)` returns the perimeters that apply to the reader for the ability: together, they tell which perimeters grant a row.
+`Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` tells whether the perimeter applies to the reader for the ability and contains the row, through its hooks or its callbacks. A perimeter without a `should` callback checks the stored row through its `query()`, in one query. Inside a control, `applicablePerimeters(Model $reader, Ability $ability)` returns the perimeters that apply to the reader for the ability: together, they tell which perimeters grant a row.
 
 `applyAllowedCallback()`, `applyShouldCallback()` and `applyQueryCallback()` are internal: they take an `AccessContext` and are called by the control. Replace your calls with `admits()`, or with the policy and the controlled queries. `applyScoutQueryCallback()` is removed. `UntypedAbilityHookException` is removed, since `allows()` reads the ability from its context.
 

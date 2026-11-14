@@ -110,7 +110,11 @@ class Perimeter
     {
         $context = AccessContext::of($reader, $ability);
 
-        return $this->applyAllowedCallback($context) && $this->applyShouldCallback($row, $context);
+        if (! $this->applyAllowedCallback($context)) {
+            return false;
+        }
+
+        return $this->checksInMemory() ? $this->applyShouldCallback($row, $context) : StoredRowInQuery::contains($this, $row, $context);
     }
 
     /** @internal */
