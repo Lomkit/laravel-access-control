@@ -5,6 +5,7 @@ namespace Lomkit\Access\Testing;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Controls\HasControl;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Search\ControlledSearchable;
@@ -34,6 +35,34 @@ trait InteractsWithAccess
 
     /**
      * @param  class-string<Control>  $control
+     * @param  iterable<Model>  $rows
+     * @param  list<string>  $abilities
+     */
+    public function assertControlAgrees(string $control, Model $reader, iterable $rows, array $abilities = ['view', 'update', 'delete']): void
+    {
+        $instance = Access::control($control);
+        $model = $instance->getModel();
+        $saved = [];
+
+        Assert::assertContains(HasControl::class, class_uses_recursive($model), sprintf('The [%s] model does not use the HasControl trait, so assertControlAgrees() cannot compare the decisions with controlled() and withAbilities().', $model));
+
+        foreach ($rows as $row) {
+            Assert::assertInstanceOf($model, $row, sprintf('assertControlAgrees() received a row that is not a [%s] model: pass the saved rows of the [%s] control.', $model, $control));
+            Assert::assertTrue($row->exists, sprintf('assertControlAgrees() received an unsaved [%s] row: a draft is judged only in memory, so pass saved rows.', $model));
+            $saved[] = $row;
+        }
+
+        if ($saved === []) {
+            Assert::fail(sprintf('assertControlAgrees() received no row for the [%s] control: the decisions agree only on the rows they compare.', $control));
+        }
+
+        $disagreements = (new ControlAgreement($instance, $saved, $abilities))->disagreementsFor($reader);
+
+        Assert::assertSame([], $disagreements, $this->controlAgreesFailure($control, $reader, $disagreements));
+    }
+
+    /**
+     * @param  class-string<Control>  $control
      * @param  list<Model>  $readers
      */
     public function assertSearchAgrees(string $control, array $readers): void
@@ -52,6 +81,23 @@ trait InteractsWithAccess
 
             Assert::assertSame(['searchOnly' => [], 'sqlOnly' => []], $disagreements, $this->searchAgreesFailure($control, $reader, $disagreements));
         }
+    }
+
+    /**
+     * @param  class-string<Control>  $control
+     * @param  list<string>  $disagreements
+     */
+    private function controlAgreesFailure(string $control, Model $reader, array $disagreements): string
+    {
+        $key = $reader->getKey();
+
+        return sprintf(
+            "The decisions of the [%s] control disagree for the [%s] reader with key [%s]:\n- %s\nThe Gate must give the same answer row by row, after Access::preload() and after withAbilities(), and grant view exactly to the rows controlled() lists. A perimeter whose should callback or includes() hook describes other rows than its query() is the usual cause: make them describe the same rows, or drop the should callback so the row is checked through the query.",
+            $control,
+            $reader::class,
+            is_int($key) || is_string($key) ? $key : get_debug_type($key),
+            implode("\n- ", $disagreements),
+        );
     }
 
     /**
