@@ -20,6 +20,8 @@ class Perimeter
 
     protected ?Closure $allowedCallback = null;
 
+    private AbilityArgument $allowedArgument = AbilityArgument::Instance;
+
     private bool $unrestricted = false;
 
     /**
@@ -70,15 +72,16 @@ class Perimeter
      */
     public function applyAllowedCallback(Model $user, Ability $ability): bool
     {
-        /** @var Closure(Model, Ability): bool $callback */
+        /** @var Closure(Model, Ability|string): bool $callback */
         $callback = $this->allowedCallback ?? throw MissingPerimeterCallbackException::for($this, 'allowed');
 
-        return $callback($user, $ability);
+        return $callback($user, $this->allowedArgument->of($ability));
     }
 
     public function allowed(Closure $allowedCallback): self
     {
         $this->allowedCallback = $allowedCallback;
+        $this->allowedArgument = AbilityArgument::expectedBy($allowedCallback);
 
         return $this;
     }

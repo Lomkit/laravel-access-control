@@ -217,7 +217,8 @@ ClientPerimeter::new()
     ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
 ```
 
-A closure typed `string $method` keeps working: the ability converts to its name, because the package never declares `strict_types` in the file that calls the closures. It is a transition aid; the documented form is `Ability $ability`. A closure whose parameter has no type receives the `Ability` object itself, so a strict comparison with a string no longer matches: `$method === 'view'`, `match ($method)` and `in_array($method, [...], true)` are always false, and a `default` arm of a `match` now runs for every ability. Type that parameter `string`, or compare with `$ability->is('view')`.
+The closures of 0.x keep working: an untyped parameter receives the ability's name as a string, a parameter typed `Ability` receives the object. The package reads the second parameter of each `allowed` closure once, when the perimeter is declared. A parameter typed `Ability`, `Stringable` or `object`, or with a union that contains one of them, receives the `Ability`. An untyped parameter, or one typed `string` or `mixed`, receives the name, so the `$method === 'view'`, `match ($method)` and `in_array($method, [...], true)` comparisons of 0.x keep matching. The documented form is `Ability $ability`.
+
 
 Compare abilities with `is()`, never with `===`: two abilities with the same name are not the same object, and an ability restored by `unserialize()` is a new one.
 
@@ -268,6 +269,22 @@ $control->applies($user, Ability::update(), $post);
 $control->applies($user, $control->abilityFor('viewAny'), new Post);
 ```
 
+A perimeter class that overrides `applyAllowedCallback()` declares its second parameter as `Ability $ability`, and compares it with `$ability->is('view')`. An override typed `string $method` is a fatal error, and an untyped one throws `UntypedAbilityHookException` when the control resolves its perimeters, instead of receiving an object that a string comparison would never match:
+
+```php
+// Before
+public function applyAllowedCallback(Model $user, $method): bool
+{
+    return $method === 'view';
+}
+
+// After
+public function applyAllowedCallback(Model $user, Ability $ability): bool
+{
+    return $ability->is('view');
+}
+```
+
 `make:control` now generates `fn (Model $user, Ability $ability)` closures, and its `control.stub` imports `Lomkit\Access\Ability`. If your application published `stubs/control.stub`, add `use Lomkit\Access\Ability;` to it, or the generated controls will not find the class.
 
 laravel-rest-api has its own `Lomkit\Rest\Authorization\Ability` enum, closed to its standard actions. It is a different type: import the one of the package you call.
@@ -293,3 +310,4 @@ laravel-rest-api has its own `Lomkit\Rest\Authorization\Ability` enum, closed to
 | `->allowed(fn (User $user, string $method) => ...)` | `->allowed(fn (User $user, Ability $ability) => ...)` (string still works) |
 | `$control->applies($user, 'update', $post)` | `$control->applies($user, Ability::update(), $post)` |
 | `$ability === 'view'` | `$ability->is('view')` |
+| `applyAllowedCallback(Model $user, $method)` overridden on a perimeter | `applyAllowedCallback(Model $user, Ability $ability)` |

@@ -7,6 +7,8 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
+use Lomkit\Access\Exceptions\UntypedAbilityHookException;
+use Lomkit\Access\Perimeters\AbilityArgument;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Registry\ControlRegistry;
 use Throwable;
@@ -40,10 +42,14 @@ class Control
         return [];
     }
 
-    /** @return array<Perimeter> */
+    /**
+     * @return array<Perimeter>
+     *
+     * @throws UntypedAbilityHookException When a perimeter overrides applyAllowedCallback() without typing its ability.
+     */
     public function getPerimeters(): array
     {
-        return $this->resolvedPerimeters ??= $this->perimeters();
+        return $this->resolvedPerimeters ??= $this->typedPerimeters($this->perimeters());
     }
 
     /**
@@ -113,6 +119,21 @@ class Control
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<Perimeter>  $perimeters
+     * @return array<Perimeter>
+     */
+    private function typedPerimeters(array $perimeters): array
+    {
+        foreach ($perimeters as $perimeter) {
+            if (AbilityArgument::expectedByHookOf($perimeter) === AbilityArgument::Name) {
+                throw UntypedAbilityHookException::for($perimeter);
+            }
+        }
+
+        return $perimeters;
     }
 
     public static function new(): static
