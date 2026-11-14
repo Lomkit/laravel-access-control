@@ -4,6 +4,20 @@
 
 This guide lists every breaking change of version 1.0, area by area. Go through the sections of the features that your application uses; the table at the end maps each removed call to its replacement.
 
+### Requirements
+
+Version 1.0 requires PHP 8.3 and Laravel 13. Applications that stay on Laravel 12 can use version 0.7, the last 0.x release.
+
+### Coming from 0.6
+
+Version 0.7 already changed several things. If you upgrade from 0.6, apply the [0.7.0 checklist](https://github.com/Lomkit/laravel-access-control/releases/tag/v0.7.0) first:
+
+- Remove the `parent::__construct()` calls from your perimeter classes. The `Perimeter` constructor is gone, so the call is a fatal error.
+- Declare every perimeter callback the application uses. An undeclared callback throws `MissingPerimeterCallbackException` instead of allowing every row.
+- Remove `queries.isolate_parent_query` and `queries.isolate_perimeter_queries` from your published config.
+- `HasControl::newControl()` returns `Control` instead of `?Control`.
+- Overridden `ControlledPolicy` methods declare a return type compatible with `bool|Response`.
+
 ### Queries
 
 A query is no longer controlled unless it says so. The `queries.enabled_by_default` key is removed with the whole `queries` block of `config/access-control.php`, and nothing reads it anymore. Add `controlled()` to every query that relied on the key, then remove the `queries` block from your published `config/access-control.php`:
