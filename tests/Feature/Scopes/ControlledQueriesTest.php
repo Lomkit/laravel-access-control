@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Feature\Scopes;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Controls\HasControlScope;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -105,7 +106,7 @@ class ControlledQueriesTest extends PackageTestCase
         $this->actingAs($this->ada);
 
         $this->assertSame(4, Post::query()->count());
-        $this->assertSame('select * from "posts"', Post::query()->toSql());
+        $this->assertSame('select * from posts', $this->sql(Post::query()));
     }
 
     #[Test]
@@ -131,7 +132,7 @@ class ControlledQueriesTest extends PackageTestCase
         $this->actingAs($this->ada);
 
         $this->assertSame(4, Post::uncontrolled()->count());
-        $this->assertSame('select * from "posts"', Post::uncontrolled()->toSql());
+        $this->assertSame('select * from posts', $this->sql(Post::uncontrolled()));
     }
 
     #[Test]
@@ -152,7 +153,7 @@ class ControlledQueriesTest extends PackageTestCase
         $query = Post::where('published', true)->controlled();
 
         $this->assertSame(['Inventory', 'Release notes'], $query->orderBy('title')->pluck('title')->all());
-        $this->assertStringStartsWith('select * from "posts" where "published" = ? and ((exists (', $query->toSql());
+        $this->assertStringStartsWith('select * from posts where published = ? and ((exists (', $this->sql($query));
     }
 
     #[Test]
@@ -165,7 +166,7 @@ class ControlledQueriesTest extends PackageTestCase
         $query = Post::where('published', true)->orWhere('title', 'Roadmap')->controlled();
 
         $this->assertSame(['Release notes'], $query->pluck('title')->all());
-        $this->assertStringStartsWith('select * from "posts" where ("published" = ? or "title" = ?) and ((', $query->toSql());
+        $this->assertStringStartsWith('select * from posts where (published = ? or title = ?) and ((', $this->sql($query));
     }
 
     #[Test]
@@ -235,5 +236,11 @@ class ControlledQueriesTest extends PackageTestCase
         $this->actingAs($this->ada);
 
         $this->assertSame(['Inventory'], Post::controlled()->pluck('title')->all());
+    }
+
+    /** @param Builder<Post> $query */
+    private function sql(Builder $query): string
+    {
+        return str_replace(['"', '`'], '', $query->toSql());
     }
 }
