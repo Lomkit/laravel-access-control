@@ -473,7 +473,7 @@ class PostShare extends Pivot
 }
 ```
 
-- `attach()`, `detach()`, `sync()`, `toggle()` and `updateExistingPivot()` on a relation that uses the pivot fire its model events. Declare `->using(PostShare::class)` on both sides of the relation: a side without it writes the pivot table with a plain query, which fires no event. Each event reindexes the linked models that use `ControlledSearchable`: both sides when both are searchable. The job is unique per document and queued after the commit: fifty attaches queue one job per post. Without a queue, the jobs run as the pivots are written, so wrap a bulk change in `DB::transaction()` to reindex each document once.
+- `attach()`, `detach()`, `sync()`, `toggle()` and `updateExistingPivot()` on a relation that uses the pivot fire its model events. Declare `->using(PostShare::class)` on both sides of the relation, otherwise `attach()` and `detach()` from the other side write the pivot table with a plain query, fire no event, and the documents keep stale keys. Each event reindexes the linked models that use `ControlledSearchable`: both sides when both are searchable. The job is unique per document and queued after the commit: fifty attaches queue one job per post. Without a queue, the jobs run as the pivots are written, so wrap a bulk change in `DB::transaction()` to reindex each document once.
 - A pivot written outside its relation, such as `PostShare::create([...])`, does not know the models it links: the write is refused with `UnresolvablePivotException` before it reaches the database. So is a pivot that links no `ControlledSearchable` model, with `MissingControlledSearchableException`. The pivot keys must reference the primary keys of the models: a relation with a custom `parentKey` or `relatedKey` is not supported.
 
 What Eloquent cannot see stays with the application, which calls Scout:
@@ -488,7 +488,7 @@ $post->searchable();
 
 The same holds for `DB::table()` writes, `Model::withoutEvents()`, `withoutSyncingToSearch()`, pivot queries such as `newPivotStatement()` and cascades done by the database.
 
-The document's own model needs nothing: Scout reindexes it when it is saved. When the model overrides `searchIndexShouldBeUpdated()` and it returns `false`, the package compares the keys of the row before and after the save, after the commit, and reindexes the document when they differ: keep your override for the other attributes.
+The document's own model needs nothing: Scout reindexes it when it is saved. When the model overrides `searchIndexShouldBeUpdated()` and it returns `false`, the package compares the keys of the row before and after the save, after the commit, each state loading its own `load:` relations (so a changed `project_id` counts), and reindexes the document when they differ: keep your override for the other attributes.
 
 The engine stays the only barrier, and freshness has a limit: between the change and the end of the job, the documents keep their former keys. Without a queue the window closes right after the commit; with one it lasts as long as the queue's backlog, and a failed job leaves the keys stale until it is retried or the model reindexed. Turn on Scout's `after_commit` option so that Scout's own indexing never writes the keys of a change that is rolled back.
 

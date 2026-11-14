@@ -3,7 +3,6 @@
 namespace Lomkit\Access\Search\Freshness\Inspection;
 
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Scout\Searchable;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
@@ -14,8 +13,6 @@ use Lomkit\Access\Search\UsesControlledSearchable;
 /** @internal */
 final class FreshnessInspector
 {
-    private const string INDEX_CHECK = 'searchIndexShouldBeUpdated';
-
     private const string MAKE_SEARCHABLE = 'makeSearchableUsing';
 
     private const string WITH_ACCESS_KEYS = 'withAccessKeys';
@@ -36,10 +33,6 @@ final class FreshnessInspector
 
         if (! ScoutOptions::afterCommit()) {
             $issues[] = new ScoutIndexesBeforeCommit($model);
-        }
-
-        if (TraitMethod::isOverridden($model, self::INDEX_CHECK, Searchable::class)) {
-            $issues[] = new IndexCheckOverridden($model);
         }
 
         if (TraitMethod::isOverridden($model, self::MAKE_SEARCHABLE, ControlledSearchable::class) && ! TraitMethod::mentions($model, self::MAKE_SEARCHABLE, self::WITH_ACCESS_KEYS)) {

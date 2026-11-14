@@ -3,7 +3,12 @@
 namespace Lomkit\Access\Tests\Feature\Search\Freshness;
 
 use Illuminate\Support\Facades\DB;
+use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Tests\Fixtures\Blog\Client;
+use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
+use Lomkit\Access\Tests\Fixtures\ConfiguredQuietArticleControl;
+use Lomkit\Access\Tests\Fixtures\Search\ClientPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\QuietArticle;
 use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
 use PHPUnit\Framework\Attributes\Group;
@@ -108,5 +113,33 @@ class KeyDriftTest extends SearchTestCase
         });
 
         $this->assertNull($this->access());
+    }
+
+    #[Test]
+    public function it_reindexes_a_key_read_through_a_relation_when_the_foreign_key_changes(): void
+    {
+        $acme = Client::factory()->createOne(['name' => 'Acme']);
+        $globex = Client::factory()->createOne(['name' => 'Globex']);
+        $website = Project::factory()->for($acme)->createOne(['name' => 'Website']);
+        $warehouse = Project::factory()->for($globex)->createOne(['name' => 'Warehouse']);
+        ConfiguredQuietArticleControl::bindWithin(
+            Boundary::where('workspace_id', fn (User $user): ?int => $user->current_workspace_id),
+            ClientPerimeter::new()
+                ->allowed(fn (User $user): bool => true)
+                ->searchKeys(
+                    name: 'client',
+                    row: fn (QuietArticle $article): mixed => $article->project?->client_id,
+                    reader: fn (User $user): mixed => $user->client_id,
+                    load: ['project:id,client_id'],
+                ),
+        );
+        $this->article->update(['project_id' => $website->getKey(), 'workspace_id' => 1]);
+        $this->article->searchable();
+        $this->assertSame(["client.{$acme->getKey()}"], $this->access());
+
+        $this->article->update(['project_id' => $warehouse->getKey(), 'workspace_id' => 2]);
+
+        $this->assertSame(["client.{$globex->getKey()}"], $this->access());
+        $this->assertSame(['workspace_id.2'], $this->engine->documents[$this->article->searchableAs()][(string) $this->article->getKey()]['_boundary']);
     }
 }

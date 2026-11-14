@@ -7,7 +7,6 @@ use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Search\Freshness\Inspection\AccessKeysNotWritten;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessInspector;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessIssue;
-use Lomkit\Access\Search\Freshness\Inspection\IndexCheckOverridden;
 use Lomkit\Access\Search\Freshness\Inspection\ScoutIndexesBeforeCommit;
 use Lomkit\Access\Search\Freshness\Inspection\UnwatchedKeyRelation;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
@@ -76,12 +75,9 @@ class FreshnessInspectorTest extends FreshnessTestCase
     }
 
     #[Test]
-    public function it_reports_a_model_that_overrides_the_index_check(): void
+    public function it_trusts_a_model_that_overrides_the_index_check_since_the_package_compares_its_keys(): void
     {
-        $issues = FreshnessInspector::inspect(QuietArticle::class)->issues();
-
-        $this->assertEquals([new IndexCheckOverridden(QuietArticle::class)], $issues);
-        $this->assertStringContainsString(sprintf('The [%s] model overrides searchIndexShouldBeUpdated().', QuietArticle::class), $issues[0]->message());
+        $this->assertTrue(FreshnessInspector::inspect(QuietArticle::class)->isFresh());
     }
 
     #[Test]
