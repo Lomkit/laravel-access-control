@@ -66,6 +66,58 @@ $posts = Post::controlledFor($recipient)->get();
 
 `controlledFor(null)` reads no row, as `controlled()` does without a signed-in user: a missing reader never means every row.
 
+### Query callbacks
+
+The `query` callback of a perimeter constrains the builder it receives, and its return value is no longer used. Returning nothing is the normal form. A callback that returns the builder it receives, such as an arrow function, keeps working:
+
+```php
+// Before
+->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id))
+
+// After
+->query(function (Builder $query, User $user): void {
+    $query->where('client_id', $user->client_id);
+})
+```
+
+A callback that returns another builder now throws `QueryCallbackReturnedAnotherBuilderException`, which names the perimeter and the control. In 0.x the returned builder was ignored, so its constraints were lost and the perimeter let every row through. Apply the constraints to the builder the callback receives instead:
+
+```php
+// Before: Post::query() is a new builder, so the perimeter added nothing
+->query(fn (Builder $query, User $user) => Post::query()->where('author_id', $user->id))
+
+// After
+->query(function (Builder $query, User $user): void {
+    $query->where('author_id', $user->id);
+})
+```
+
+The same rule applies to the `scoutQuery` callback.
+
+A `query` callback that adds no constraint to the builder it receives now throws `EmptyQueryCallbackException`. Laravel drops an empty group, so the other perimeters of the reader stopped applying, and the reader saw more or fewer rows than intended. A callback that only orders, limits or joins adds no constraint either: Laravel keeps only the `where` clauses of the group. A callback that adds its constraint under a condition throws for the readers it skips: add a constraint that matches no row for them, such as `$query->whereRaw('0=1')`, or refuse them in `allowed()`.
+
+### Unrestricted perimeters
+
+A perimeter that reaches every row is declared with `unrestricted()`, instead of a `query` callback that adds nothing and a `should` callback that returns `true`. Replace your global perimeters:
+
+```php
+// Before
+GlobalPerimeter::new()
+    ->allowed(fn (User $user, string $method) => $user->can("{$method} global posts"))
+    ->should(fn () => true)
+    ->query(fn (Builder $query) => $query)
+    ->scoutQuery(fn (ScoutBuilder $query) => $query),
+
+// After
+GlobalPerimeter::new()
+    ->allowed(fn (User $user, string $method) => $user->can("{$method} global posts"))
+    ->unrestricted(),
+```
+
+An unrestricted perimeter takes no `query`, `should` or `scoutQuery` callback: declaring one of them with `unrestricted()` throws `UnrestrictedPerimeterCallbackException`. When an unrestricted perimeter applies to the reader, a controlled query and a controlled search get no perimeter constraint, the policy grants the row without calling any `should` callback, and the other perimeters of the reader are not evaluated.
+
+This fixes a reader with both a global and an overlay permission, such as an administrator who also has "view shared posts": in 0.x the empty global group was dropped and the administrator only saw the shared posts. Such a reader now sees every row, which may widen what your tests expect.
+
 ### Correspondence table
 
 | 0.x | 1.0 |
@@ -74,3 +126,5 @@ $posts = Post::controlledFor($recipient)->get();
 | `$control->queried($query, $user)` | `$query->controlledFor($user)` |
 | `HasControlScope::resolveUser()` | `Auth::user()` |
 | `HasControlScope::retrievingUser()` | Removed, no replacement |
+| `->query(fn ($query) => $query)`, `->should(fn () => true)` on a global perimeter | `->unrestricted()` |
+| `->query(fn ($query) => Model::query()->where(...))` | `->query(function ($query): void { $query->where(...); })` |

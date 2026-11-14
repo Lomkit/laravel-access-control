@@ -36,15 +36,7 @@ class ModelControl extends Control
                 ->allowed(function (Model $user, string $method) {
                     return $user->can(sprintf('%s global models', $method));
                 })
-                ->should(function (Model $user, Model $model) {
-                    return true;
-                })
-                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user) {
-                    return $query;
-                })
-                ->query(function (Builder $query, Model $user) {
-                    return $query;
-                }),
+                ->unrestricted(),
             ClientPerimeter::new()
                 ->allowed(function (Model $user, string $method) {
                     return $user->can(sprintf('%s client models', $method));

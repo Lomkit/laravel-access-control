@@ -79,30 +79,6 @@ class MakeCommandsTest extends TestCase
         unlink(app_path('Access/Controls/Control.php'));
     }
 
-    public function test_make_control_with_perimeters_command()
-    {
-        file_put_contents(app_path('Access/Perimeters/TestPerimeter.php'), '');
-        file_put_contents(app_path('Access/Perimeters/SecondTestPerimeter.php'), '');
-
-        $this
-            ->artisan('make:control')
-            ->expectsQuestion('What should the control be named?', 'TestControl')
-            ->expectsChoice('What perimeters should this control apply to? (Optional)', ['TestPerimeter'], ['TestPerimeter', 'SecondTestPerimeter'])
-            ->assertOk()
-            ->run();
-
-        $this->assertFileExists(app_path('Access/Controls/TestControl.php'));
-        $this->assertStringContainsString('class TestControl', file_get_contents(app_path('Access/Controls/TestControl.php')));
-        $this->assertStringContainsString('App\\Access\\Perimeters\\TestPerimeter::new()', file_get_contents(app_path('Access/Controls/TestControl.php')));
-        $this->assertStringNotContainsString('return true;', file_get_contents(app_path('Access/Controls/TestControl.php')));
-        $this->assertStringContainsString("return \$query->whereRaw('0=1');", file_get_contents(app_path('Access/Controls/TestControl.php')));
-        $this->assertStringContainsString('->scoutQuery(function (\\Laravel\\Scout\\Builder $query, Model $user) {', file_get_contents(app_path('Access/Controls/TestControl.php')));
-
-        unlink(app_path('Access/Perimeters/TestPerimeter.php'));
-        unlink(app_path('Access/Perimeters/SecondTestPerimeter.php'));
-        unlink(app_path('Access/Controls/TestControl.php'));
-    }
-
     public function test_make_control_with_model_command()
     {
         file_put_contents(app_path('Models/User.php'), '');

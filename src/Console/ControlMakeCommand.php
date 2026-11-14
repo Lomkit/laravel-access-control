@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Console;
 
+use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -16,41 +17,17 @@ use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\select;
 
 #[AsCommand(name: 'make:control')]
+#[Description('Create a new control class')]
 class ControlMakeCommand extends GeneratorCommand
 {
-    /**
-     * The console command name.
-     *
-     * @var string
-     */
-    protected $name = 'make:control';
-
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Create a new control class';
-
-    /**
-     * The type of class being generated.
-     *
-     * @var string
-     */
     protected $type = 'Control';
 
-    /**
-     * Get the stub file for the generator.
-     */
     #[\Override]
     protected function getStub(): string
     {
         return $this->resolveStubPath('/stubs/control.stub');
     }
 
-    /**
-     * Resolve the fully-qualified path to the stub.
-     */
     protected function resolveStubPath(string $stub): string
     {
         return file_exists($customPath = $this->laravel->basePath(trim($stub, '/')))
@@ -58,22 +35,12 @@ class ControlMakeCommand extends GeneratorCommand
                         : __DIR__.$stub;
     }
 
-    /**
-     * Get the default namespace for the class.
-     *
-     * @param  string  $rootNamespace
-     */
     #[\Override]
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Access\Controls';
     }
 
-    /**
-     * Build the class with the given name.
-     *
-     * @param  string  $name
-     */
     #[\Override]
     protected function buildClass($name): string
     {
@@ -90,8 +57,10 @@ class ControlMakeCommand extends GeneratorCommand
 
         $replace = $this->buildPerimetersReplacements($replace, $perimeters);
 
-        if ($this->option('model')) {
-            $replace = $this->buildModelReplacements($replace);
+        $model = $this->option('model');
+
+        if (is_string($model) && $model !== '') {
+            $replace = $this->buildModelReplacements($replace, $model);
         }
 
         if ($baseControlExists) {
@@ -108,16 +77,11 @@ class ControlMakeCommand extends GeneratorCommand
     }
 
     /**
-     * Build the model replacement values.
-     *
      * @param  array<string, string>  $replace
      * @return array<string, string>
      */
-    protected function buildModelReplacements(array $replace): array
+    protected function buildModelReplacements(array $replace, string $model): array
     {
-        /** @var string $model */
-        $model = $this->option('model');
-
         $modelClass = $this->parseModel($model);
 
         return array_merge($replace, [
@@ -134,37 +98,16 @@ class ControlMakeCommand extends GeneratorCommand
     }
 
     /**
-     * Build the model replacement values.
-     *
      * @param  array<string, string>  $replace
      * @param  list<string>  $perimeters
      * @return array<string, string>
      */
     protected function buildPerimetersReplacements(array $replace, array $perimeters): array
     {
-        $perimetersImplementation = '';
-
-        foreach ($perimeters as $perimeter) {
-            $perimeterClass = '\\'.$this->rootNamespace().'Access\\Perimeters\\'.$perimeter;
-
-            // Every generated callback denies access until the developer replaces it with the real rule
-            $perimetersImplementation .= <<<PERIMETER
-            $perimeterClass::new()
-                    ->allowed(function (Model \$user, string \$method) {
-                        return false;
-                    })
-                    ->should(function (Model \$user, Model \$model) {
-                        return false;
-                    })
-                    ->query(function (Builder \$query, Model \$user) {
-                        return \$query->whereRaw('0=1');
-                    })
-                    ->scoutQuery(function (\Laravel\Scout\Builder \$query, Model \$user) {
-                        return \$query->where('__NOT_A_VALID_FIELD__', 0);
-                    }),
-
-            PERIMETER;
-        }
+        $perimetersImplementation = implode("\n            ", array_map(
+            fn (string $perimeter): string => (new GeneratedPerimeter('\\'.$this->rootNamespace().'Access\\Perimeters\\'.$perimeter))->code(),
+            $perimeters,
+        ));
 
         return array_merge($replace, [
             '{{ perimeters }}' => $perimetersImplementation,
@@ -172,11 +115,7 @@ class ControlMakeCommand extends GeneratorCommand
         ]);
     }
 
-    /**
-     * Get the console command options.
-     *
-     * @return list<array{string, string, int, string}>
-     */
+    /** @return list<array{string, string, int, string}> */
     #[\Override]
     protected function getOptions(): array
     {
@@ -186,9 +125,6 @@ class ControlMakeCommand extends GeneratorCommand
         ];
     }
 
-    /**
-     * Interact further with the user if they were prompted for missing arguments.
-     */
     #[\Override]
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
     {
@@ -219,31 +155,19 @@ class ControlMakeCommand extends GeneratorCommand
         }
     }
 
-    /**
-     * Get a list of possible perimeter names.
-     *
-     * @return array<int, string>
-     */
+    /** @return array<int, string> */
     protected function possiblePerimeters(): array
     {
         return $this->classNamesIn(is_dir(app_path('Access/Perimeters')) ? app_path('Access/Perimeters') : app_path());
     }
 
-    /**
-     * Get a list of possible model names.
-     *
-     * @return array<int, string>
-     */
+    /** @return array<int, string> */
     protected function possibleModelNames(): array
     {
         return $this->classNamesIn(is_dir(app_path('Models')) ? app_path('Models') : app_path());
     }
 
-    /**
-     * Get the names of the classes at the root of the given directory.
-     *
-     * @return array<int, string>
-     */
+    /** @return array<int, string> */
     private function classNamesIn(string $directory): array
     {
         return (new Collection(Finder::create()->files()->depth(0)->in($directory)))
@@ -253,12 +177,7 @@ class ControlMakeCommand extends GeneratorCommand
             ->all();
     }
 
-    /**
-     * Get the fully-qualified model class name.
-     *
-     *
-     * @throws InvalidArgumentException
-     */
+    /** @throws InvalidArgumentException */
     protected function parseModel(string $model): string
     {
         if (preg_match('([^A-Za-z0-9_/\\\\])', $model)) {

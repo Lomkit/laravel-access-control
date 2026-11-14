@@ -15,6 +15,18 @@ class ArticleControl extends Control
     protected function perimeters(): array
     {
         return [
+            FeaturedPerimeter::new()
+                ->allowed(fn (Model $user, string $method): bool => $user->can("{$method} featured articles"))
+                ->should(fn (Model $user, Article $article): bool => $article->featured)
+                ->query(function (Builder $query, Model $user): void {
+                    $query->where('featured', true);
+                })
+                ->scoutQuery(function (ScoutBuilder $query, Model $user): void {
+                    $query->where('featured', true);
+                }),
+            GlobalPerimeter::new()
+                ->allowed(fn (Model $user, string $method): bool => $user->can("{$method} global articles"))
+                ->unrestricted(),
             AuthorPerimeter::new()
                 ->allowed(fn (Model $user, string $method): bool => $user->can("{$method} own articles"))
                 ->should(fn (Model $user, Article $article): bool => $article->author_id === $user->getKey())

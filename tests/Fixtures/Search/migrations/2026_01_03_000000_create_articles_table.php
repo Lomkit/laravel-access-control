@@ -12,6 +12,7 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('author_id')->nullable();
             $table->string('title');
+            $table->boolean('featured')->default(false);
             $table->text('body');
             $table->timestamps();
         });

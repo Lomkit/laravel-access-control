@@ -29,12 +29,7 @@ class PostControl extends Control
                 ->allowed(function (Model $user, string $method) {
                     return $user->can(sprintf('%s global models', $method));
                 })
-                ->should(function (Model $user, Model $model) {
-                    return true;
-                })
-                ->query(function (Builder $query, Model $user) {
-                    return $query;
-                }),
+                ->unrestricted(),
             ClientPerimeter::new()
                 ->allowed(function (Model $user, string $method) {
                     return $user->can(sprintf('%s client models', $method));
@@ -42,8 +37,8 @@ class PostControl extends Control
                 ->should(function (Model $user, Model $model) {
                     return $model->client()->is($user->client);
                 })
-                ->query(function (Builder $query, Model $user) {
-                    return $query->where('client_id', $user->client->getKey());
+                ->query(function (Builder $query, Model $user): void {
+                    $query->where('client_id', $user->client->getKey());
                 }),
             // ...
         ];
