@@ -104,10 +104,14 @@ Add a test for each bug fix and each new feature.
 
 Write new tests in `tests/Feature` or `tests/Unit`:
 
+- Feature tests extend `Lomkit\Access\Tests\PackageTestCase` and declare the fixtures they need in `fixtures()`, with `#[\Override]`.
+- A fixture is a small domain in `tests/Fixtures/<Domain>`: models, factories, migrations, controls, perimeters and policies. It implements `Lomkit\Access\Tests\Fixtures\Fixture`, which gives its migrations and its controls. The existing fixtures are `Blog` (clients, users, projects, posts, comments and the `post_shares` pivot), `Agencies` (agencies and their members) and `Search` (a searchable article).
+- `PackageTestCase` turns off the discovery of controls and registers only the controls of the declared fixtures. It flushes the registry before and after each test.
+- `PackageTestCase` calls `Model::preventAccessingMissingAttributes()`: a test fails when the package reads an attribute that its query did not load.
 - Test methods use the `#[Test]` attribute and are named `it_...`.
-- Use fixed values, not Faker, and write the expected results by hand.
-- A test class that touches Laravel Scout carries `#[Group('scout')]` on the class. Each concrete class needs the attribute, because PHPUnit does not inherit it.
-- A search engine test extends `tests/Feature/Engines/ScoutEngineTestCase.php` and carries `#[Group('scout')]` and the group of its engine.
+- Use fixed values, not Faker, and write the expected results by hand. Factories give fixed defaults, and a test passes the values it asserts on.
+- A test class that touches Laravel Scout carries `#[Group('scout')]` on the class. Each concrete class needs the attribute, because PHPUnit does not inherit it. Such a class adds `ScoutServiceProvider` to `getPackageProviders()`; `PackageTestCase` sets the `collection` driver.
+- A search engine test carries `#[Group('scout')]` and the group of its engine. The engine tests still extend the legacy `tests/Feature/Engines/ScoutEngineTestCase.php` until they are rewritten.
 
 Pure unit tests that need neither the container nor the database extend PHPUnit's `TestCase`.
 
