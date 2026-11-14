@@ -4,19 +4,23 @@ namespace Lomkit\Access\Console;
 
 final readonly class ControlStubReplacements
 {
-    /** @param  list<string>  $perimeters */
+    /**
+     * @param  list<string>  $perimeters
+     * @param  list<GeneratedParent>  $parents
+     */
     public function __construct(
         private string $model,
         private array $perimeters,
+        private array $parents = [],
     ) {}
 
     /** @return array<string, string> */
     public function toArray(): array
     {
-        $perimeters = implode("\n            ", array_map(
-            fn (string $perimeter): string => (new GeneratedPerimeter($perimeter))->code(),
-            $this->perimeters,
-        ));
+        $perimeters = implode("\n            ", [
+            ...array_map(fn (GeneratedParent $parent): string => $parent->code(), $this->parents),
+            ...array_map(fn (string $perimeter): string => (new GeneratedPerimeter($perimeter))->code(), $this->perimeters),
+        ]);
 
         return [
             '{{ perimeters }}' => $perimeters,
