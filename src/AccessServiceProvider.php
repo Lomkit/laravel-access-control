@@ -4,9 +4,7 @@ namespace Lomkit\Access;
 
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\PublishingStubs;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\Builder;
@@ -16,6 +14,7 @@ use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
 use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Discovery\DiscoveryCache;
+use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Registry\PerimeterPurity;
 
@@ -67,18 +66,11 @@ class AccessServiceProvider extends ServiceProvider
         $this->bootScoutBuilder();
     }
 
-    /**
-     * Registers a macro on Laravel Scout's Builder.
-     */
     protected function bootScoutBuilder(): void
     {
         if (class_exists(Builder::class)) {
-            Builder::macro('controlled', function () {
-                $control = Access::controlFor($this->model);
-
-                $reader = Auth::user();
-
-                return $control->scoutQueried($this, $reader instanceof Model ? $reader : null);
+            Builder::macro('controlled', function (): never {
+                throw MissingControlledSearchableException::for($this->model);
             });
         }
     }

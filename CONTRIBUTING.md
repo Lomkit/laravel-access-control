@@ -105,21 +105,16 @@ Add a test for each bug fix and each new feature.
 Write new tests in `tests/Feature` or `tests/Unit`:
 
 - Feature tests extend `Lomkit\Access\Tests\PackageTestCase` and declare the fixtures they need in `fixtures()`, with `#[\Override]`.
-- A fixture is a small domain in `tests/Fixtures/<Domain>`: models, factories, migrations, controls, perimeters and policies. It implements `Lomkit\Access\Tests\Fixtures\Fixture`, which gives its migrations and its controls. The existing fixtures are `Blog` (clients, users, projects, posts, comments and the `post_shares` pivot), `Agencies` (agencies and their members) and `Search` (a searchable article).
+- A fixture is a small domain in `tests/Fixtures/<Domain>`: models, factories, migrations, controls, perimeters and policies. It implements `Lomkit\Access\Tests\Fixtures\Fixture`, which gives its migrations and its controls. The existing fixtures are `Blog` (clients, users, projects, posts, comments and the `post_shares` pivot), `Agencies` (agencies and their members) and `Search` (searchable articles, their `article_shares` pivot, and an in-memory Scout engine).
 - `PackageTestCase` turns off the discovery of controls and registers only the controls of the declared fixtures. It flushes the registry before and after each test.
 - `PackageTestCase` calls `Model::preventAccessingMissingAttributes()`: a test fails when the package reads an attribute that its query did not load.
 - Test methods use the `#[Test]` attribute and are named `it_...`.
 - Use fixed values, not Faker, and write the expected results by hand. Factories give fixed defaults, and a test passes the values it asserts on.
-- A test class that touches Laravel Scout carries `#[Group('scout')]` on the class. Each concrete class needs the attribute, because PHPUnit does not inherit it. Such a class adds `ScoutServiceProvider` to `getPackageProviders()`; `PackageTestCase` sets the `collection` driver.
-- A search engine test carries `#[Group('scout')]` and the group of its engine. The engine tests still extend the legacy `tests/Feature/Engines/ScoutEngineTestCase.php` until they are rewritten.
+- A test class that touches Laravel Scout carries `#[Group('scout')]` on the class. Each concrete class needs the attribute, because PHPUnit does not inherit it. A search test extends `tests/Fixtures/Search/SearchTestCase.php`, which adds `ScoutServiceProvider` and the in-memory engine, whose `searches` lists the searches that reached it. A test of the `database` engine sets `#[WithConfig('scout.driver', 'database')]`; the `collection` driver that `PackageTestCase` sets refuses controlled searches.
+- A search engine test carries `#[Group('scout')]` and the group of its engine, and extends `tests/Fixtures/Search/EngineTestCase.php`.
+- A test class that does not touch Scout never loads the `Search` fixture, so that it runs in the job without Scout.
 
 Pure unit tests that need neither the container nor the database extend PHPUnit's `TestCase`.
-
-The legacy suite is every test that extends `Lomkit\Access\Tests\TestCase`, directly or through `tests/Feature/TestCase.php` or `tests/Unit/TestCase.php`, with its helpers in `tests/Support`. It is being replaced and must only shrink:
-
-- Do not add tests, models or helpers to the legacy suite.
-- When you change an area, rewrite its legacy tests in the new style, then delete them.
-- The legacy suite, `tests/Support` and `tests/TestCase.php` are removed before the 1.0 release.
 
 ## Code style
 

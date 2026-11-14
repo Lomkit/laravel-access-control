@@ -6,6 +6,7 @@ use Illuminate\Container\Container;
 use Illuminate\Support\Facades\Facade;
 use Lomkit\Access\Policies\AutomaticPolicies;
 use Lomkit\Access\Registry\ControlRegistry;
+use Lomkit\Access\Search\SearchField;
 
 /**
  * @method static \Lomkit\Access\Controls\Control controlFor(\Illuminate\Database\Eloquent\Model|class-string<\Illuminate\Database\Eloquent\Model> $model)
@@ -22,6 +23,12 @@ final class Access extends Facade
         Container::getInstance()
             ->make(AutomaticPolicies::class)
             ->register();
+    }
+
+    /** @return list<string> */
+    public static function searchFilterables(): array
+    {
+        return SearchField::names();
     }
 
     #[\Override]

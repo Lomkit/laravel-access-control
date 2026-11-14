@@ -3,9 +3,11 @@
 namespace Lomkit\Access\Tests\Fixtures;
 
 use Illuminate\Container\Container;
+use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Registry\ControlRegistry;
 
 trait ConfiguresPerimeters
 {
@@ -24,6 +26,8 @@ trait ConfiguresPerimeters
         $control = new static(...$perimeters);
 
         Container::getInstance()->instance(parent::class, $control);
+        Container::getInstance()->forgetInstance(ControlRegistry::class);
+        Access::clearResolvedInstance(ControlRegistry::class);
 
         return $control;
     }

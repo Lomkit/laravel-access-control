@@ -6,18 +6,25 @@ use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Scout\Searchable;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Lomkit\Access\Attributes\ControlledBy;
 use Lomkit\Access\Controls\HasControl;
+use Lomkit\Access\Search\ControlledSearchable;
+use Lomkit\Access\Tests\Fixtures\Blog\Project;
+use Lomkit\Access\Tests\Fixtures\Blog\User;
 
+/** @property int $id */
 #[Unguarded]
 #[UseFactory(ArticleFactory::class)]
 #[ControlledBy(ArticleControl::class)]
 class Article extends Model
 {
+    use ControlledSearchable;
     use HasControl;
+
+    /** @use HasFactory<ArticleFactory> */
     use HasFactory;
-    use Searchable;
 
     #[\Override]
     protected function casts(): array
@@ -25,14 +32,32 @@ class Article extends Model
         return ['featured' => 'boolean'];
     }
 
-    /** @return array{id: int, author_id: ?int, title: string, featured: bool} */
+    /** @return BelongsTo<Project, $this> */
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function author(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsToMany<User, $this> */
+    public function sharedWith(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'article_shares');
+    }
+
+    /** @return array{id: string, author_id: mixed, title: mixed, featured: mixed} */
     public function toSearchableArray(): array
     {
         return [
-            'id' => $this->getKey(),
-            'author_id' => $this->author_id,
-            'title' => $this->title,
-            'featured' => $this->featured,
+            'id' => (string) $this->id,
+            'author_id' => $this->getAttribute('author_id'),
+            'title' => $this->getAttribute('title'),
+            'featured' => $this->getAttribute('featured'),
         ];
     }
 }

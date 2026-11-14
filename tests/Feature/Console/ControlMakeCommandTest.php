@@ -110,8 +110,7 @@ class ControlMakeCommandTest extends PackageTestCase
         $this->assertStringContainsString("use Lomkit\\Access\\Ability;\n", $source);
         $this->assertStringContainsString("return [\n            \\App\\Access\\Perimeters\\AuditPerimeter::new()\n                ->allowed(function (Model \$user, Ability \$ability): bool {\n", $source);
         $this->assertStringContainsString("->should(function (Model \$user, Model \$model): bool {\n                    return false;\n                })", $source);
-        $this->assertStringContainsString("->query(function (Builder \$query, Model \$user): void {\n                    \$query->whereRaw('0=1');\n                })", $source);
-        $this->assertStringContainsString("->scoutQuery(function (\\Laravel\\Scout\\Builder \$query, Model \$user): void {\n                    \$query->where('__NOT_A_VALID_FIELD__', 0);\n                }),\n        ];", $source);
+        $this->assertStringContainsString("->query(function (Builder \$query, Model \$user): void {\n                    \$query->whereRaw('0=1');\n                }),\n        ];", $source);
         $this->assertStringNotContainsString('string $method', $source);
         $this->assertStringNotContainsString('return $query', $source);
         $this->assertValidPhp(app_path('Access/Controls/ReviewControl.php'));
@@ -203,7 +202,7 @@ class ControlMakeCommandTest extends PackageTestCase
         $source = File::get(app_path('Access/Controls/MemoControl.php'));
 
         $this->assertStringContainsString("return [\n            \\App\\Access\\Perimeters\\MemoPerimeter::new(),\n        ];", $source);
-        $this->assertStringNotContainsString('->scoutQuery(', $source);
+        $this->assertStringNotContainsString('scout', strtolower($source));
         $this->assertStringNotContainsString('->allowed(', $source);
         $this->assertStringNotContainsString('->should(', $source);
         $this->assertStringNotContainsString('->query(', $source);

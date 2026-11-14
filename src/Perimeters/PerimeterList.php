@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Perimeters;
 
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Search\SearchKeys;
 
 final readonly class PerimeterList
 {
@@ -43,6 +44,24 @@ final readonly class PerimeterList
             $this->entries,
             fn (Perimeter|Levels $entry): bool => $entry instanceof Levels,
         ));
+    }
+
+    /** @return list<SearchKeys> */
+    public function searchKeys(): array
+    {
+        $keys = [];
+
+        foreach ($this->entries as $entry) {
+            foreach ($entry instanceof Levels ? $entry->all() : [$entry] as $perimeter) {
+                $declared = $perimeter->declaredSearchKeys();
+
+                if ($declared !== null) {
+                    $keys[] = $declared;
+                }
+            }
+        }
+
+        return $keys;
     }
 
     public function matches(self $other): bool

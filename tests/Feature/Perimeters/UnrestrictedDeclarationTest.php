@@ -18,7 +18,6 @@ class UnrestrictedDeclarationTest extends PackageTestCase
         return [
             'query' => ['query', fn (Perimeter $perimeter): Perimeter => $perimeter->query(fn () => null)],
             'should' => ['should', fn (Perimeter $perimeter): Perimeter => $perimeter->should(fn (): bool => true)],
-            'scoutQuery' => ['scoutQuery', fn (Perimeter $perimeter): Perimeter => $perimeter->scoutQuery(fn () => null)],
         ];
     }
 

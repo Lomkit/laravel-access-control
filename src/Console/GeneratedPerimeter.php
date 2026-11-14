@@ -45,11 +45,6 @@ final readonly class GeneratedPerimeter
                                     $query->whereRaw('0=1');
                                 })
                 CALLBACK,
-            PerimeterHook::ScoutScope => <<<'CALLBACK'
-                ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user): void {
-                                    $query->where('__NOT_A_VALID_FIELD__', 0);
-                                })
-                CALLBACK,
         };
     }
 }

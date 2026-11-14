@@ -60,7 +60,7 @@ class ImmutablePerimeterTest extends PackageTestCase
             'allowed' => [fn (Perimeter $perimeter): Perimeter => $perimeter->allowed(fn (): bool => true)],
             'should' => [fn (Perimeter $perimeter): Perimeter => $perimeter->should(fn (): bool => true)],
             'query' => [fn (Perimeter $perimeter): Perimeter => $perimeter->query(fn () => null)],
-            'scoutQuery' => [fn (Perimeter $perimeter): Perimeter => $perimeter->scoutQuery(fn () => null)],
+            'searchKeys' => [fn (Perimeter $perimeter): Perimeter => $perimeter->searchKeys('own', fn (): int => 1, fn (): int => 1)],
             'unrestricted' => [fn (Perimeter $perimeter): Perimeter => $perimeter->unrestricted()],
         ];
     }
@@ -142,14 +142,14 @@ class ImmutablePerimeterTest extends PackageTestCase
     #[Test]
     public function it_makes_the_plumbing_final_and_the_hooks_protected(): void
     {
-        foreach (['admits', 'applyAllowedCallback', 'applyShouldCallback', 'applyQueryCallback', 'applyScoutQueryCallback', 'isUnrestricted'] as $method) {
+        foreach (['admits', 'applyAllowedCallback', 'applyShouldCallback', 'applyQueryCallback', 'declaredSearchKeys', 'isUnrestricted'] as $method) {
             $reflection = new ReflectionMethod(Perimeter::class, $method);
 
             $this->assertTrue($reflection->isFinal(), "{$method}() is not final.");
             $this->assertTrue($reflection->isPublic(), "{$method}() is not public.");
         }
 
-        foreach (['allows', 'includes', 'scope', 'scoutScope'] as $hook) {
+        foreach (['allows', 'includes', 'scope'] as $hook) {
             $reflection = new ReflectionMethod(Perimeter::class, $hook);
 
             $this->assertTrue($reflection->isProtected(), "{$hook}() is not protected.");

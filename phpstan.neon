@@ -10,6 +10,8 @@ parameters:
         - tests/Fixtures/Discovery/Models/Note.php
         # Analyses the InteractsWithAccess trait through a test case that uses it
         - tests/Fixtures/Testing/AccessTestCase.php
+        # Analyses the ControlledSearchable trait through a model that uses it
+        - tests/Fixtures/Search/Article.php
     level: 10
     phpVersion: 80300
     checkMissingOverrideMethodAttribute: true

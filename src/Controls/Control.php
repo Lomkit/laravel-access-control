@@ -7,17 +7,19 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Exceptions\DuplicateSearchKeyNameException;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Registry\ControlRegistry;
+use Lomkit\Access\Search\SearchRules;
 
 class Control
 {
     use ControlsQueries;
-    use ControlsScoutQueries;
+    use ControlsSearches;
     use DecidesRows;
 
     /** @var class-string<Model> */
@@ -88,9 +90,13 @@ class Control
         return $this->declaration ??= $this->declare();
     }
 
+    /** @throws DuplicateSearchKeyNameException When two perimeters declare search keys with the same name. */
     private function declare(): ControlDeclaration
     {
-        return new ControlDeclaration(new PerimeterList($this->perimeters()), $this->boundary());
+        $perimeters = new PerimeterList($this->perimeters());
+        $boundary = $this->boundary();
+
+        return new ControlDeclaration($perimeters, $boundary, SearchRules::of(static::class, $perimeters, $boundary));
     }
 
     public static function new(): static

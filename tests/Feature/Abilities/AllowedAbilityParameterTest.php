@@ -125,7 +125,6 @@ class AllowedAbilityParameterTest extends PackageTestCase
             'variadic allowed' => ['allowed', fn (Perimeter $perimeter): Perimeter => $perimeter->allowed(fn (User $user, ...$arguments): bool => true)],
             'untyped should' => ['should', fn (Perimeter $perimeter): Perimeter => $perimeter->should(fn (User $user, Post $post, $method): bool => $method === 'view')],
             'string query' => ['query', fn (Perimeter $perimeter): Perimeter => $perimeter->query(fn (Builder $query, User $user, string $method) => $query->whereRaw('1=1'))],
-            'untyped scoutQuery' => ['scoutQuery', fn (Perimeter $perimeter): Perimeter => $perimeter->scoutQuery(fn ($query, User $user, $method) => null)],
         ];
     }
 
