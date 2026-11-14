@@ -11,10 +11,6 @@ use Lomkit\Access\Perimeters\ReachedPerimeters;
 
 final class SearchRules
 {
-    private const string FORMAT = 'access-keys-1';
-
-    private ?string $version = null;
-
     /** @param  array<string, SearchKeys>  $keys */
     private function __construct(
         private readonly array $keys,
@@ -53,11 +49,6 @@ final class SearchRules
         return $this->boundary->boundary();
     }
 
-    public function version(): string
-    {
-        return $this->version ??= 'v'.substr(hash('sha256', $this->fingerprint()), 0, 12);
-    }
-
     /** @return list<string> */
     public function load(): array
     {
@@ -70,7 +61,7 @@ final class SearchRules
         return array_values(array_unique($load));
     }
 
-    /** @return array<string, list<string>|string> */
+    /** @return array<string, list<string>> */
     public function documentFor(Model $row): array
     {
         $access = [];
@@ -82,7 +73,6 @@ final class SearchRules
         return [
             SearchField::Access->value => array_values(array_unique($access)),
             SearchField::Boundary->value => $this->boundary->rowKeys($row),
-            SearchField::Version->value => $this->version(),
         ];
     }
 
@@ -91,7 +81,7 @@ final class SearchRules
         $boundary = $this->boundary->readerKeys($context);
 
         if ($perimeters->reachesEveryRow()) {
-            return SearchFilter::of($this->version(), $boundary, null);
+            return SearchFilter::of($boundary, null);
         }
 
         $access = [];
@@ -100,17 +90,6 @@ final class SearchRules
             array_push($access, ...($perimeter->declaredSearchKeys()?->readerKeys($context) ?? []));
         }
 
-        return SearchFilter::of($this->version(), $boundary, array_values(array_unique($access)));
-    }
-
-    private function fingerprint(): string
-    {
-        $parts = [self::FORMAT, $this->boundary->fingerprint()];
-
-        foreach ($this->keys as $keys) {
-            $parts[] = $keys->fingerprint();
-        }
-
-        return implode("\0", $parts);
+        return SearchFilter::of($boundary, array_values(array_unique($access)));
     }
 }

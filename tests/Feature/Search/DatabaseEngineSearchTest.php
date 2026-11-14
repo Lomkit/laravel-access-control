@@ -145,7 +145,7 @@ class DatabaseEngineSearchTest extends SearchTestCase
 
         $search = Article::search('Scout')->controlled();
 
-        $this->assertSame(['_access_version', '_access'], array_keys($search->whereIns));
+        $this->assertSame(['_access'], array_keys($search->whereIns));
     }
 
     #[Test]

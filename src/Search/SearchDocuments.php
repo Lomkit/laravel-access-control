@@ -12,7 +12,7 @@ final readonly class SearchDocuments
 
     /**
      * @param  list<Model>  $rows
-     * @return list<array<string, list<string>|string>>
+     * @return list<array<string, list<string>>>
      */
     public function metadataFor(array $rows): array
     {

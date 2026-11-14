@@ -2,7 +2,6 @@
 
 namespace Lomkit\Access\Tests\Feature\Search;
 
-use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\InvalidSearchKeyValueException;
 use Lomkit\Access\Perimeters\Levels;
@@ -11,7 +10,6 @@ use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
-use Lomkit\Access\Tests\Fixtures\Search\ArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\ClientPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\GlobalPerimeter;
@@ -39,7 +37,6 @@ class AccessMetadataTest extends SearchTestCase
             ...$article->toSearchableArray(),
             '_access' => ["author.{$ada->getKey()}", 'featured.yes'],
             '_boundary' => [],
-            '_access_version' => Access::control(ArticleControl::class)->searchRules()->version(),
         ], $this->document($article));
     }
 

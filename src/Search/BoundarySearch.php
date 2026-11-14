@@ -51,9 +51,4 @@ final readonly class BoundarySearch
 
         return $this->keys?->readerKeys($context) ?? [];
     }
-
-    public function fingerprint(): string
-    {
-        return $this->boundary."\n".($this->keys?->fingerprint() ?? 'unsearchable');
-    }
 }

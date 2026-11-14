@@ -14,7 +14,6 @@ use Lomkit\Access\Tests\Fixtures\Search\ArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\ClientPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\FeaturedPerimeter;
-use Lomkit\Access\Tests\Fixtures\Search\GlobalPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
 use Lomkit\Access\Tests\Fixtures\Search\SharedPerimeter;
 use PHPUnit\Framework\Attributes\Group;
@@ -49,11 +48,6 @@ class ControlledSearchTest extends SearchTestCase
         return $search->whereIns;
     }
 
-    protected function version(): string
-    {
-        return Access::control(ArticleControl::class)->searchRules()->version();
-    }
-
     #[Test]
     public function it_searches_the_rows_whose_keys_meet_the_keys_of_the_reader(): void
     {
@@ -61,7 +55,6 @@ class ControlledSearchTest extends SearchTestCase
 
         $this->assertSame(['Scout primer', 'Scout recipes'], $this->searchedTitles());
         $this->assertSame([
-            '_access_version' => [$this->version()],
             '_access' => ["author.{$this->ada->getKey()}", 'featured.yes'],
         ], $this->filterOf());
     }
@@ -123,7 +116,7 @@ class ControlledSearchTest extends SearchTestCase
         $this->allow(['view global articles', 'view featured articles']);
 
         $this->assertSame(['Scout internals', 'Scout primer', 'Scout recipes'], $this->searchedTitles());
-        $this->assertSame(['_access_version' => [$this->version()]], $this->filterOf());
+        $this->assertSame([], $this->filterOf());
     }
 
     #[Test]
@@ -192,20 +185,6 @@ class ControlledSearchTest extends SearchTestCase
     }
 
     #[Test]
-    public function it_finds_no_document_indexed_with_another_version_of_the_key_rules(): void
-    {
-        $this->allow(['view global articles']);
-        $stale = Article::query()->where('title', 'Scout primer')->firstOrFail();
-        $this->engine->documents[$stale->searchableAs()][(string) $stale->getKey()]['_access_version'] = 'v000000000000';
-
-        $this->assertSame(['Scout internals', 'Scout recipes'], $this->searchedTitles());
-
-        $stale->searchable();
-
-        $this->assertSame(['Scout internals', 'Scout primer', 'Scout recipes'], $this->searchedTitles());
-    }
-
-    #[Test]
     public function it_keeps_the_filter_when_the_search_adds_its_own_constraints(): void
     {
         $this->allow(['view own articles']);
@@ -218,56 +197,5 @@ class ControlledSearchTest extends SearchTestCase
             ->all();
 
         $this->assertSame(['Scout primer'], $titles);
-    }
-
-    #[Test]
-    public function it_computes_the_same_version_for_the_same_key_rules_and_another_for_other_rules(): void
-    {
-        $version = $this->version();
-
-        $this->assertMatchesRegularExpression('/^v[0-9a-f]{12}$/', $version);
-        $this->assertSame($version, (new ArticleControl)->searchRules()->version());
-
-        $other = ConfiguredArticleControl::bind(
-            AuthorPerimeter::new()
-                ->allowed(fn (User $user): bool => true)
-                ->searchKeys('author', fn (Article $article): mixed => $article->author_id, fn (User $user): mixed => $user->getKey()),
-        );
-
-        $this->assertNotSame($version, $other->searchRules()->version());
-    }
-
-    #[Test]
-    public function it_ignores_the_reader_side_and_the_order_of_the_perimeters_in_the_version(): void
-    {
-        $author = fn (): AuthorPerimeter => AuthorPerimeter::new()->allowed(fn (User $user): bool => true);
-        $featured = fn (): FeaturedPerimeter => FeaturedPerimeter::new()->allowed(fn (User $user): bool => true);
-
-        $first = new ConfiguredArticleControl(
-            $author()->searchKeys(
-                name: 'author',
-                row: fn (Article $article): mixed => $article->author_id,
-                reader: fn (User $user): mixed => $user->getKey(),
-            ),
-            $featured()->searchKeys(
-                name: 'featured',
-                row: fn (Article $article): bool => $article->featured,
-                reader: fn (User $user): string => 'yes',
-            ),
-        );
-        $second = new ConfiguredArticleControl(
-            $featured()->searchKeys(
-                name: 'featured',
-                row: fn (Article $article): bool => $article->featured,
-                reader: fn (User $user): string => 'no',
-            ),
-            $author()->searchKeys(
-                name: 'author',
-                row: fn (Article $article): mixed => $article->author_id,
-                reader: fn (User $user): int => 0,
-            ),
-        );
-        $this->assertNotSame($first->searchRules()->version(), (new ConfiguredArticleControl(GlobalPerimeter::new()))->searchRules()->version());
-        $this->assertSame($first->searchRules()->version(), $second->searchRules()->version());
     }
 }

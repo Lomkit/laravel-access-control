@@ -42,7 +42,7 @@ class UnrestrictedSearchTest extends SearchTestCase
 
         $search = Article::search('Scout')->controlled();
 
-        $this->assertSame(['_access_version'], array_keys($search->whereIns));
+        $this->assertSame([], $search->whereIns);
         $this->assertNull($search->callback);
         $this->assertSame(['Scout internals', 'Scout primer', 'Scout recipes'], $this->searchedTitles());
     }

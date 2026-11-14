@@ -45,7 +45,6 @@ class TypesenseEngineTest extends EngineTestCase
                         ['name' => 'featured', 'type' => 'bool'],
                         ['name' => '_access', 'type' => 'string[]'],
                         ['name' => '_boundary', 'type' => 'string[]'],
-                        ['name' => '_access_version', 'type' => 'string'],
                     ],
                 ],
                 'search-parameters' => ['query_by' => 'title'],

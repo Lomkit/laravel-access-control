@@ -291,11 +291,10 @@ class Post extends Model
 }
 ```
 
-Each document then carries three more attributes:
+Each document then carries two more attributes:
 
 - `_access`: the keys of every perimeter that declares search keys, such as `["client.7", "author.42"]`;
-- `_boundary`: the keys of the boundary, such as `["workspace_id.3"]`;
-- `_access_version`: a fingerprint of the key rules.
+- `_boundary`: the keys of the boundary, such as `["workspace_id.3"]`.
 
 Remove from `toSearchableArray()` the attributes you added only for the `scoutQuery` callbacks. A model that overrides `makeSearchableUsing()` must return `$this->withAccessKeys($models)`, or its documents carry no keys and no controlled search finds them:
 
@@ -383,7 +382,7 @@ Without a signed-in user, with `controlledFor(null)`, or for a reader that no pe
 
 #### Engines
 
-Declare the three attributes as filterable in the settings of each searchable model. `Access::searchFilterables()` returns `['_access', '_boundary', '_access_version']`:
+Declare the two attributes as filterable in the settings of each searchable model. `Access::searchFilterables()` returns `['_access', '_boundary']`:
 
 ```php
 // config/scout.php, Meilisearch
@@ -396,10 +395,9 @@ Declare the three attributes as filterable in the settings of each searchable mo
 // Typesense: in the collection schema
 ['name' => '_access', 'type' => 'string[]'],
 ['name' => '_boundary', 'type' => 'string[]'],
-['name' => '_access_version', 'type' => 'string'],
 
 // Algolia: in attributesForFaceting
-'attributesForFaceting' => ['filterOnly(_access)', 'filterOnly(_boundary)', 'filterOnly(_access_version)'],
+'attributesForFaceting' => ['filterOnly(_access)', 'filterOnly(_boundary)'],
 ```
 
 - Algolia, Meilisearch and Typesense filter the documents with `whereIn`. Scout's `null` engine is accepted too, since it finds nothing.
@@ -413,7 +411,7 @@ Access::trustSearchEngine(ElasticsearchEngine::class);
 - The `collection` engine paginates before it filters: a controlled search throws `UnsupportedSearchEngineException`. Use the `database` engine, in tests too.
 - The Turbopuffer engine is refused the same way for now: Scout cannot express the `ContainsAny` filter it needs on an array attribute.
 
-The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. `_access_version` makes sure that a change of key rules narrows the results, never widens them: documents indexed with the former rules no longer match. The fingerprint reads the code of the row closures and the boundary, without whitespace or comments: reformatting the code keeps it, changing what a closure does or captures changes it. The reader closures are not part of it, since the documents store only the row side.
+The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. The same holds when a key rule changes: documents keep the keys of the former rule until they are indexed again.
 
 #### Reindex
 
@@ -424,7 +422,7 @@ php artisan scout:sync-index-settings
 php artisan scout:import "App\Models\Post"
 ```
 
-With Typesense, delete the collection first (`php artisan scout:delete-index posts`), so that it is created again with the new fields. Reindex the same way each time a search key rule or the boundary changes. Until then, the documents indexed with the former rules are left out of the controlled searches.
+With Typesense, delete the collection first (`php artisan scout:delete-index posts`), so that it is created again with the new fields. Reindex the same way each time the `row` side of a search key rule or the boundary changes, as you would after changing `toSearchableArray()`: `scout:import` updates the documents in place, and until it has run they keep the keys of the former rule. When you narrow a rule to close an access, run it right away; to close it at once, run `scout:flush` before `scout:import`. A change of the `reader` side needs no reindex: the reader keys are computed at each search.
 
 #### Testing the search
 

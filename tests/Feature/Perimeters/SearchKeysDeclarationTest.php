@@ -148,6 +148,6 @@ class SearchKeysDeclarationTest extends PackageTestCase
     #[Test]
     public function it_lists_the_attributes_the_search_engine_filters_on(): void
     {
-        $this->assertSame(['_access', '_boundary', '_access_version'], Access::searchFilterables());
+        $this->assertSame(['_access', '_boundary'], Access::searchFilterables());
     }
 }

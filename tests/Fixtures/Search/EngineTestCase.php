@@ -131,7 +131,7 @@ abstract class EngineTestCase extends PackageTestCase
     }
 
     #[Test]
-    public function it_filters_on_the_version_only_for_an_unrestricted_reader(): void
+    public function it_applies_no_filter_for_an_unrestricted_reader(): void
     {
         $this->allow(['view global articles']);
 
@@ -147,20 +147,6 @@ abstract class EngineTestCase extends PackageTestCase
         $this->assertCount(0, $search->keys());
         $this->assertSame(0, $search->paginate(10)->total());
         $this->assertFalse($search->simplePaginate(10)->hasMorePages());
-    }
-
-    #[Test]
-    public function it_leaves_out_a_document_indexed_with_another_version_of_the_key_rules(): void
-    {
-        $stale = Article::withoutSyncingToSearch(fn (): Article => Article::factory()->createOne(['author_id' => $this->ada->getKey(), 'title' => 'Scout drafts']));
-        $stale->withScoutMetadata('_access', ["author.{$this->ada->getKey()}"]);
-        $stale->withScoutMetadata('_boundary', []);
-        $stale->withScoutMetadata('_access_version', 'v000000000000');
-        $stale->searchableUsing()->update($stale->newCollection([$stale]));
-        $this->waitForDocuments(4);
-        $this->allow(['view own articles']);
-
-        $this->assertSame(['Scout primer'], $this->searchedTitles());
     }
 
     #[Test]

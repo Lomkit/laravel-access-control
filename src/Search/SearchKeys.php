@@ -137,12 +137,6 @@ final readonly class SearchKeys
     }
 
     /** @internal */
-    public function fingerprint(): string
-    {
-        return $this->name."\n".ClosureSource::of($this->row);
-    }
-
-    /** @internal */
     public function matches(self $other): bool
     {
         return $this->name === $other->name

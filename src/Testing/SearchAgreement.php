@@ -10,7 +10,7 @@ final class SearchAgreement
 {
     private const int REPORTED_ROWS = 10;
 
-    /** @var array<string, array<string, list<string>|string>> */
+    /** @var array<string, array<string, list<string>>> */
     private array $documents = [];
 
     public function __construct(private readonly Control $control)

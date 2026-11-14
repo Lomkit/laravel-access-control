@@ -2,7 +2,6 @@
 
 namespace Lomkit\Access\Tests\Feature\Search;
 
-use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Perimeters\Levels;
@@ -10,7 +9,6 @@ use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Blog\WorkspaceBoundary;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
-use Lomkit\Access\Tests\Fixtures\Search\ArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\GlobalPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
@@ -60,7 +58,6 @@ class SearchBoundaryTest extends SearchTestCase
 
         $this->assertSame(['Scout internals', 'Scout primer'], $this->searchedTitles());
         $this->assertSame([
-            '_access_version' => [Access::control(ArticleControl::class)->searchRules()->version()],
             '_boundary' => ['workspace_id.1'],
         ], Article::search('Scout')->controlled()->whereIns);
     }
