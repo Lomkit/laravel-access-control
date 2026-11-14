@@ -6,10 +6,12 @@ use Laravel\Scout\ScoutServiceProvider;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\Search;
 use Lomkit\Access\Tests\PackageTestCase;
+use Orchestra\Testbench\Attributes\WithConfig;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
 #[Group('scout')]
+#[WithConfig('scout.driver', 'database')]
 class SearchFixtureTest extends PackageTestCase
 {
     #[\Override]
@@ -33,6 +35,6 @@ class SearchFixtureTest extends PackageTestCase
         Article::factory()->createOne(['title' => 'Scout primer']);
         Article::factory()->createOne(['title' => 'Policy guide']);
 
-        $this->assertSame(['Scout primer'], Article::search('Scout')->get()->pluck('title')->all());
+        $this->assertSame(['Scout primer'], Article::search('Scout')->uncontrolled()->get()->pluck('title')->all());
     }
 }

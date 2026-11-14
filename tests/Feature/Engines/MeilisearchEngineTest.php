@@ -2,34 +2,40 @@
 
 namespace Lomkit\Access\Tests\Feature\Engines;
 
+use Lomkit\Access\Access;
+use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
 use Meilisearch\Client;
 use PHPUnit\Framework\Attributes\Group;
 
 #[Group('scout')]
 #[Group('meilisearch')]
-class MeilisearchEngineTest extends ScoutEngineTestCase
+class MeilisearchEngineTest extends EngineTestCase
 {
+    #[\Override]
     protected function driver(): string
     {
         return 'meilisearch';
     }
 
+    #[\Override]
     protected function hostVariable(): string
     {
         return 'MEILISEARCH_HOST';
     }
 
+    #[\Override]
     protected function configureDriver($app): void
     {
         $app['config']->set('scout.meilisearch.host', getenv('MEILISEARCH_HOST'));
         $app['config']->set('scout.meilisearch.key', getenv('MEILISEARCH_KEY') ?: null);
     }
 
+    #[\Override]
     protected function prepareIndex(string $index): void
     {
-        $client = app(Client::class);
+        $client = $this->app->make(Client::class);
 
-        $task = $client->index($index)->updateFilterableAttributes(['client_id']);
+        $task = $client->index($index)->updateFilterableAttributes(Access::searchFilterables());
 
         $client->waitForTask($task['taskUid']);
     }

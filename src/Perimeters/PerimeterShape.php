@@ -2,6 +2,8 @@
 
 namespace Lomkit\Access\Perimeters;
 
+use Lomkit\Access\Search\SearchKeys;
+
 final readonly class PerimeterShape
 {
     /** @param  array<string, ClosureShape>  $callbacks */
@@ -9,6 +11,7 @@ final readonly class PerimeterShape
         private string $perimeter,
         private bool $unrestricted,
         private array $callbacks,
+        private ?SearchKeys $searchKeys,
     ) {}
 
     public function matches(self $other): bool
@@ -17,7 +20,7 @@ final readonly class PerimeterShape
             return false;
         }
 
-        if (array_keys($this->callbacks) !== array_keys($other->callbacks)) {
+        if (array_keys($this->callbacks) !== array_keys($other->callbacks) || ! $this->sameSearchKeys($other->searchKeys)) {
             return false;
         }
 
@@ -28,5 +31,14 @@ final readonly class PerimeterShape
         }
 
         return true;
+    }
+
+    private function sameSearchKeys(?SearchKeys $other): bool
+    {
+        if ($this->searchKeys === null || $other === null) {
+            return $this->searchKeys === $other;
+        }
+
+        return $this->searchKeys->matches($other);
     }
 }

@@ -5,7 +5,6 @@ namespace Lomkit\Access\Perimeters;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Scout\Builder as ScoutBuilder;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Exceptions\AbilityParameterTypeException;
 use Lomkit\Access\Exceptions\PerimeterCallbackResultException;
@@ -53,18 +52,16 @@ final readonly class PerimeterClosure
     }
 
     /**
-     * @param  Builder<covariant Model>|ScoutBuilder<covariant Model>  $query
+     * @param  Builder<covariant Model>  $query
      *
      * @throws QueryCallbackReturnedAnotherBuilderException If the closure returns another builder.
      */
-    public function constrain(Perimeter $perimeter, Ability $ability, Builder|ScoutBuilder $query, Model $reader): void
+    public function constrain(Perimeter $perimeter, Ability $ability, Builder $query, Model $reader): void
     {
         $returned = ($this->closure)($query, $reader, $ability);
 
         if ($returned !== null && $returned !== $query) {
-            $model = $query instanceof Builder ? $query->getModel() : $query->model;
-
-            throw QueryCallbackReturnedAnotherBuilderException::for($perimeter, $this->hook, $model);
+            throw QueryCallbackReturnedAnotherBuilderException::for($perimeter, $this->hook, $query->getModel());
         }
     }
 

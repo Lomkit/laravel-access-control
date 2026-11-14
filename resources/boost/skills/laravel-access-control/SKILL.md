@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext), Levels groups, boundaries, ControlledPolicy (Response codes, drafts, Access::registerPolicies(), business abilities through decide()), unrestricted perimeters, the assertLevelsNest() test assertion, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
+description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext), Levels groups, boundaries, ControlledPolicy (Response codes, drafts, Access::registerPolicies(), business abilities through decide()), unrestricted perimeters, the assertLevelsNest() test assertion, the controlled(), controlledFor() and uncontrolled() query scopes, and Laravel Scout searches through indexed access keys (ControlledSearchable, searchKeys(), assertSearchAgrees()).
 ---
 
 # Laravel Access Control
@@ -15,13 +15,13 @@ Use this skill when working with Lomkit Access Control in a Laravel project that
 - Mentions `#[ControlledBy]`, `Access::controlFor()`, `Access::hasControl()`, or `access:cache`.
 - Mentions `Ability`, `Ability::of()`, `abilityFor()`, or a business ability such as `approve` on a controlled model.
 - Mentions `Control`, `Perimeter`, `AccessContext`, `admits()`, `applicablePerimeters()`, `Levels::of()`, `Boundary`, `boundary()`, `unrestricted()`, `assertLevelsNest()`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
-- Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules.
+- Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules, or mentions `ControlledSearchable`, `searchKeys()`, `Access::searchFilterables()` or `assertSearchAgrees()`.
 
 Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that the package has no configuration file: a leftover `config/access-control.php` is ignored and can be deleted. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
 
 ## Features
 
-- Perimeter: fluent definition of `allowed`/`should`/`query`/`scoutQuery` for one access rule. How perimeters combine is declared in the control (see Levels below), never by the class or the order of a perimeter. A perimeter is immutable: each fluent method returns a new perimeter and leaves the one it is called on unchanged, so always chain the declarations or keep the returned value. `should`, `query` and `scoutQuery` receive the ability after their other arguments (`fn (User $user, Post $post, Ability $ability)`; optional, always `view` for the controlled queries). `allowed` and `should` must return a boolean, or `PerimeterCallbackResultException` is thrown. A perimeter whose callbacks type the reader (`fn (User $user, ...)`) applies only to readers of that type (class, nullable, interface, union or intersection): another reader type skips the perimeter instead of a TypeError; untyped, `Model`, `object` or `mixed` accept every reader. The `query` and `scoutQuery` callbacks constrain the builder they receive and return nothing (returning that same builder is accepted, e.g. from an arrow function); their return value is never used. Example usage:
+- Perimeter: fluent definition of `allowed`/`should`/`query`/`searchKeys` for one access rule. How perimeters combine is declared in the control (see Levels below), never by the class or the order of a perimeter. A perimeter is immutable: each fluent method returns a new perimeter and leaves the one it is called on unchanged, so always chain the declarations or keep the returned value. `should` and `query` receive the ability after their other arguments (`fn (User $user, Post $post, Ability $ability)`; optional, always `view` for the controlled queries). `allowed` and `should` must return a boolean, or `PerimeterCallbackResultException` is thrown. A perimeter whose callbacks type the reader (`fn (User $user, ...)`) applies only to readers of that type (class, nullable, interface, union or intersection): another reader type skips the perimeter instead of a TypeError; untyped, `Model`, `object` or `mixed` accept every reader. The `query` callback constrains the builder it receives and returns nothing (returning that same builder is accepted, e.g. from an arrow function); its return value is never used. `searchKeys(name:, row:, reader:, load:)` declares how the perimeter is searched (see Laravel Scout search below). Example usage:
 
 ```php
 use Lomkit\Access\Ability;
@@ -35,12 +35,14 @@ Perimeter::new()
     ->query(function (Builder $query, Model $user): void {
         $query->where('client_id', $user->client_id);
     })
-    ->scoutQuery(function (\Laravel\Scout\Builder $query, Model $user): void {
-        $query->where('client_id', $user->client_id);
-    });
+    ->searchKeys(
+        name: 'client',
+        row: fn (Model $model) => $model->client_id,
+        reader: fn (Model $user) => $user->client_id,
+    );
 ```
 
-- Perimeter class: a class-based perimeter overrides protected hooks, each receiving a final `Lomkit\Access\AccessContext` (`reader(): Model`, `ability(): Ability`), built by the package: `allows(AccessContext $context): bool` (the permission), `includes(Model $row, AccessContext $context): bool` (this row), `scope(Builder $query, AccessContext $context): void` (the rows in SQL), `scoutScope(ScoutBuilder $query, AccessContext $context): void`. The default hooks run the declared callbacks. A rule is written once: declaring the `allowed`, `should`, `query` or `scoutQuery` callback of a hook the class overrides throws `OverriddenPerimeterHookException`, and `unrestricted()` on a class that overrides `includes`, `scope` or `scoutScope` throws `UnrestrictedPerimeterCallbackException`. The `apply*Callback()` plumbing is final and internal: never override or call it. The reader is typed `Model` in the hooks (Liskov), so narrow it with `instanceof`. `make:perimeter --hooks` generates the four hooks denying everything; `make:perimeter` alone generates an empty class for callbacks declared in the control. Example usage:
+- Perimeter class: a class-based perimeter overrides protected hooks, each receiving a final `Lomkit\Access\AccessContext` (`reader(): Model`, `ability(): Ability`), built by the package: `allows(AccessContext $context): bool` (the permission), `includes(Model $row, AccessContext $context): bool` (this row), `scope(Builder $query, AccessContext $context): void` (the rows in SQL). Search keys have no hook: declare them with `searchKeys()`. The default hooks run the declared callbacks. A rule is written once: declaring the `allowed`, `should` or `query` callback of a hook the class overrides throws `OverriddenPerimeterHookException`, and `unrestricted()` on a class that overrides `includes` or `scope` throws `UnrestrictedPerimeterCallbackException`. The `apply*Callback()` plumbing is final and internal: never override or call it. The reader is typed `Model` in the hooks (Liskov), so narrow it with `instanceof`. `make:perimeter --hooks` generates the three hooks denying everything; `make:perimeter` alone generates an empty class for callbacks declared in the control. Example usage:
 
 ```php
 use Lomkit\Access\AccessContext;
@@ -87,7 +89,7 @@ foreach ($this->applicablePerimeters($reader, Ability::update()) as $perimeter) 
 }
 ```
 
-- Unrestricted perimeter: `unrestricted()` marks a perimeter that reaches every row, such as an administrator's. It takes only `allowed`; declaring `query`, `should` or `scoutQuery` with it throws `UnrestrictedPerimeterCallbackException`. When it applies to the reader, the controlled query and the controlled search get no perimeter constraint, the policy grants the row without calling `should`, and the perimeters after it are not evaluated, so no other perimeter narrows it. The control boundary still applies to it. Never write a global perimeter as `query(fn ($query) => $query)`: a `query` callback that adds no constraint throws `EmptyQueryCallbackException`. Example usage:
+- Unrestricted perimeter: `unrestricted()` marks a perimeter that reaches every row, such as an administrator's. It takes only `allowed`; declaring `query`, `should` or `searchKeys` with it throws `UnrestrictedPerimeterCallbackException`. In a search it gives no key filter: only the boundary and the version filter remain. When it applies to the reader, the controlled query and the controlled search get no perimeter constraint, the policy grants the row without calling `should`, and the perimeters after it are not evaluated, so no other perimeter narrows it. The control boundary still applies to it. Never write a global perimeter as `query(fn ($query) => $query)`: a `query` callback that adds no constraint throws `EmptyQueryCallbackException`. Example usage:
 
 ```php
 GlobalPerimeter::new()
@@ -157,7 +159,7 @@ class PostControl extends Control
         return [
             Levels::of(
                 GlobalPerimeter::new()->allowed(...)->unrestricted(),
-                ClientPerimeter::new()->allowed(...)->should(...)->query(...)->scoutQuery(...),
+                ClientPerimeter::new()->allowed(...)->should(...)->query(...)->searchKeys(...),
             ),
         ];
     }
@@ -187,7 +189,7 @@ if (Access::hasControl($model)) {
 }
 ```
 
-- HasControl trait: adds three local scopes, declared with Laravel's `#[Scope]` attribute, and exposes the model's Control via `newControl()`. A query is never controlled unless it says so: `controlled()` applies the control for `Auth::user()`, read when the query is built; `controlledFor($reader)` applies it for a reader you name, for jobs, listeners and commands, which have no signed-in user; `uncontrolled()` states that the query reads every row on purpose. Without a signed-in user, `controlled()` reads nothing, and so does `controlledFor(null)`. The perimeters are grouped in one nested `where`, so the caller's own constraints are never widened. The trait also registers `HasControlScope` as a global scope that filters nothing; the three scopes remove it, and `withoutGlobalScope(HasControlScope::class)` still works. Each scope works on relations and subqueries too. The Scout `controlled()` macro is registered independently by `AccessServiceProvider` whenever Laravel Scout is installed (see Laravel Scout integration below); `controlledFor()` and `uncontrolled()` are Eloquent-only. Example usage:
+- HasControl trait: adds three local scopes, declared with Laravel's `#[Scope]` attribute, and exposes the model's Control via `newControl()`. A query is never controlled unless it says so: `controlled()` applies the control for `Auth::user()`, read when the query is built; `controlledFor($reader)` applies it for a reader you name, for jobs, listeners and commands, which have no signed-in user; `uncontrolled()` states that the query reads every row on purpose. Without a signed-in user, `controlled()` reads nothing, and so does `controlledFor(null)`. The perimeters are grouped in one nested `where`, so the caller's own constraints are never widened. The trait also registers `HasControlScope` as a global scope that filters nothing; the three scopes remove it, and `withoutGlobalScope(HasControlScope::class)` still works. Each scope works on relations and subqueries too. A Scout search has its own `controlled()` and `uncontrolled()` (see Laravel Scout search below). Example usage:
 
 ```php
 use Lomkit\Access\Controls\HasControl;
@@ -202,7 +204,7 @@ Post::uncontrolled()->count();                  // every row, stated on purpose 
 Post::query()->get();                           // every row: a plain query is not controlled
 ```
 
-- Ability: `Lomkit\Access\Ability` is the immutable value object that every perimeter callback and hook receives (the second parameter of `allowed`, the third of `should`, `query` and `scoutQuery`, `$context->ability()` in a hook). `Ability::view()`, `create()`, `update()`, `delete()`, `restore()` and `forceDelete()` name the standard abilities; `Ability::of('approve')` names any business ability and throws `InvalidAbilityException` for an empty name or one with whitespace. Compare with `$ability->is('view')` or `$ability->is(Ability::view())`, never with `===`; it converts to its name in a string (`"{$ability} posts"`), and `name()` returns it. It is not laravel-rest-api's closed `Lomkit\Rest\Authorization\Ability` enum. `Control::abilityFor(string $policyMethod)` maps a policy method to its ability: `viewAny` and `view` → `view`, the other standard methods → themselves, any other method → `Ability::of($method)`; override it on a control to change the mapping. Example usage:
+- Ability: `Lomkit\Access\Ability` is the immutable value object that every perimeter callback and hook receives (the second parameter of `allowed`, the third of `should` and `query`, `$context->ability()` in a hook). `Ability::view()`, `create()`, `update()`, `delete()`, `restore()` and `forceDelete()` name the standard abilities; `Ability::of('approve')` names any business ability and throws `InvalidAbilityException` for an empty name or one with whitespace. Compare with `$ability->is('view')` or `$ability->is(Ability::view())`, never with `===`; it converts to its name in a string (`"{$ability} posts"`), and `name()` returns it. It is not laravel-rest-api's closed `Lomkit\Rest\Authorization\Ability` enum. `Control::abilityFor(string $policyMethod)` maps a policy method to its ability: `viewAny` and `view` → `view`, the other standard methods → themselves, any other method → `Ability::of($method)`; override it on a control to change the mapping. Example usage:
 
 ```php
 use Lomkit\Access\Ability;
@@ -257,16 +259,30 @@ Gate::inspect('update', $post)->code();             // null, or 'no_perimeter', 
 
 ```bash
 php artisan make:perimeter GlobalPerimeter
-php artisan make:perimeter OwnPerimeter --hooks   # the rules in the class: allows(), includes(), scope(), scoutScope()
+php artisan make:perimeter OwnPerimeter --hooks   # the rules in the class: allows(), includes(), scope()
 php artisan make:control PostControl --model=Post --perimeters=GlobalPerimeter --perimeters=ClientPerimeter
 php artisan make:control PostControl   # the model is named after the control: App\Models\Post, which must exist
 ```
 
-- Laravel Scout integration: registers a `controlled()` macro on `Laravel\Scout\Builder` that uses each perimeter's `scoutQuery` closure; an unrestricted perimeter adds no constraint. Scout only supports equality-style filters, so any field used in `scoutQuery` must be exposed via `toSearchableArray()`. If no perimeter matches, or no user is signed in, the search returns an empty page without querying the engine. Example usage:
+- Laravel Scout search: replace Scout's `Searchable` with `Lomkit\Access\Search\ControlledSearchable` (it includes it). `toSearchableArray()` is untouched: the trait adds Scout metadata to each document, `_access` (the row keys of every perimeter with `searchKeys`) and `_boundary` (the boundary keys). Each perimeter declares `searchKeys(name: 'client', row: fn (Post $post) => ..., reader: fn (User $user) => ..., load: ['project:id,client_id'])`: the name is required, `[a-z0-9_]`, unique in the control, and prefixes each key (`client.7`); each side returns a value, a list (`[3, 7]`) or tuples (`[['fr', 7]]` → `client.fr.7`, for a context such as a brand); `null` gives no key. Row keys are computed on a copy of the rows with lazy loading disabled: a relation read must be in `load:` (loaded once per batch), or `UndeclaredSearchKeyRelationException`. A search must say `controlled()` (the signed-in user), `controlledFor($reader)` (a named reader, in jobs and commands; `null` finds nothing) or `uncontrolled()` (every row, on purpose), or it throws `UndeclaredSearchScopeException`. The filter is one engine query: `_boundary IN reader keys AND _access IN reader keys` (levels: only the reached level's keys; unrestricted: no `_access` filter). No reader, no allowed perimeter, no reader key or a null boundary value → an empty page, without calling the engine. `Boundary::where()` gives its keys; a boundary class overrides `protected function searchKeys(): ?SearchKeys` returning `SearchKeys::of(name:, row:, reader:)`, else a controlled search on an index engine throws `UnsearchableBoundaryException`. Engines: Algolia, Meilisearch, Typesense filter with `whereIn` (declare `Access::searchFilterables()` as filterable: Meilisearch `filterableAttributes`, Typesense `string[]` schema fields, Algolia `attributesForFaceting`); `database` applies the control's SQL inside the search (no keys computed); `collection` and Turbopuffer throw `UnsupportedSearchEngineException`, and so does any other engine until the app calls `Access::trustSearchEngine(MyEngine::class)` (only for an engine that renders `whereIn` on an array attribute as "at least one element in common"; Scout's `null` engine is accepted). A model that overrides `makeSearchableUsing()` returns `$this->withAccessKeys($models)`. Reindex (`scout:import`) after changing the `row` side of a key rule or the boundary, as after changing `toSearchableArray()`: until then the documents keep their former keys (`scout:flush` first to close an access at once). The `reader` side needs no reindex. `assertSearchAgrees(PostControl::class, readers: [...])` (trait `InteractsWithAccess`) compares the rows the keys find, computed in PHP, with the controlled query. Example usage:
 
 ```php
-Post::search('hello')->controlled()->get();
-Post::search('hello')->controlled()->paginate(15);
+use Lomkit\Access\Search\ControlledSearchable;
+
+#[ControlledBy(PostControl::class)]
+class Post extends Model
+{
+    use HasControl, ControlledSearchable;
+}
+
+OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} own posts"))
+    ->query(fn (Builder $query, User $user) => $query->where('author_id', $user->id))
+    ->searchKeys(name: 'author', row: fn (Post $post) => $post->author_id, reader: fn (User $user) => $user->id);
+
+Post::search('budget')->controlled()->paginate(25);
+Post::search('budget')->controlledFor($user)->get(); // jobs, listeners, commands
+Post::search('budget')->uncontrolled()->get(); // back office, exports
 ```
 
 ## Common pitfalls to flag when reviewing or writing code
@@ -274,19 +290,19 @@ Post::search('hello')->controlled()->paginate(15);
   - No perimeter matches → query is forced to `0=1` (Eloquent), or the search returns an empty page without querying the engine (Scout). Empty results after wiring control usually mean no `allowed()` returned true.
   - Order and class no longer decide how perimeters combine: put a hierarchy in `Levels::of()`, widest first (admin grants first, declared with `unrestricted()`), and keep additive grants (shared, delegated) outside the group. Never put a perimeter that does not nest in a group: verify with `assertLevelsNest()`.
   - A tenant or workspace condition belongs in `boundary()`, not repeated in every `query`/`should`, and never in an override of `applies()` (final) or of the removed `applyQueryControl()`. A `Gate::before` that returns true bypasses the boundary (Laravel semantics).
-  - A `query` callback must constrain the builder it receives: returning another builder (e.g. `Model::query()->where(...)`) throws `QueryCallbackReturnedAnotherBuilderException`, and so does a `scoutQuery` callback that returns another Scout builder. A `query` callback that adds no `where` (nothing, only `orderBy`/`limit`/`join`, or a `when()` that skips) throws `EmptyQueryCallbackException`: use `unrestricted()` for every row, or `whereRaw('0=1')` for no row. A `query` callback or a boundary `scope()` that adds a join throws `JoinInPerimeterException` (Laravel drops joins inside the nested where group): use `whereHas()` or an `exists` subquery.
+  - A `query` callback must constrain the builder it receives: returning another builder (e.g. `Model::query()->where(...)`) throws `QueryCallbackReturnedAnotherBuilderException`. A `query` callback that adds no `where` (nothing, only `orderBy`/`limit`/`join`, or a `when()` that skips) throws `EmptyQueryCallbackException`: use `unrestricted()` for every row, or `whereRaw('0=1')` for no row. A `query` callback or a boundary `scope()` that adds a join throws `JoinInPerimeterException` (Laravel drops joins inside the nested where group): use `whereHas()` or an `exists` subquery.
   - `create` without a draft only runs `allowed` ("somewhere"): pass the draft (`can('create', [Post::class, $draft])`) to check where it lands, and give the perimeters readers create through a `should` callback, since a draft is judged only in memory.
   - Never `fill()` a row and authorize `update` to check the new values: the policy decides on the stored row; check new values through a `Draft`. Never decide `view`/`update` on an unsaved model: it is refused (`unsaved`).
-  - Scout cannot combine perimeters with OR: when several perimeters apply (a level and a loose perimeter, or two loose perimeters), their `scoutQuery` constraints are joined with AND, so a search returns fewer records than the Eloquent query. Search through a single perimeter, or denormalize the access into one indexed field (e.g. a `visible_to` array) and filter on it.
-  - A controlled Scout search on a model whose control declares a boundary throws `UnsearchableBoundaryException`: the search cannot apply the boundary yet; read those rows through a controlled Eloquent query.
-  - `scoutQuery` cannot run `whereHas`/`orWhereNotNull`; denormalize into the indexed payload.
+  - `scoutQuery` and the `scoutScope()` hook no longer exist: declare `searchKeys()`. A perimeter reached by the reader without `searchKeys` adds nothing to the search (narrower than SQL): give every perimeter of a searchable model its keys, and check with `assertSearchAgrees()`.
+  - Never reuse a search key name in a control (`DuplicateSearchKeyNameException`), and never return `null` hoping to match rows without a value: `null` gives no key.
+  - The engine is the only barrier: a row whose keys changed without an Eloquent event (mass update, `DB::table()`, a pivot `attach()`) keeps its old keys until it is reindexed (`$model->searchable()`, `Model::where(...)->searchable()`). Never test controlled searches on the `collection` engine: use `database`.
   - Plain queries, relations, lazy loads and route model binding are never controlled: every query that must be filtered says `controlled()`, or `controlledFor($reader)` where no user is signed in. Authorize a bound model through its policy.
-  - `controlled()` and the Scout macro read `Auth::user()` when they run: do not call them from an event of the user model that the guard fires while it retrieves the user (such as `retrieved`), or the guard is asked for the user again.
+  - `controlled()`, on a query or on a search, reads `Auth::user()` when it runs: do not call them from an event of the user model that the guard fires while it retrieves the user (such as `retrieved`), or the guard is asked for the user again.
   - A model is linked to its control by `#[ControlledBy]` or by the discovery, never by a policy: a control outside the discovered directories without the attribute leaves the model without control (`MissingControlException`).
   - Never write two controls for one model (e.g. an admin variant): `DuplicateControlException`. Put the variation in perimeters of the single control.
   - After adding, moving or deleting a control in production, run `php artisan access:cache` again (or `optimize`): the cache maps each model to its control.
-  - Type the ability parameter of every callback `Ability $ability` (`fn (Model $user, Ability $ability)` for `allowed`, third parameter for `should`, `query` and `scoutQuery`): an untyped or `string` parameter throws `AbilityParameterTypeException` when the perimeter is declared. `Stringable`, `object`, `mixed` and unions containing `Ability` are accepted. A callback without an ability parameter is fine.
-  - Never override or call `applyAllowedCallback()`, `applyShouldCallback()`, `applyQueryCallback()` or `applyScoutQueryCallback()`: they are final and internal. Override `allows()`, `includes()`, `scope()` or `scoutScope()`, which receive an `AccessContext`.
+  - Type the ability parameter of every callback `Ability $ability` (`fn (Model $user, Ability $ability)` for `allowed`, third parameter for `should` and `query`): an untyped or `string` parameter throws `AbilityParameterTypeException` when the perimeter is declared. `Stringable`, `object`, `mixed` and unions containing `Ability` are accepted. A callback without an ability parameter is fine.
+  - Never override or call `applyAllowedCallback()`, `applyShouldCallback()` or `applyQueryCallback()`: they are final and internal. Override `allows()`, `includes()` or `scope()`, which receive an `AccessContext`.
   - `perimeters()` must be pure: the control builds its perimeters once per process (queue and Octane workers included). Never read the user, the request, the tenant, the database or the clock in `perimeters()`; read them in the callbacks, from the reader. In debug mode and in tests the registry rebuilds `perimeters()` on each lookup and throws `ImpurePerimetersException` when the result differs. It compares captured values: scalars and arrays by value, models by class and key, enums and readonly objects by value, closures recursively, any other object by class only (a service built in `perimeters()` passes). It cannot see the state inside a captured service, a model's attributes, or a value that is the same in both builds: never read the request or the tenant in `perimeters()` or in the constructor of a service it captures.
   - Perimeters are immutable: `$perimeter->query(...)` returns a new perimeter; a call whose result is dropped is lost.
   - Abilities are compared by name with `is()`: two `Ability::view()` are not the same object, and an unserialized ability is a new one, so `===` between abilities is never reliable.

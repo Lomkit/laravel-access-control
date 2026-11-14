@@ -29,7 +29,7 @@
     "tomasvotruba/type-coverage": "^2.5"
   },
   "suggest": {
-    "laravel/scout": "Scopes Scout searches to the perimeters of the user through the controlled() builder macro."
+    "laravel/scout": "Filters Scout searches by the access keys that the ControlledSearchable trait indexes with each document."
   },
   "autoload": {
     "psr-4": {

@@ -6,12 +6,14 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Perimeters\ReachedPerimeters;
+use Lomkit\Access\Search\SearchRules;
 
 final readonly class ControlDeclaration
 {
     public function __construct(
         private PerimeterList $perimeters,
         private Boundary $boundary,
+        private SearchRules $search,
     ) {}
 
     public function reachedBy(AccessContext $context): ReachedPerimeters
@@ -31,6 +33,11 @@ final readonly class ControlDeclaration
     public function boundary(): Boundary
     {
         return $this->boundary;
+    }
+
+    public function search(): SearchRules
+    {
+        return $this->search;
     }
 
     public function matches(self $other): bool

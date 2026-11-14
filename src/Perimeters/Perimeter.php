@@ -5,13 +5,14 @@ namespace Lomkit\Access\Perimeters;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Scout\Builder as ScoutBuilder;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\AbilityParameterTypeException;
+use Lomkit\Access\Exceptions\InvalidSearchKeyNameException;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Exceptions\OverriddenPerimeterHookException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
+use Lomkit\Access\Search\SearchKeys;
 
 /** @phpstan-consistent-constructor */
 class Perimeter
@@ -20,6 +21,8 @@ class Perimeter
     private array $callbacks = [];
 
     private bool $unrestricted = false;
+
+    private ?SearchKeys $searchKeys = null;
 
     public static function new(): static
     {
@@ -41,16 +44,29 @@ class Perimeter
         return $this->declaring(PerimeterHook::Scope, $callback);
     }
 
-    public function scoutQuery(Closure $callback): static
+    /**
+     * @param  list<string>  $load
+     *
+     * @throws InvalidSearchKeyNameException If the name is not made of lowercase letters, digits and underscores.
+     * @throws UnrestrictedPerimeterCallbackException If the perimeter is unrestricted.
+     */
+    public function searchKeys(string $name, Closure $row, Closure $reader, array $load = []): static
     {
-        return $this->declaring(PerimeterHook::ScoutScope, $callback);
+        $perimeter = clone $this;
+        $perimeter->searchKeys = SearchKeys::declaredBy($this, $name, $row, $reader, $load);
+
+        return $perimeter;
     }
 
     /**
-     * @throws UnrestrictedPerimeterCallbackException If the perimeter declares or overrides a row check.
+     * @throws UnrestrictedPerimeterCallbackException If the perimeter declares or overrides a row check, or declares search keys.
      */
     public function unrestricted(): static
     {
+        if ($this->searchKeys !== null) {
+            throw UnrestrictedPerimeterCallbackException::for($this, 'searchKeys');
+        }
+
         foreach (PerimeterHook::cases() as $hook) {
             if (! $hook->checksRows()) {
                 continue;
@@ -93,6 +109,10 @@ class Perimeter
     /** @internal */
     final public function applyAllowedCallback(AccessContext $context): bool
     {
+        if ($this->searchKeys?->admits($context->reader()) === false) {
+            return false;
+        }
+
         foreach ($this->callbacks as $callback) {
             if (! $callback->admits($context->reader())) {
                 return false;
@@ -118,14 +138,10 @@ class Perimeter
         $this->scope($query, $context);
     }
 
-    /**
-     * @internal
-     *
-     * @param  ScoutBuilder<covariant Model>  $query
-     */
-    final public function applyScoutQueryCallback(ScoutBuilder $query, AccessContext $context): void
+    /** @internal */
+    final public function declaredSearchKeys(): ?SearchKeys
     {
-        $this->scoutScope($query, $context);
+        return $this->searchKeys;
     }
 
     /** @internal */
@@ -135,6 +151,7 @@ class Perimeter
             static::class,
             $this->unrestricted,
             array_map(fn (PerimeterClosure $callback): ClosureShape => $callback->shape(), $this->callbacks),
+            $this->searchKeys,
         );
     }
 
@@ -152,12 +169,6 @@ class Perimeter
     protected function scope(Builder $query, AccessContext $context): void
     {
         $this->callback(PerimeterHook::Scope)->constrain($this, $context->ability(), $query, $context->reader());
-    }
-
-    /** @param  ScoutBuilder<covariant Model>  $query */
-    protected function scoutScope(ScoutBuilder $query, AccessContext $context): void
-    {
-        $this->callback(PerimeterHook::ScoutScope)->constrain($this, $context->ability(), $query, $context->reader());
     }
 
     /**

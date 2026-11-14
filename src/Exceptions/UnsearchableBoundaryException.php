@@ -10,7 +10,8 @@ final class UnsearchableBoundaryException extends LogicException
     public static function for(Control $control): self
     {
         return new self(sprintf(
-            'The [%s] control declares a boundary, and a Scout search cannot apply it: the search would return rows outside the boundary. Read the rows of [%s] through a controlled Eloquent query instead of a controlled search.',
+            'The [%s] boundary of the [%s] control has no search form, so a controlled search of [%s] cannot keep the rows inside it. Return the search keys of the boundary from its searchKeys() method, declare it with Boundary::where(), or search with the database engine.',
+            $control->searchRules()->boundary(),
             $control::class,
             $control->getModel(),
         ));

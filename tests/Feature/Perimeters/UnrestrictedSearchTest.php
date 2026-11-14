@@ -2,68 +2,29 @@
 
 namespace Lomkit\Access\Tests\Feature\Perimeters;
 
-use Illuminate\Support\Facades\Gate;
-use Laravel\Scout\Builder as ScoutBuilder;
-use Laravel\Scout\ScoutServiceProvider;
-use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
-use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
-use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\FeaturedPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\GlobalPerimeter;
-use Lomkit\Access\Tests\Fixtures\Search\Search;
-use Lomkit\Access\Tests\PackageTestCase;
+use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
 #[Group('scout')]
-class UnrestrictedSearchTest extends PackageTestCase
+class UnrestrictedSearchTest extends SearchTestCase
 {
-    protected User $ada;
-
-    #[\Override]
-    protected function fixtures(): array
-    {
-        return [new Blog, new Search];
-    }
-
-    #[\Override]
-    protected function getPackageProviders($app): array
-    {
-        return [
-            ...parent::getPackageProviders($app),
-            ScoutServiceProvider::class,
-        ];
-    }
-
     #[\Override]
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->ada = User::factory()->createOne(['name' => 'Ada', 'email' => 'ada@example.com']);
-        $grace = User::factory()->createOne(['name' => 'Grace', 'email' => 'grace@example.com']);
-        Article::factory()->createOne(['author_id' => $this->ada->getKey(), 'title' => 'Scout primer']);
+        $ada = $this->user('Ada');
+        $grace = $this->user('Grace');
+        Article::factory()->createOne(['author_id' => $ada->getKey(), 'title' => 'Scout primer']);
         Article::factory()->createOne(['author_id' => $grace->getKey(), 'title' => 'Scout recipes', 'featured' => true]);
         Article::factory()->createOne(['author_id' => $grace->getKey(), 'title' => 'Scout internals']);
-    }
-
-    /** @param  list<string>  $abilities */
-    protected function allow(array $abilities): void
-    {
-        foreach ($abilities as $ability) {
-            Gate::define($ability, fn (User $user): bool => true);
-        }
-    }
-
-    /** @return list<string> */
-    protected function searchedTitles(): array
-    {
-        $this->actingAs($this->ada);
-
-        return Article::search('Scout')->controlled()->get()->pluck('title')->sort()->values()->all();
+        $this->actingAs($ada);
     }
 
     #[Test]
@@ -75,14 +36,13 @@ class UnrestrictedSearchTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_searches_every_article_for_a_reader_with_the_global_and_the_featured_permissions(): void
+    public function it_drops_the_key_filter_for_a_reader_with_the_global_and_the_featured_permissions(): void
     {
         $this->allow(['view global articles', 'view featured articles']);
 
-        $this->actingAs($this->ada);
         $search = Article::search('Scout')->controlled();
 
-        $this->assertSame([], $search->wheres);
+        $this->assertSame([], $search->whereIns);
         $this->assertNull($search->callback);
         $this->assertSame(['Scout internals', 'Scout primer', 'Scout recipes'], $this->searchedTitles());
     }
@@ -96,58 +56,24 @@ class UnrestrictedSearchTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_accepts_a_scout_callback_that_returns_nothing(): void
+    public function it_does_not_compute_the_reader_keys_of_the_other_applicable_perimeters(): void
     {
-        $this->allow(['view featured articles']);
-
-        $this->assertSame(['Scout recipes'], $this->searchedTitles());
-    }
-
-    #[Test]
-    public function it_accepts_a_scout_callback_that_returns_the_builder_it_receives(): void
-    {
-        $this->allow(['view own articles']);
-
-        $this->assertSame(['Scout primer'], $this->searchedTitles());
-    }
-
-    #[Test]
-    public function it_throws_when_a_scout_callback_returns_another_builder(): void
-    {
-        ConfiguredArticleControl::bind(
-            AuthorPerimeter::new()
-                ->allowed(fn (User $user): bool => true)
-                ->scoutQuery(fn (ScoutBuilder $query, User $user): ScoutBuilder => Article::search('Scout')->where('author_id', $user->getKey())),
-        );
-
-        $this->expectException(QueryCallbackReturnedAnotherBuilderException::class);
-        $this->expectExceptionMessage(sprintf(
-            'The [scoutQuery] callback of the [%s] perimeter returned another builder for the [%s] model.',
-            AuthorPerimeter::class,
-            Article::class,
-        ));
-
-        $this->searchedTitles();
-    }
-
-    #[Test]
-    public function it_does_not_evaluate_the_scout_callbacks_of_the_other_applicable_perimeters(): void
-    {
-        $evaluated = [];
-
+        $computed = [];
         ConfiguredArticleControl::bind(
             FeaturedPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
-                ->scoutQuery(function (ScoutBuilder $query) use (&$evaluated): void {
-                    $evaluated[] = 'featured';
-                    $query->where('featured', true);
+                ->searchKeys('featured', fn (Article $article): ?string => $article->featured ? 'yes' : null, function (User $user) use (&$computed): string {
+                    $computed[] = 'featured';
+
+                    return 'yes';
                 }),
             GlobalPerimeter::new()
                 ->allowed(fn (User $user): bool => true)
                 ->unrestricted(),
         );
+        $this->reindex();
 
         $this->assertCount(3, $this->searchedTitles());
-        $this->assertSame([], $evaluated);
+        $this->assertSame([], $computed);
     }
 }

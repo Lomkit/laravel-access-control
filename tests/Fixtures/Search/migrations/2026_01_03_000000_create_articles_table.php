@@ -11,6 +11,8 @@ return new class extends Migration
         Schema::create('articles', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('author_id')->nullable();
+            $table->unsignedBigInteger('project_id')->nullable();
+            $table->unsignedBigInteger('workspace_id')->nullable();
             $table->string('title');
             $table->boolean('featured')->default(false);
             $table->text('body');

@@ -4,7 +4,6 @@ namespace Lomkit\Access\Tests\Fixtures\Search;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Scout\Builder as ScoutBuilder;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Perimeters\Levels;
@@ -24,18 +23,26 @@ class ArticleControl extends Control
                 AuthorPerimeter::new()
                     ->allowed(fn (Model $user, Ability $ability): bool => $user->can("{$ability} own articles"))
                     ->should(fn (Model $user, Article $article): bool => $article->author_id === $user->getKey())
-                    ->query(fn (Builder $query, Model $user): Builder => $query->where('author_id', $user->getKey()))
-                    ->scoutQuery(fn (ScoutBuilder $query, Model $user): ScoutBuilder => $query->where('author_id', $user->getKey())),
+                    ->query(function (Builder $query, Model $user): void {
+                        $query->where('author_id', $user->getKey());
+                    })
+                    ->searchKeys(
+                        name: 'author',
+                        row: fn (Article $article): mixed => $article->author_id,
+                        reader: fn (Model $user): mixed => $user->getKey(),
+                    ),
             ),
             FeaturedPerimeter::new()
                 ->allowed(fn (Model $user, Ability $ability): bool => $user->can("{$ability} featured articles"))
                 ->should(fn (Model $user, Article $article): bool => $article->featured)
-                ->query(function (Builder $query, Model $user): void {
+                ->query(function (Builder $query): void {
                     $query->where('featured', true);
                 })
-                ->scoutQuery(function (ScoutBuilder $query, Model $user): void {
-                    $query->where('featured', true);
-                }),
+                ->searchKeys(
+                    name: 'featured',
+                    row: fn (Article $article): ?string => $article->featured ? 'yes' : null,
+                    reader: fn (Model $user): string => 'yes',
+                ),
         ];
     }
 }

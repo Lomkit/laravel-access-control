@@ -10,6 +10,7 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\InvalidBoundaryValueException;
 use Lomkit\Access\Perimeters\ClosureShape;
 use Lomkit\Access\Perimeters\ParameterType;
+use Lomkit\Access\Search\SearchKeys;
 use ReflectionFunction;
 
 final class ColumnBoundary extends Boundary
@@ -82,6 +83,12 @@ final class ColumnBoundary extends Boundary
         }
 
         return true;
+    }
+
+    #[\Override]
+    protected function searchKeys(): SearchKeys
+    {
+        return SearchKeys::ofColumn($this->column, $this->readerValue);
     }
 
     #[\Override]

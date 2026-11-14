@@ -96,7 +96,7 @@ class PerimeterMakeCommandTest extends PackageTestCase
         $this->assertStringContainsString("protected function allows(AccessContext \$context): bool\n    {\n        return false;\n    }", $source);
         $this->assertStringContainsString("protected function includes(Model \$row, AccessContext \$context): bool\n    {\n        return false;\n    }", $source);
         $this->assertStringContainsString("protected function scope(Builder \$query, AccessContext \$context): void\n    {\n        \$query->whereRaw('0=1');\n    }", $source);
-        $this->assertStringContainsString("protected function scoutScope(ScoutBuilder \$query, AccessContext \$context): void\n    {\n        \$query->where('__NOT_A_VALID_FIELD__', 0);\n    }", $source);
+        $this->assertStringNotContainsString('scout', strtolower($source));
 
         require_once app_path('Access/Perimeters/HookedPerimeter.php');
 

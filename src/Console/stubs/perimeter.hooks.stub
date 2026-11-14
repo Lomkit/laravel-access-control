@@ -4,7 +4,6 @@ namespace {{ namespace }};
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Laravel\Scout\Builder as ScoutBuilder;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Perimeters\Perimeter;
 
@@ -26,11 +25,5 @@ class {{ class }} extends Perimeter
     protected function scope(Builder $query, AccessContext $context): void
     {
         $query->whereRaw('0=1');
-    }
-
-    #[\Override]
-    protected function scoutScope(ScoutBuilder $query, AccessContext $context): void
-    {
-        $query->where('__NOT_A_VALID_FIELD__', 0);
     }
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\JoinInPerimeterException;
+use Lomkit\Access\Search\SearchKeys;
 use ReflectionMethod;
 
 abstract class Boundary
@@ -65,6 +66,12 @@ abstract class Boundary
         return $query->exists();
     }
 
+    /** @internal */
+    final public function applySearchKeys(): ?SearchKeys
+    {
+        return $this->searchKeys();
+    }
+
     final public function checksInMemory(): bool
     {
         return (new ReflectionMethod($this, 'includes'))->getDeclaringClass()->getName() !== self::class;
@@ -87,6 +94,11 @@ abstract class Boundary
     protected function includes(Model $row, AccessContext $context): bool
     {
         return false;
+    }
+
+    protected function searchKeys(): ?SearchKeys
+    {
+        return null;
     }
 
     protected function sameDeclarationAs(self $other): bool
