@@ -2,17 +2,26 @@
 
 namespace Lomkit\Access\Tests\Fixtures\Blog;
 
-use Lomkit\Access\Access;
+use Illuminate\Auth\Access\Response;
+use Lomkit\Access\Decisions\Draft;
 use Lomkit\Access\Policies\ControlledPolicy;
 
 class PostPolicy extends ControlledPolicy
 {
     protected string $control = PostControl::class;
 
-    public function approve(User $user, Post $post): bool
+    public function approve(User $user, Post $post): Response
     {
-        $control = Access::controlFor($post);
+        return $this->decide(__FUNCTION__, $user, $post);
+    }
 
-        return $control->applies($user, $control->abilityFor(__FUNCTION__), $post);
+    public function export(User $user): Response
+    {
+        return $this->decide(__FUNCTION__, $user);
+    }
+
+    public function duplicate(User $user, Post $post, Post $copy): Response
+    {
+        return $this->decide(__FUNCTION__, $user, Draft::of($copy));
     }
 }

@@ -76,6 +76,13 @@ class Perimeter
         return $this->unrestricted;
     }
 
+    final public function checksInMemory(): bool
+    {
+        return $this->unrestricted
+            || array_key_exists(PerimeterHook::Includes->value, $this->callbacks)
+            || PerimeterHook::Includes->isOverriddenIn(static::class);
+    }
+
     final public function admits(Model $reader, Ability $ability, Model $row): bool
     {
         $context = AccessContext::of($reader, $ability);

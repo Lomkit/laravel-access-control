@@ -58,6 +58,8 @@ class AccessServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerTranslations();
+
         $this->registerStubs();
 
         $this->registerOptimizeCommands();
@@ -99,6 +101,15 @@ class AccessServiceProvider extends ServiceProvider
         }
 
         $this->commands(array_values($commands));
+    }
+
+    protected function registerTranslations(): void
+    {
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'access-control');
+
+        $this->publishes([
+            __DIR__.'/../lang' => $this->app->langPath('vendor/access-control'),
+        ], 'access-control-lang');
     }
 
     /**

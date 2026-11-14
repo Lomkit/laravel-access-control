@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Feature\Perimeters;
 use Illuminate\Database\Eloquent\Builder;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Decisions\Draft;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -63,7 +64,7 @@ class MissingCallbackTest extends PackageTestCase
 
         $this->expectMissing(ClientPerimeter::class, 'allowed');
 
-        $control->applies($this->ada, Ability::create(), new Post);
+        $control->applies($this->ada, Ability::create());
     }
 
     #[Test]
@@ -95,12 +96,13 @@ class MissingCallbackTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_needs_no_should_callback_without_a_saved_row(): void
+    public function it_needs_no_should_callback_without_a_row(): void
     {
         $control = ConfiguredPostControl::bind(ClientPerimeter::new()->allowed(fn (User $user): bool => true));
 
-        $this->assertTrue($control->applies($this->ada, Ability::create(), new Post));
-        $this->assertTrue($control->applies($this->ada, Ability::view(), new Post));
+        $this->assertTrue($control->applies($this->ada, Ability::create()));
+        $this->assertTrue($control->applies($this->ada, Ability::view()));
+        $this->assertFalse($control->applies($this->ada, Ability::create(), Draft::of(new Post)));
     }
 
     #[Test]
