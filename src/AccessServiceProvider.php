@@ -8,6 +8,7 @@ use Illuminate\Foundation\Events\PublishingStubs;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\Builder;
+use Laravel\Scout\Searchable;
 use Lomkit\Access\Console\AccessCacheCommand;
 use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
@@ -17,6 +18,8 @@ use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Registry\PerimeterPurity;
+use Lomkit\Access\Search\Freshness\ReindexTrigger;
+use Lomkit\Access\Search\Freshness\WatchedEvent;
 use Lomkit\Access\Search\TrustedSearchEngines;
 
 class AccessServiceProvider extends ServiceProvider
@@ -67,6 +70,8 @@ class AccessServiceProvider extends ServiceProvider
         $this->registerOptimizeCommands();
 
         $this->bootScoutBuilder();
+
+        $this->bootSearchFreshness();
     }
 
     protected function bootScoutBuilder(): void
@@ -74,6 +79,21 @@ class AccessServiceProvider extends ServiceProvider
         if (class_exists(Builder::class)) {
             Builder::macro('controlled', function (): never {
                 throw MissingControlledSearchableException::for($this->model);
+            });
+        }
+    }
+
+    protected function bootSearchFreshness(): void
+    {
+        if (! trait_exists(Searchable::class)) {
+            return;
+        }
+
+        $trigger = new ReindexTrigger($this->app);
+
+        foreach (WatchedEvent::cases() as $event) {
+            Event::listen($event->eventName(), function (string $name, array $payload) use ($trigger, $event): void {
+                $trigger->handle($event, $payload);
             });
         }
     }

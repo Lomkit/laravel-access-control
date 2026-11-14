@@ -41,12 +41,12 @@ final readonly class ParameterType
         return $this->type !== null && self::typeAdmits($this->type, $value);
     }
 
-    public function admits(object $value): bool
+    public function admits(object|string $value): bool
     {
         return $this->type === null || self::typeAdmits($this->type, $value);
     }
 
-    private static function typeAdmits(ReflectionType $type, object $value): bool
+    private static function typeAdmits(ReflectionType $type, object|string $value): bool
     {
         if ($type instanceof ReflectionUnionType) {
             return self::admittedByOneOf($type->getTypes(), $value);
@@ -62,12 +62,12 @@ final readonly class ParameterType
 
         return match ($type->getName()) {
             'mixed', 'object' => true,
-            default => is_a($value, $type->getName()),
+            default => is_a($value, $type->getName(), true),
         };
     }
 
     /** @param  array<ReflectionType>  $types */
-    private static function admittedByOneOf(array $types, object $value): bool
+    private static function admittedByOneOf(array $types, object|string $value): bool
     {
         foreach ($types as $type) {
             if (self::typeAdmits($type, $value)) {
@@ -79,7 +79,7 @@ final readonly class ParameterType
     }
 
     /** @param  array<ReflectionType>  $types */
-    private static function admittedByEachOf(array $types, object $value): bool
+    private static function admittedByEachOf(array $types, object|string $value): bool
     {
         foreach ($types as $type) {
             if (! self::typeAdmits($type, $value)) {

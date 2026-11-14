@@ -3,14 +3,23 @@
 namespace Lomkit\Access\Search;
 
 use Closure;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Laravel\Scout\Searchable;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\MissingControlException;
+use Lomkit\Access\Search\Freshness\KeyDrift;
 
 trait ControlledSearchable
 {
     use Searchable;
+
+    public static function bootControlledSearchable(): void
+    {
+        static::updated(static function (Model $model): void {
+            KeyDrift::follow($model);
+        });
+    }
 
     /**
      * @param  Collection<array-key, static>  $models

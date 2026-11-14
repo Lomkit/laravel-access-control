@@ -30,6 +30,11 @@ final readonly class BoundarySearch
         return $this->boundary;
     }
 
+    public function keys(): ?SearchKeys
+    {
+        return $this->keys;
+    }
+
     /** @return list<string> */
     public function load(): array
     {

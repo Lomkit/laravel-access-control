@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Lomkit\Access\Attributes\ControlledBy;
 use Lomkit\Access\Controls\HasControl;
 use Lomkit\Access\Search\ControlledSearchable;
@@ -48,6 +49,36 @@ class Article extends Model
     public function sharedWith(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'article_shares');
+    }
+
+    /** @return BelongsTo<Folder, $this> */
+    public function folder(): BelongsTo
+    {
+        return $this->belongsTo(Folder::class);
+    }
+
+    /** @return BelongsTo<ArchiveFolder, $this> */
+    public function archiveFolder(): BelongsTo
+    {
+        return $this->belongsTo(ArchiveFolder::class, 'folder_id');
+    }
+
+    /** @return HasMany<Assignment, $this> */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(Assignment::class);
+    }
+
+    /** @return BelongsToMany<User, $this, ArticleReviewer> */
+    public function reviewers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'article_reviewers')->using(ArticleReviewer::class)->withPivot('role');
+    }
+
+    /** @return BelongsToMany<Notice, $this, ArticleNotice> */
+    public function notices(): BelongsToMany
+    {
+        return $this->belongsToMany(Notice::class, 'article_notice')->using(ArticleNotice::class);
     }
 
     /** @return array{id: string, author_id: mixed, title: mixed, featured: mixed} */

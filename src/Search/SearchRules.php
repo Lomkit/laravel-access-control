@@ -8,6 +8,7 @@ use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\DuplicateSearchKeyNameException;
 use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Perimeters\ReachedPerimeters;
+use Lomkit\Access\Search\Freshness\ReindexWhen;
 
 final class SearchRules
 {
@@ -59,6 +60,56 @@ final class SearchRules
         }
 
         return array_values(array_unique($load));
+    }
+
+    /** @return list<SearchKeys> */
+    public function keys(): array
+    {
+        return array_values($this->keys);
+    }
+
+    public function boundaryKeys(): ?SearchKeys
+    {
+        return $this->boundary->keys();
+    }
+
+    /** @return list<ReindexWhen> */
+    public function reindexes(): array
+    {
+        $reindexes = [];
+
+        foreach ($this->keys as $keys) {
+            array_push($reindexes, ...$keys->reindexes()->all());
+        }
+
+        return $reindexes;
+    }
+
+    /** @return list<class-string<Model>> */
+    public function watchedModels(): array
+    {
+        return array_values(array_unique(array_map(fn (ReindexWhen $reindex): string => $reindex->model(), $this->reindexes())));
+    }
+
+    public function reindexFor(string $name, string $watched): ?ReindexWhen
+    {
+        return ($this->keys[$name] ?? null)?->reindexes()->for($watched);
+    }
+
+    /** @return array<string, ReindexWhen> */
+    public function reindexesWatching(Model $instance): array
+    {
+        $reindexes = [];
+
+        foreach ($this->keys as $name => $keys) {
+            foreach ($keys->reindexes()->all() as $reindex) {
+                if ($reindex->watches($instance)) {
+                    $reindexes[$name] = $reindex;
+                }
+            }
+        }
+
+        return $reindexes;
     }
 
     /** @return array<string, list<string>> */

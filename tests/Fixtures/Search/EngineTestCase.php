@@ -29,6 +29,8 @@ abstract class EngineTestCase extends PackageTestCase
 
     protected function prepareIndex(string $index): void {}
 
+    protected function waitForIndexing(string $index): void {}
+
     #[\Override]
     protected function fixtures(): array
     {
@@ -80,6 +82,8 @@ abstract class EngineTestCase extends PackageTestCase
 
     protected function waitForDocuments(int $count): void
     {
+        $this->waitForIndexing((new Article)->searchableAs());
+
         for ($attempt = 0; $attempt < 50 && $this->totalCount(Article::search('Scout')->uncontrolled()) < $count; $attempt++) {
             usleep(100000);
         }

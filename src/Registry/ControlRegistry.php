@@ -11,10 +11,14 @@ use Lomkit\Access\Exceptions\DuplicateControlException;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidControlException;
 use Lomkit\Access\Exceptions\MissingControlException;
+use Lomkit\Access\Exceptions\UnwatchableReindexException;
+use Lomkit\Access\Search\UsesControlledSearchable;
 
 final class ControlRegistry
 {
     private ?ControlMap $discovered = null;
+
+    private ?WatchMap $watched = null;
 
     /** @var array<string, class-string<Control>|null> */
     private array $links = [];
@@ -68,7 +72,29 @@ final class ControlRegistry
 
         $this->purity->check($instance);
 
+        if (! array_key_exists($control, $this->controls)) {
+            $this->ensureWatchable($control, $instance);
+        }
+
         return $this->controls[$control] = $instance;
+    }
+
+    /**
+     * @internal
+     *
+     * @return list<string>
+     */
+    public function controlsWatching(Model $instance): array
+    {
+        $this->watched ??= $this->cache->readWatched() ?? $this->watchMap();
+
+        return $this->watched->controlsWatching($instance);
+    }
+
+    /** @internal */
+    public function watchMap(): WatchMap
+    {
+        return WatchMap::of($this, $this->discovered());
     }
 
     /** @param  list<string>  $paths */
@@ -77,6 +103,7 @@ final class ControlRegistry
         $this->discovery->within($paths);
 
         $this->discovered = null;
+        $this->watched = null;
         $this->links = [];
     }
 
@@ -122,16 +149,41 @@ final class ControlRegistry
      */
     private function discoveredFor(string $model): ?string
     {
-        $this->discovered ??= $this->cache->exists()
-            ? $this->cache->read()
-            : $this->discovery->map();
-
-        $control = $this->discovered->find($model);
+        $control = $this->discovered()->find($model);
 
         if ($control === null || ! ConcreteControl::is($control)) {
             return null;
         }
 
         return DeclaredModel::of($control) === $model ? $control : null;
+    }
+
+    private function discovered(): ControlMap
+    {
+        return $this->discovered ??= $this->cache->exists()
+            ? $this->cache->read()
+            : $this->discovery->map();
+    }
+
+    /** @throws UnwatchableReindexException When the control reindexes for a model that a fresh process would not watch. */
+    private function ensureWatchable(string $control, Control $instance): void
+    {
+        $watched = $instance->searchRules()->watchedModels();
+
+        if ($watched === []) {
+            return;
+        }
+
+        if (! in_array($control, $this->discovered()->toArray(), true)) {
+            throw UnwatchableReindexException::undiscovered($control);
+        }
+
+        if (! UsesControlledSearchable::check($instance->getModel())) {
+            throw UnwatchableReindexException::unsearchable($control, $instance->getModel());
+        }
+
+        if ($this->cache->readWatched()?->covers($control, $watched) === false) {
+            throw UnwatchableReindexException::staleCache($control);
+        }
     }
 }

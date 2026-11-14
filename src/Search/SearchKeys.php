@@ -6,12 +6,15 @@ use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\LazyLoadingViolationException;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Exceptions\DuplicateReindexException;
 use Lomkit\Access\Exceptions\InvalidSearchKeyNameException;
 use Lomkit\Access\Exceptions\UndeclaredSearchKeyRelationException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
 use Lomkit\Access\Perimeters\ClosureShape;
 use Lomkit\Access\Perimeters\ParameterType;
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Search\Freshness\ReindexRules;
+use Lomkit\Access\Search\Freshness\ReindexWhen;
 use ReflectionFunction;
 
 final readonly class SearchKeys
@@ -25,6 +28,7 @@ final readonly class SearchKeys
         private Closure $reader,
         private ParameterType $readerType,
         private array $load,
+        private ReindexRules $reindexes,
     ) {}
 
     /**
@@ -38,7 +42,7 @@ final readonly class SearchKeys
             throw InvalidSearchKeyNameException::named($name);
         }
 
-        return new self($name, $row, $reader, ParameterType::at(new ReflectionFunction($reader), 0), $load);
+        return new self($name, $row, $reader, ParameterType::at(new ReflectionFunction($reader), 0), $load, ReindexRules::none());
     }
 
     /**
@@ -71,6 +75,7 @@ final readonly class SearchKeys
             $reader,
             ParameterType::at(new ReflectionFunction($reader), 0),
             [],
+            ReindexRules::none(),
         );
     }
 
@@ -94,6 +99,22 @@ final readonly class SearchKeys
     public function load(): array
     {
         return $this->load;
+    }
+
+    /**
+     * @internal
+     *
+     * @throws DuplicateReindexException When the keys already reindex for the same model.
+     */
+    public function reindexingWhen(ReindexWhen $reindex, Perimeter $perimeter): self
+    {
+        return new self($this->name, $this->row, $this->reader, $this->readerType, $this->load, $this->reindexes->with($reindex, $perimeter));
+    }
+
+    /** @internal */
+    public function reindexes(): ReindexRules
+    {
+        return $this->reindexes;
     }
 
     /** @internal */
@@ -142,6 +163,7 @@ final readonly class SearchKeys
         return $this->name === $other->name
             && $this->load === $other->load
             && ClosureShape::of($this->row)->matches(ClosureShape::of($other->row))
-            && ClosureShape::of($this->reader)->matches(ClosureShape::of($other->reader));
+            && ClosureShape::of($this->reader)->matches(ClosureShape::of($other->reader))
+            && $this->reindexes->matches($other->reindexes);
     }
 }

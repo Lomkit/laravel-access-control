@@ -411,7 +411,7 @@ Access::trustSearchEngine(ElasticsearchEngine::class);
 - The `collection` engine paginates before it filters: a controlled search throws `UnsupportedSearchEngineException`. Use the `database` engine, in tests too.
 - The Turbopuffer engine is refused the same way for now: Scout cannot express the `ContainsAny` filter it needs on an array attribute.
 
-The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. The same holds when a key rule changes: documents keep the keys of the former rule until they are indexed again.
+The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. The same holds when a key rule changes: documents keep the keys of the former rule until they are indexed again. Declare what reindexes the documents when a key reads another model in [Keeping the keys fresh](#keeping-the-keys-fresh).
 
 #### Reindex
 
@@ -423,6 +423,75 @@ php artisan scout:import "App\Models\Post"
 ```
 
 With Typesense, delete the collection first (`php artisan scout:delete-index posts`), so that it is created again with the new fields. Reindex the same way each time the `row` side of a search key rule or the boundary changes, as you would after changing `toSearchableArray()`: `scout:import` updates the documents in place, and until it has run they keep the keys of the former rule. When you narrow a rule to close an access, run it right away; to close it at once, run `scout:flush` before `scout:import`. A change of the `reader` side needs no reindex: the reader keys are computed at each search.
+
+#### Keeping the keys fresh
+
+A document's keys are computed when it is indexed. Scout reindexes a document when its own model is saved. When a key reads another model, such as `post → project → client_id`, a change of that model used to leave the documents with their former keys until the next `scout:import`: a former key can show a document to a reader who lost access. Declare when to reindex with `reindexWhen()`:
+
+```php
+// Before: the posts of a project kept the keys of its former client until the next scout:import
+ClientPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+    ->query(fn (Builder $query, User $user) => $query->whereRelation('project', 'client_id', $user->clients->modelKeys()))
+    ->searchKeys(
+        name: 'client',
+        row: fn (Post $post) => $post->project->client_id,
+        reader: fn (User $user) => $user->clients->modelKeys(),
+        load: ['project:id,client_id'],
+    ),
+
+// After: when a project changes client, its posts are reindexed by a job, in chunks, after the commit
+ClientPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+    ->query(fn (Builder $query, User $user) => $query->whereRelation('project', 'client_id', $user->clients->modelKeys()))
+    ->searchKeys(
+        name: 'client',
+        row: fn (Post $post) => $post->project->client_id,
+        reader: fn (User $user) => $user->clients->modelKeys(),
+        load: ['project:id,client_id'],
+    )
+    ->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts()),
+```
+
+- The rows are reindexed when a `Project` is updated and one of the `changed` attributes changed (as Eloquent's `wasChanged()` compares them), and when a `Project` is created, deleted (soft or forced) or restored. A save that changes no listed attribute queues nothing.
+- `rows` receives the project and returns a query or a relation of the controlled model. The rows of the project's previous state are reindexed too, which matters when the watched model holds the link, such as an `Assignment` moved from one post to another; so are the rows of a deleted project.
+- The job carries no full copy of the project, the way `SerializesModels` carries only a key. For a created or restored project it carries the key, and loads the row when it runs. For an update it carries the key and the previous values of the `changed` attributes only, and builds the previous state from the fresh row; an update whose row is gone when the job runs is skipped, since its deletion queued its own job. For a deleted project it carries the attributes without the model's `$hidden` columns, so a `rows` callback must not depend on a hidden attribute.
+- The job is queued after the commit, always, whatever Scout's `after_commit` option, on Scout's queue connection and queue (`scout.queue`). Without a queue it runs synchronously after the commit. A rolled back transaction queues nothing. It reindexes the rows in chunks of `scout.chunk.searchable` through Scout, whose `makeSearchableUsing()` recomputes the keys, and removes from the index the rows whose `shouldBeSearchable()` is now false. Inside `withoutSyncingToSearch()` of the controlled model, nothing is queued.
+- `reindexWhen()` comes after `searchKeys()` on the same perimeter, or throws `ReindexWithoutSearchKeysException`. A class that is not an Eloquent model throws `InvalidReindexModelException`, an empty or blank attribute `InvalidReindexAttributesException`, a `rows` callback that does not accept the model, or returns anything but a query or relation of the controlled model, `InvalidReindexRowsException`. A perimeter may watch several models, once each: a second `reindexWhen()` for the same model, or for a parent or child class of a watched model, throws `DuplicateReindexException`.
+- A queue worker that only updates a project must know that posts depend on it, without ever building `PostControl`. The package listens to every Eloquent `created`, `updated`, `deleted` and `restored` event and looks up the controls that watch the model: about a microsecond for a model nobody watches. The watched models are read from the discovered controls, so a control that declares `reindexWhen()` must be discovered (`app/Access/Controls`, or `Access::discoverControlsIn()`): one linked only by `#[ControlledBy]` throws `UnwatchableReindexException` when it is built, and so does one whose model does not use `ControlledSearchable`. `php artisan access:cache` caches the watched models with the controls, and the cache is used as is, the way Laravel uses its route and event caches: a deployment runs it again, which `php artisan optimize` does. A stale cache throws `UnwatchableReindexException` when a control whose `reindexWhen()` it does not know is built.
+
+A custom pivot reindexes the documents it links with the `ReindexesSearch` trait:
+
+```php
+public function sharedWith(): BelongsToMany
+{
+    return $this->belongsToMany(User::class)->using(PostShare::class);
+}
+
+class PostShare extends Pivot
+{
+    use ReindexesSearch;
+}
+```
+
+- `attach()`, `detach()`, `sync()`, `toggle()` and `updateExistingPivot()` on a relation that uses the pivot fire its model events. Declare `->using(PostShare::class)` on both sides of the relation, otherwise `attach()` and `detach()` from the other side write the pivot table with a plain query, fire no event, and the documents keep stale keys. Each event reindexes the linked models that use `ControlledSearchable`: both sides when both are searchable. The job is unique per document and queued after the commit: fifty attaches queue one job per post. Without a queue, the jobs run as the pivots are written, so wrap a bulk change in `DB::transaction()` to reindex each document once.
+- A pivot written outside its relation, such as `PostShare::create([...])`, does not know the models it links: the write is refused with `UnresolvablePivotException` before it reaches the database. So is a pivot that links no `ControlledSearchable` model, with `MissingControlledSearchableException`. The pivot keys must reference the primary keys of the models: a relation with a custom `parentKey` or `relatedKey` is not supported.
+
+What Eloquent cannot see stays with the application, which calls Scout:
+
+```php
+Post::where('project_id', $id)->update(['author_id' => $newAuthor]); // mass update: no event
+Post::where('project_id', $id)->searchable();                       // Scout reindexes in chunks
+
+$post->sharedWith()->attach($bob); // plain pivot, without ReindexesSearch: no event
+$post->searchable();
+```
+
+The same holds for `DB::table()` writes, `Model::withoutEvents()`, `withoutSyncingToSearch()`, pivot queries such as `newPivotStatement()` and cascades done by the database.
+
+The document's own model needs nothing: Scout reindexes it when it is saved. When the model overrides `searchIndexShouldBeUpdated()` and it returns `false`, the package compares the keys of the row before and after the save, after the commit, each state loading its own `load:` relations (so a changed `project_id` counts), and reindexes the document when they differ: keep your override for the other attributes.
+
+The engine stays the only barrier, and freshness has a limit: between the change and the end of the job, the documents keep their former keys. Without a queue the window closes right after the commit; with one it lasts as long as the queue's backlog, and a failed job leaves the keys stale until it is retried or the model reindexed. Turn on Scout's `after_commit` option so that Scout's own indexing never writes the keys of a change that is rolled back.
 
 #### Testing the search
 
@@ -1004,4 +1073,6 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |
 | `UnsearchableBoundaryException` for every boundary | `Boundary::where()` searches; a boundary class declares `searchKeys()` |
 | The `collection` Scout engine with `controlled()` | The `database` engine |
+| A `saved` listener on `Project` that calls `$project->posts()->searchable()` | `->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts())` |
+| A custom pivot whose `saved` / `deleted` listeners reindex the post | `use ReindexesSearch` on the pivot |
 | `->query(fn ($query) => $query->join('projects', ...)->where('projects.client_id', ...))` | `->query(fn ($query) => $query->whereHas('project', fn ($q) => $q->where('client_id', ...)))`: a join throws `JoinInPerimeterException` |

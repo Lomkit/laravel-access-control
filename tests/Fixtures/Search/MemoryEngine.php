@@ -16,9 +16,14 @@ class MemoryEngine extends Engine
     /** @var list<Builder<Model>> */
     public array $searches = [];
 
+    /** @var list<list<string>> */
+    public array $updates = [];
+
     #[\Override]
     public function update($models): void
     {
+        $this->updates[] = array_values(array_map(fn (Model $model): string => (string) $model->getScoutKey(), $models->all()));
+
         foreach ($models as $model) {
             $this->documents[$model->searchableAs()][(string) $model->getScoutKey()] = [
                 ...$model->toSearchableArray(),
