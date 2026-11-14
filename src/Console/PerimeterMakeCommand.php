@@ -37,6 +37,7 @@ class PerimeterMakeCommand extends GeneratorCommand
     /**
      * Get the stub file for the generator.
      */
+    #[\Override]
     protected function getStub(): string
     {
         $stub = null;
@@ -65,6 +66,7 @@ class PerimeterMakeCommand extends GeneratorCommand
      *
      * @param  string  $rootNamespace
      */
+    #[\Override]
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Access\Perimeters';
@@ -75,6 +77,7 @@ class PerimeterMakeCommand extends GeneratorCommand
      *
      * @return list<array{string, string, int, string}>
      */
+    #[\Override]
     protected function getOptions(): array
     {
         return [
@@ -85,6 +88,7 @@ class PerimeterMakeCommand extends GeneratorCommand
     /**
      * Interact further with the user if they were prompted for missing arguments.
      */
+    #[\Override]
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
     {
         if ($this->didReceiveOptions($input)) {

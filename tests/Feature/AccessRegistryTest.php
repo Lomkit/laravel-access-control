@@ -4,12 +4,15 @@ namespace Lomkit\Access\Tests\Feature;
 
 use Illuminate\Support\ServiceProvider;
 use Lomkit\Access\Access;
+use Lomkit\Access\Tests\Support\Access\Controls\ModelControl;
+use Lomkit\Access\Tests\Support\Models\Model;
 use Lomkit\Access\Tests\Support\Registry\Controls\Admin\PostControl as AdminPostControl;
 use Lomkit\Access\Tests\Support\Registry\Controls\BaseControl;
 use Lomkit\Access\Tests\Support\Registry\Controls\PostControl;
 use Lomkit\Access\Tests\Support\Registry\Controls\PostHelper;
 use Lomkit\Access\Tests\Support\Registry\Models\Admin\Post as AdminPost;
 use Lomkit\Access\Tests\Support\Registry\Models\Post;
+use PHPUnit\Framework\Attributes\Test;
 
 class AccessRegistryTest extends TestCase
 {
@@ -151,6 +154,22 @@ class AccessRegistryTest extends TestCase
         $this->assertInstanceOf(PostControl::class, Access::controlForModel(Post::class));
         $this->assertInstanceOf(AdminPostControl::class, Access::controlForModel(AdminPost::class));
         $this->assertSame(Access::control(PostControl::class), Access::controlForModel(Post::class));
+    }
+
+    #[Test]
+    public function it_forgets_the_added_controls_on_flush(): void
+    {
+        $control = new ModelControl;
+
+        (new Access)->addControl($control);
+
+        $this->assertSame($control, Access::controlForModel(Model::class));
+
+        Access::flush();
+
+        Access::$controlDiscoveryPaths = [];
+
+        $this->assertNull(Access::controlForModel(Model::class));
     }
 
     public function test_cache_commands_are_hooked_into_optimize(): void

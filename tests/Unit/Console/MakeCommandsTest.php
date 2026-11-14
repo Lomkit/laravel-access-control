@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Unit\Console;
 
+use Illuminate\Support\Facades\File;
 use Lomkit\Access\Tests\Unit\TestCase;
 
 class MakeCommandsTest extends TestCase
@@ -9,6 +10,10 @@ class MakeCommandsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        File::ensureDirectoryExists(app_path('Access/Controls'));
+        File::ensureDirectoryExists(app_path('Access/Perimeters'));
+        File::ensureDirectoryExists(app_path('Models'));
 
         @unlink(app_path('Access/Perimeters/TestPerimeter.php'));
         @unlink(app_path('Access/Controls/TestControl.php'));

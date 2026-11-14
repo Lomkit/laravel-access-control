@@ -32,6 +32,7 @@ class AccessServiceProvider extends ServiceProvider
     /**
      * Registers the service provider.
      */
+    #[\Override]
     public function register(): void
     {
         $this->registerCommands($this->commands);
@@ -135,6 +136,7 @@ class AccessServiceProvider extends ServiceProvider
      *
      * @return list<class-string<Command>>
      */
+    #[\Override]
     public function provides(): array
     {
         return [

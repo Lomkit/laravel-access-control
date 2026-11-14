@@ -2,7 +2,7 @@ name: tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 1.x ]
   pull_request:
   workflow_dispatch:
 
@@ -21,47 +21,37 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php-version: [ '8.2', '8.3', '8.4', '8.5' ]
-        laravel-version: [ '^12.0', '^13.0' ]
+        php-version: [ '8.3', '8.4', '8.5' ]
         database: [ 'sqlite' ]
         dependencies: [ 'highest' ]
         scout: [ 'installed' ]
-        exclude:
-          # Laravel 13 requires PHP 8.3
-          - php-version: '8.2'
-            laravel-version: '^13.0'
         include:
-          # Database drivers only need covering once, on the newest versions
+          # Database drivers only need covering once, on the newest PHP
           - php-version: '8.5'
-            laravel-version: '^13.0'
             database: 'mysql'
             dependencies: 'highest'
             scout: 'installed'
           - php-version: '8.5'
-            laravel-version: '^13.0'
             database: 'pgsql'
             dependencies: 'highest'
             scout: 'installed'
           # The oldest versions allowed by composer.json
-          - php-version: '8.2'
-            laravel-version: '^12.0'
+          - php-version: '8.3'
             database: 'sqlite'
             dependencies: 'lowest'
             scout: 'installed'
-          # laravel/scout is only a dev dependency: the package must work without it
-          - php-version: '8.2'
-            laravel-version: '^12.0'
+          # laravel/scout is only suggested: the package must work without it
+          - php-version: '8.3'
             database: 'sqlite'
             dependencies: 'highest'
             scout: 'absent'
           # The Scout tests against real Meilisearch and Typesense servers
           - php-version: '8.5'
-            laravel-version: '^13.0'
             database: 'sqlite'
             dependencies: 'highest'
             scout: 'engines'
 
-    name: PHP ${{ matrix.php-version }} - Laravel ${{ matrix.laravel-version }} - ${{ matrix.database }} - ${{ matrix.dependencies }} - scout ${{ matrix.scout }}
+    name: PHP ${{ matrix.php-version }} - ${{ matrix.database }} - ${{ matrix.dependencies }} - scout ${{ matrix.scout }}
 
     services:
       # An empty image skips the service, so each job only starts the services it uses
@@ -104,7 +94,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -114,9 +104,6 @@ jobs:
 
       - name: Validate composer.json
         run: composer validate --strict
-
-      - name: Require Laravel ${{ matrix.laravel-version }}
-        run: composer require "laravel/framework:${{ matrix.laravel-version }}" --no-update --no-interaction
 
       - name: Remove Laravel Scout
         if: matrix.scout == 'absent'
@@ -140,12 +127,12 @@ jobs:
       # Only downloaded archives are cached; dependencies are resolved on every run,
       # so new releases and composer.json changes are always picked up
       - name: Cache Composer downloads
-        uses: actions/cache@v6
+        uses: actions/cache@v5
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-version }}-${{ matrix.dependencies }}-${{ matrix.scout }}-${{ hashFiles('composer.json') }}
+          key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ matrix.dependencies }}-${{ matrix.scout }}-${{ hashFiles('composer.json') }}
           restore-keys: |
-            ${{ runner.os }}-php-${{ matrix.php-version }}-laravel-${{ matrix.laravel-version }}-${{ matrix.dependencies }}-${{ matrix.scout }}-
+            ${{ runner.os }}-php-${{ matrix.php-version }}-${{ matrix.dependencies }}-${{ matrix.scout }}-
 
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction --no-progress ${{ matrix.dependencies == 'lowest' && '--prefer-lowest --prefer-stable' || '' }}
@@ -166,7 +153,7 @@ jobs:
         run: mysql --host 127.0.0.1 --port ${{ job.services.mysql.ports['3306'] }} --user root --execute "SET GLOBAL innodb_flush_log_at_trx_commit = 0; SET GLOBAL sync_binlog = 0"
 
       - name: Run test suite with MySQL
-        if: matrix.database == 'mysql'
+        if: matrix.database == 'mysql' && matrix.scout == 'installed'
         run: vendor/bin/phpunit
         env:
           DB_CONNECTION: mysql
@@ -181,7 +168,7 @@ jobs:
           PGPASSWORD: postgres
 
       - name: Run test suite with PostgreSQL
-        if: matrix.database == 'pgsql'
+        if: matrix.database == 'pgsql' && matrix.scout == 'installed'
         run: vendor/bin/phpunit
         env:
           DB_CONNECTION: pgsql
@@ -192,7 +179,7 @@ jobs:
 
       - name: Run test suite without Laravel Scout
         if: matrix.scout == 'absent'
-        run: vendor/bin/phpunit --exclude-group scout
+        run: vendor/bin/phpunit --exclude-group scout --exclude-group meilisearch --exclude-group typesense
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
@@ -213,3 +200,40 @@ jobs:
           TYPESENSE_PORT: ${{ job.services.typesense.ports['8108'] }}
           TYPESENSE_PROTOCOL: http
           TYPESENSE_API_KEY: lac-ci-api-key
+
+  coverage:
+
+    runs-on: ubuntu-latest
+
+    name: Coverage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: pcov
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php-8.4-highest-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            ${{ runner.os }}-php-8.4-highest-
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run test suite with coverage
+        run: vendor/bin/phpunit --coverage-text
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'

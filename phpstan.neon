@@ -9,7 +9,8 @@ parameters:
         # Analyses the HasControl trait through a model that uses it
         - tests/Support/Registry/Models/Post.php
     level: 10
-    phpVersion: 80200
+    phpVersion: 80300
+    checkMissingOverrideMethodAttribute: true
     type_coverage:
         return: 100
         param: 100
