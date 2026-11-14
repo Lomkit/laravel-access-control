@@ -12,7 +12,7 @@ PHP 8.2+ and Laravel 12+
 See the [documentation](https://laravel-access-control.lomkit.com) for detailed installation and usage instructions.
 
 ## What it does
-You first need to define the perimeters concerned by your applications (`php artisan make:perimeter`, in `app/Access/Perimeters`). The generated class overrides the `allows()`, `includes()` and `scope()` hooks; remove them from a perimeter whose rules are declared as callbacks in the control, as below.
+
 You first need to define the perimeters concerned by your applications (`php artisan make:perimeter`, in `app/Access/Perimeters`).
 
 Create the model control (`php artisan make:control`). Controls are discovered in `app/Access/Controls`:
@@ -26,13 +26,13 @@ class PostControl extends Control
     {
         return [
             GlobalPerimeter::new()
-                ->allowed(function (Model $user, Ability $ability) {
-                    return $user->can(sprintf('%s global models', $ability));
+                ->allowed(function (Model $user, Ability $ability): bool {
+                    return $user->can("{$ability} global models");
                 })
                 ->unrestricted(),
             ClientPerimeter::new()
-                ->allowed(function (Model $user, Ability $ability) {
-                    return $user->can(sprintf('%s client models', $ability));
+                ->allowed(function (Model $user, Ability $ability): bool {
+                    return $user->can("{$ability} client models");
                 })
                 ->should(function (Model $user, Model $model) {
                     return $model->client()->is($user->client);

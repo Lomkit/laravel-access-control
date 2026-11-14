@@ -97,10 +97,10 @@ class ControlMakeCommandTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_generates_perimeter_callbacks_that_constrain_the_builder_they_receive(): void
+    public function it_generates_callbacks_for_an_empty_generated_perimeter_that_load_without_error(): void
     {
         $this->writeModel('Review');
-        File::put(app_path('Access/Perimeters/AuditPerimeter.php'), "<?php\n\nnamespace App\\Access\\Perimeters;\n\nuse Lomkit\\Access\\Perimeters\\Perimeter;\n\nclass AuditPerimeter extends Perimeter {}\n");
+        $this->artisan('make:perimeter', ['name' => 'AuditPerimeter'])->assertOk();
         require_once app_path('Access/Perimeters/AuditPerimeter.php');
 
         $this->artisan('make:control', ['name' => 'ReviewControl', '--model' => 'Review', '--perimeters' => ['AuditPerimeter']])->assertOk();
@@ -195,14 +195,15 @@ class ControlMakeCommandTest extends PackageTestCase
     public function it_generates_only_the_callbacks_of_the_hooks_a_perimeter_class_does_not_override(): void
     {
         $this->writeModel('Memo');
-        $this->artisan('make:perimeter', ['name' => 'MemoPerimeter'])->assertOk();
+        $this->artisan('make:perimeter', ['name' => 'MemoPerimeter', '--hooks' => true])->assertOk();
         require_once app_path('Access/Perimeters/MemoPerimeter.php');
 
         $this->artisan('make:control', ['name' => 'MemoControl', '--model' => 'Memo', '--perimeters' => ['MemoPerimeter']])->assertOk();
 
         $source = File::get(app_path('Access/Controls/MemoControl.php'));
 
-        $this->assertStringContainsString("return [\n            \\App\\Access\\Perimeters\\MemoPerimeter::new()\n                ->scoutQuery(function", $source);
+        $this->assertStringContainsString("return [\n            \\App\\Access\\Perimeters\\MemoPerimeter::new(),\n        ];", $source);
+        $this->assertStringNotContainsString('->scoutQuery(', $source);
         $this->assertStringNotContainsString('->allowed(', $source);
         $this->assertStringNotContainsString('->should(', $source);
         $this->assertStringNotContainsString('->query(', $source);
