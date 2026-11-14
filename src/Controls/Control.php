@@ -21,6 +21,7 @@ class Control
     use ControlsQueries;
     use ControlsSearches;
     use DecidesRows;
+    use ReachesKeys;
 
     /** @var class-string<Model> */
     protected string $model;

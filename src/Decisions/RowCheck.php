@@ -12,7 +12,7 @@ final readonly class RowCheck
 {
     public function __construct(
         private Control $control,
-        private DecisionMemo $memo,
+        private KnownVerdicts $known,
     ) {}
 
     public function verdict(Model $row, ReachedPerimeters $perimeters, AccessContext $context): Verdict
@@ -51,10 +51,22 @@ final readonly class RowCheck
         return $check->boundaryCase($row)->verdictOf($row);
     }
 
+    public function boundaryContains(Model $row, AccessContext $context): bool
+    {
+        $boundary = $this->control->declaration()->boundary();
+        $perimeters = $this->control->declaration()->reachedBy($context);
+
+        if ($boundary->checksInMemory() || $perimeters->isEmpty()) {
+            return $boundary->contains($row, $context);
+        }
+
+        $memoized = $this->recall($row, SqlCheck::for($this->control, $perimeters, $context), $context);
+
+        return $memoized === null ? $boundary->contains($row, $context) : $memoized !== Verdict::OutsideBoundary;
+    }
+
     private function recall(Model $row, SqlCheck $check, AccessContext $context): ?Verdict
     {
-        $key = DecisionKey::of($context, $row::class, $row->getKey(), $check->fingerprint());
-
-        return $key === null ? null : $this->memo->recall($key);
+        return $this->known->recall($row, $check, $context);
     }
 }

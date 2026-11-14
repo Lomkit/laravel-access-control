@@ -16,7 +16,7 @@ final readonly class DecisionKey
         $reader = $context->reader();
         $readerKey = $reader->getKey();
 
-        if (! $reader->exists || ! self::isKey($readerKey) || ! self::isKey($row)) {
+        if (! self::remembers($reader) || ! self::isKey($readerKey) || ! self::isKey($row)) {
             return null;
         }
 
@@ -29,6 +29,11 @@ final readonly class DecisionKey
             $context->ability()->name(),
             $check,
         ]));
+    }
+
+    public static function remembers(Model $reader): bool
+    {
+        return $reader->exists && self::isKey($reader->getKey());
     }
 
     public function id(): string
