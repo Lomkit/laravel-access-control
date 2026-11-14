@@ -34,16 +34,20 @@ final readonly class Levels
         return new self($perimeters);
     }
 
-    /** @internal */
-    public function reachedBy(AccessContext $context): ?Perimeter
+    /**
+     * @internal
+     *
+     * @return array<int, Perimeter>
+     */
+    public function reachedBy(AccessContext $context): array
     {
-        foreach ($this->levels as $level) {
+        foreach ($this->levels as $position => $level) {
             if ($level->applyAllowedCallback($context)) {
-                return $level;
+                return [$position => $level];
             }
         }
 
-        return null;
+        return [];
     }
 
     /**

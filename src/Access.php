@@ -2,10 +2,13 @@
 
 namespace Lomkit\Access;
 
+use Closure;
 use DateTimeInterface;
 use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Facade;
+use Lomkit\Access\Decisions\DecisionContextResolver;
+use Lomkit\Access\Decisions\DecisionFlushes;
 use Lomkit\Access\Exceptions\AdminSearchTokenKeyException;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
 use Lomkit\Access\Exceptions\MismatchedSearchTokenKeyException;
@@ -69,6 +72,21 @@ final class Access extends Facade
     public static function searchToken(?Model $reader, string $model, SearchTokenKey $key, DateTimeInterface $expiresAt): SearchToken
     {
         return SearchTokens::issue($reader, $model, $key, $expiresAt);
+    }
+
+    /** @param  Closure(): array<string, string|int|bool|null>  $resolver */
+    public static function decisionContextUsing(Closure $resolver): void
+    {
+        Container::getInstance()
+            ->make(DecisionContextResolver::class)
+            ->use($resolver);
+    }
+
+    public static function forgetDecisions(): void
+    {
+        Container::getInstance()
+            ->make(DecisionFlushes::class)
+            ->flush();
     }
 
     #[\Override]

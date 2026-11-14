@@ -86,11 +86,11 @@ class MissingCallbackTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_throws_when_the_should_callback_of_an_allowed_perimeter_is_missing_for_a_saved_row(): void
+    public function it_throws_when_a_saved_row_is_checked_in_sql_on_a_perimeter_without_a_query_callback(): void
     {
         $control = ConfiguredPostControl::bind(ClientPerimeter::new()->allowed(fn (User $user): bool => true));
 
-        $this->expectMissing(ClientPerimeter::class, 'should');
+        $this->expectMissing(ClientPerimeter::class, 'query');
 
         $control->applies($this->ada, Ability::update(), $this->releaseNotes);
     }
