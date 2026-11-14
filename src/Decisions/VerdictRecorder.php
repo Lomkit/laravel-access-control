@@ -30,6 +30,12 @@ final readonly class VerdictRecorder
         return $this->check?->verdictCase($model);
     }
 
+    /** @param  array<class-string<Model>, array<string, Verdict>>  $verdicts */
+    public function known(array $verdicts): KnownVerdicts
+    {
+        return new BatchedVerdicts($this->check?->fingerprint() ?? '', $this->check === null ? [] : $verdicts);
+    }
+
     /** @param  class-string<Model>  $model */
     public function record(string $model, mixed $row, Verdict $verdict): void
     {

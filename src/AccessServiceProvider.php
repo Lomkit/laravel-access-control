@@ -14,6 +14,7 @@ use Lomkit\Access\Console\AccessCacheCommand;
 use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
+use Lomkit\Access\Controls\ControlledReaders;
 use Lomkit\Access\Decisions\DecisionContextResolver;
 use Lomkit\Access\Decisions\DecisionFlushes;
 use Lomkit\Access\Decisions\DecisionMemo;
@@ -64,6 +65,8 @@ class AccessServiceProvider extends ServiceProvider
         $this->app->singleton(DecisionContextResolver::class);
 
         $this->app->scoped(DecisionMemo::class);
+
+        $this->app->singleton(ControlledReaders::class);
     }
 
     /**

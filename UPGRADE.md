@@ -780,6 +780,45 @@ The package keeps decisions for the length of a request or a job, under the read
 
 Call `Access::forgetDecisions()` after a write that Eloquent does not see and that changes a decision: `attach()`, `detach()` and `sync()` on a relation, `DB::table()` and mass updates, `saveQuietly()` and writes inside `withoutEvents()`. An attribute of the reader changed in memory, without saving it, does not change what was kept either.
 
+#### Batched decisions
+
+A page that checks `@can('update', $post)` on each row runs one query per row and ability for the perimeters checked in SQL. Decide the whole page in the query that loads it with `withAbilities()`, after `controlled()` or `controlledFor()`:
+
+```php
+$posts = Post::controlled()
+    ->withAbilities(['view', 'update', 'delete'])
+    ->paginate();
+```
+
+For each ability, the query selects one `CASE` that returns the verdict code of the row. The checks run in this order: the boundary when it has no in-memory form, then the perimeters checked in SQL. The answers are kept for the request under the reader chosen by `controlledFor()`, or the signed-in user for `controlled()`, and under the current decision context. `can()`, `@can`, `authorize()`, `Gate::inspect()` and the policy methods do not change, and answer without SQL. The extra columns use reserved aliases, never `id`, so a join that overwrites `posts.id` cannot file an answer under the wrong row. They are removed from every model right after the query: they never show in `getAttributes()`, `toArray()` or the JSON. `withAbilities()` works with `get()`, `first()`, `paginate()`, `simplePaginate()`, `cursorPaginate()`, `chunk()`, `lazy()`, `cursor()` and the eager loads of a controlled relation:
+
+```php
+$users = User::with(['posts' => fn ($posts) => $posts->controlled()->withAbilities(['update'])])->get();
+```
+
+- The abilities are names or `Ability` objects; a name goes through `abilityFor()`, so `viewAny` is `view`, and a name the control cannot map throws `InvalidAbilityException`.
+- `withAbilities()` without `controlled()` or `controlledFor()` before it throws `MissingControlledReaderException`.
+- For a guest, `controlled()` loads no row, so there is nothing to decide.
+- `controlled()` does not decide `view` by itself: Laravel only groups the scope's conditions, so an `orWhere()` added after it could bring rows from outside the perimeters. Write `withAbilities(['view'])` when the page checks it.
+- Select the columns with `select()`, since the columns passed to `get()` are ignored once `withAbilities()` adds its own.
+
+For rows that are already loaded, `Access::preload($reader, 'update', $rows)` runs one query per ability and per model, in chunks of 1000 keys, and keeps the answers the same way. The rows can belong to several controlled models; unsaved rows are skipped, since they are refused as `unsaved` without SQL. A reader without a key, or not saved, is never kept, so preloading for it runs no query.
+
+```php
+Access::preload($user, 'update', $posts);
+Access::preload($user, Ability::delete(), $posts);
+```
+
+`$control->reachableKeys($reader, Ability::update(), $rows)` returns, in one query, the keys of the rows the reader may act on, in the order of `$rows`:
+
+```php
+$editable = Access::controlFor(Post::class)->reachableKeys($user, Ability::update(), $posts);
+```
+
+The batches hold only what the SQL decides. The in-memory checks still run on every decision, on the row as stored: the perimeters that apply, the in-memory form of the boundary, and the perimeters with a `should` callback or an `includes()` hook. A perimeter checked in memory can grant a row that the batch answered `outside_rows`. A batched answer is therefore always the answer of the row-by-row decision. With a boundary that has no in-memory form, `withAbilities(['view', ...])` or a preload of `view` also gives the `not_found` answers of the other abilities without a query.
+
+A batch is only worth its query while nothing flushes the kept decisions: an Eloquent write for each row while the page renders, such as an access log saved through a model, forgets them, and the next checks query again. Write such logs after the rendering, or through `DB::table()`.
+
 #### Business abilities
 
 A policy declares a business ability, such as `approve` or `attach`, by calling the protected `decide()` helper with the name of its method. The control maps the method to an ability through `abilityFor()`, and the helper returns the same `Response` as the standard methods:
@@ -1171,6 +1210,7 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | A `should` callback that repeats the `query()` of its perimeter | Removed: the row is checked in SQL through the `query()` |
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
 | A brand or tenant read inside the callbacks, with decisions cached by hand | `Access::decisionContextUsing(fn () => ['brand' => ...])`, read in hooks with `$context->decisionContext()` |
+| `->addSelect(['can_update' => ...])` or a helper that collects the editable keys | `->withAbilities(['update'])`, then `can()`; `Access::preload()` or `reachableKeys()` for loaded rows |
 | `use Searchable` on a controlled model | `use ControlledSearchable`, then reindex |
 | `->scoutQuery(fn ($query, $user) => $query->where('client_id', $user->client_id))` | `->searchKeys(name: 'client', row: fn ($post) => $post->client_id, reader: fn ($user) => $user->client_id)` |
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |

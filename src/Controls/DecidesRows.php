@@ -9,6 +9,8 @@ use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Decisions\DecisionMemo;
 use Lomkit\Access\Decisions\Draft;
+use Lomkit\Access\Decisions\KnownVerdicts;
+use Lomkit\Access\Decisions\MemoizedVerdicts;
 use Lomkit\Access\Decisions\RowCheck;
 use Lomkit\Access\Decisions\StoredRow;
 use Lomkit\Access\Decisions\Verdict;
@@ -19,7 +21,7 @@ trait DecidesRows
 {
     final public function decide(Model $reader, Ability $ability, Model|Draft|null $subject = null): Response
     {
-        $verdict = $this->verdict($reader, $ability, $subject);
+        $verdict = $this->verdict($reader, $ability, $subject, $this->memoizedVerdicts());
 
         if ($verdict === Verdict::OutsideBoundary && $subject instanceof Model && $this->hidesFrom($reader, $ability, $subject)) {
             return Verdict::notFound();
@@ -30,10 +32,10 @@ trait DecidesRows
 
     final public function applies(Model $reader, Ability $ability, Model|Draft|null $subject = null): bool
     {
-        return $this->verdict($reader, $ability, $subject) === Verdict::Granted;
+        return $this->verdict($reader, $ability, $subject, $this->memoizedVerdicts()) === Verdict::Granted;
     }
 
-    private function verdict(Model $reader, Ability $ability, Model|Draft|null $subject): Verdict
+    private function verdict(Model $reader, Ability $ability, Model|Draft|null $subject, KnownVerdicts $known): Verdict
     {
         if ($subject instanceof Model && ! $subject->exists) {
             return Verdict::Unsaved;
@@ -48,16 +50,9 @@ trait DecidesRows
 
         return match (true) {
             $subject instanceof Draft => $this->draftVerdict($subject->model(), $perimeters, $context),
-            $subject instanceof Model => $this->rowVerdict(StoredRow::of($subject), $perimeters, $context),
+            $subject instanceof Model => (new RowCheck($this, $known))->verdict(StoredRow::of($subject), $perimeters, $context),
             default => Verdict::Granted,
         };
-    }
-
-    private function rowVerdict(Model $row, ReachedPerimeters $perimeters, AccessContext $context): Verdict
-    {
-        $memo = Container::getInstance()->make(DecisionMemo::class);
-
-        return (new RowCheck($this, $memo))->verdict($row, $perimeters, $context);
     }
 
     private function draftVerdict(Model $draft, ReachedPerimeters $perimeters, AccessContext $context): Verdict
@@ -76,8 +71,16 @@ trait DecidesRows
         }
 
         $context = AccessContext::of($reader, Ability::view());
-        $boundary = $this->declaration()->boundary();
 
-        return ! $boundary->applyAdmits($context) || ! $boundary->contains(StoredRow::of($row), $context);
+        if (! $this->declaration()->boundary()->applyAdmits($context)) {
+            return true;
+        }
+
+        return ! (new RowCheck($this, $this->memoizedVerdicts()))->boundaryContains(StoredRow::of($row), $context);
+    }
+
+    private function memoizedVerdicts(): MemoizedVerdicts
+    {
+        return new MemoizedVerdicts(Container::getInstance()->make(DecisionMemo::class));
     }
 }

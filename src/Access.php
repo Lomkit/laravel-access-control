@@ -9,7 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Facade;
 use Lomkit\Access\Decisions\DecisionContextResolver;
 use Lomkit\Access\Decisions\DecisionFlushes;
+use Lomkit\Access\Decisions\Preloader;
 use Lomkit\Access\Exceptions\AdminSearchTokenKeyException;
+use Lomkit\Access\Exceptions\InvalidAbilityException;
+use Lomkit\Access\Exceptions\InvalidBatchRowException;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
 use Lomkit\Access\Exceptions\MismatchedSearchTokenKeyException;
 use Lomkit\Access\Exceptions\MissingControlException;
@@ -80,6 +83,20 @@ final class Access extends Facade
         Container::getInstance()
             ->make(DecisionContextResolver::class)
             ->use($resolver);
+    }
+
+    /**
+     * @param  iterable<Model>  $rows
+     *
+     * @throws InvalidBatchRowException When a row is not an Eloquent model.
+     * @throws MissingControlException When no control is registered for the model of a row.
+     * @throws InvalidAbilityException When the control cannot map the ability.
+     */
+    public static function preload(Model $reader, Ability|string $ability, iterable $rows): void
+    {
+        Container::getInstance()
+            ->make(Preloader::class)
+            ->preload($reader, $ability, $rows);
     }
 
     public static function forgetDecisions(): void
