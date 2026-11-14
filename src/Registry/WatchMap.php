@@ -9,29 +9,14 @@ use Lomkit\Access\Search\UsesControlledSearchable;
 /** @internal */
 final readonly class WatchMap
 {
-    private const string WATCHERS = 'watchers';
-
-    private const string VERSIONS = 'versions';
-
-    /**
-     * @param  array<string, list<string>>  $watchers
-     * @param  array<string, int>  $versions
-     */
-    private function __construct(
-        private array $watchers,
-        private array $versions,
-    ) {}
+    /** @param  array<string, list<string>>  $watchers */
+    private function __construct(private array $watchers) {}
 
     public static function of(ControlRegistry $registry, ControlMap $controls): self
     {
         $watchers = [];
-        $versions = [];
 
         foreach ($controls->toArray() as $model => $control) {
-            if (ConcreteControl::is($control)) {
-                $versions[$control] = ControlVersion::of($control);
-            }
-
             if (! self::watchable($model, $control)) {
                 continue;
             }
@@ -43,42 +28,24 @@ final readonly class WatchMap
             }
         }
 
-        return new self($watchers, $versions);
+        return new self($watchers);
     }
 
     public static function fromCache(mixed $cached): ?self
     {
-        if (! is_array($cached) || ! is_array($cached[self::WATCHERS] ?? null) || ! is_array($cached[self::VERSIONS] ?? null)) {
+        if (! is_array($cached)) {
             return null;
         }
 
         $watchers = [];
-        $versions = [];
 
-        foreach ($cached[self::WATCHERS] as $model => $controls) {
+        foreach ($cached as $model => $controls) {
             if (is_string($model) && is_array($controls)) {
                 $watchers[$model] = array_values(array_filter($controls, is_string(...)));
             }
         }
 
-        foreach ($cached[self::VERSIONS] as $control => $version) {
-            if (is_string($control) && is_int($version)) {
-                $versions[$control] = $version;
-            }
-        }
-
-        return new self($watchers, $versions);
-    }
-
-    public function isCurrent(): bool
-    {
-        foreach ($this->versions as $control => $version) {
-            if (! class_exists($control) || ControlVersion::of($control) !== $version) {
-                return false;
-            }
-        }
-
-        return true;
+        return new self($watchers);
     }
 
     /** @return list<string> */
@@ -105,10 +72,10 @@ final readonly class WatchMap
         return true;
     }
 
-    /** @return array{watchers: array<string, list<string>>, versions: array<string, int>} */
+    /** @return array<string, list<string>> */
     public function toArray(): array
     {
-        return [self::WATCHERS => $this->watchers, self::VERSIONS => $this->versions];
+        return $this->watchers;
     }
 
     /** @phpstan-assert-if-true class-string<Control> $control */

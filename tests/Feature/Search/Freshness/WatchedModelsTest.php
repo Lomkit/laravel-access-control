@@ -6,13 +6,11 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Queue;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\UnwatchableReindexException;
-use Lomkit\Access\Registry\ControlVersion;
 use Lomkit\Access\Search\Freshness\ReindexWatchedRows;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Search\ArchiveFolder;
 use Lomkit\Access\Tests\Fixtures\Search\Folder;
 use Lomkit\Access\Tests\Fixtures\Search\FreshnessTestCase;
-use Lomkit\Access\Tests\Fixtures\Search\NoticeControl;
 use Lomkit\Access\Tests\Fixtures\Search\Page;
 use Lomkit\Access\Tests\Fixtures\Search\Watched\PageControl;
 use PHPUnit\Framework\Attributes\Group;
@@ -103,9 +101,7 @@ class WatchedModelsTest extends FreshnessTestCase
 
         $cached = require $this->watchedCachePath();
 
-        $this->assertSame([Folder::class => [PageControl::class]], $cached['watchers']);
-        $this->assertSame(ControlVersion::of(PageControl::class), $cached['versions'][PageControl::class]);
-        $this->assertArrayHasKey(NoticeControl::class, $cached['versions']);
+        $this->assertSame([Folder::class => [PageControl::class]], $cached);
     }
 
     #[Test]
@@ -121,7 +117,7 @@ class WatchedModelsTest extends FreshnessTestCase
     #[Test]
     public function it_refuses_a_control_whose_reindex_the_cached_watch_map_does_not_know(): void
     {
-        $this->writeWatchedCache([], [PageControl::class => $this->versionOf(PageControl::class)]);
+        $this->writeWatchedCache([]);
         $this->forgetRegistry();
 
         $this->expectException(UnwatchableReindexException::class);
@@ -142,24 +138,11 @@ class WatchedModelsTest extends FreshnessTestCase
     }
 
     #[Test]
-    public function it_builds_the_watch_map_again_when_a_cached_control_changed_since_the_cache(): void
-    {
-        $folder = $this->folder($this->acme);
-        $page = $this->page($folder);
-        $this->writeWatchedCache([], [PageControl::class => $this->versionOf(PageControl::class) - 1]);
-        $this->startFreshProcess();
-
-        $folder->update(['client_id' => $this->globex->getKey()]);
-
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->pageAccess($page));
-    }
-
-    #[Test]
     public function it_builds_the_watch_map_again_from_a_cache_it_cannot_read(): void
     {
         $folder = $this->folder($this->acme);
         $page = $this->page($folder);
-        File::put($this->watchedCachePath(), '<?php return [\'watchers\' => []];'.PHP_EOL);
+        File::put($this->watchedCachePath(), '<?php return \'unreadable\';'.PHP_EOL);
         $this->startFreshProcess();
 
         $folder->update(['client_id' => $this->globex->getKey()]);
@@ -167,31 +150,45 @@ class WatchedModelsTest extends FreshnessTestCase
         $this->assertSame(["client.{$this->globex->getKey()}"], $this->pageAccess($page));
     }
 
-    /**
-     * @param  array<string, list<string>>  $watchers
-     * @param  array<string, int>  $versions
-     */
-    protected function writeWatchedCache(array $watchers, array $versions): void
+    /** @param  array<string, list<string>>  $watchers */
+    protected function writeWatchedCache(array $watchers): void
     {
-        File::put($this->watchedCachePath(), '<?php return '.var_export(['watchers' => $watchers, 'versions' => $versions], true).';'.PHP_EOL);
-    }
-
-    /** @param  class-string  $control */
-    protected function versionOf(string $control): int
-    {
-        return ControlVersion::of($control);
+        File::put($this->watchedCachePath(), '<?php return '.var_export($watchers, true).';'.PHP_EOL);
     }
 
     #[Test]
     public function it_refuses_a_cached_watcher_that_is_no_longer_a_control(): void
     {
         $folder = $this->folder($this->acme);
-        $this->writeWatchedCache([Folder::class => ['App\\Access\\Controls\\GoneControl']], []);
+        $this->writeWatchedCache([Folder::class => ['App\\Access\\Controls\\GoneControl']]);
         $this->startFreshProcess();
 
         $this->expectException(UnwatchableReindexException::class);
         $this->expectExceptionMessage('The [App\\Access\\Controls\\GoneControl] control declares a reindexWhen() that the access cache does not know');
 
         $folder->update(['client_id' => $this->globex->getKey()]);
+    }
+
+    #[Test]
+    public function it_trusts_the_cached_watch_map_without_loading_any_control_for_a_model_nobody_watches(): void
+    {
+        $unloaded = 'Lomkit\\Access\\Tests\\Fixtures\\Search\\Unloaded\\NeverLoadedControl';
+        $this->writeWatchedCache([Folder::class => [$unloaded]]);
+        $this->startFreshProcess();
+        $requested = [];
+        $recorder = function (string $class) use (&$requested): void {
+            $requested[] = $class;
+        };
+        spl_autoload_register($recorder, prepend: true);
+
+        try {
+            $this->ada->update(['name' => 'Ada Lovelace']);
+        } finally {
+            spl_autoload_unregister($recorder);
+        }
+
+        $this->assertNotContains($unloaded, $requested);
+        $this->assertSame([], array_values(array_filter($requested, fn (string $class): bool => str_ends_with($class, 'Control'))));
+        $this->assertSame(0, PageControl::$declarations);
     }
 }

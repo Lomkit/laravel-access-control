@@ -86,7 +86,7 @@ final class ControlRegistry
      */
     public function controlsWatching(Model $instance): array
     {
-        $this->watched ??= $this->currentCachedWatchMap() ?? $this->watchMap();
+        $this->watched ??= $this->cache->readWatched() ?? $this->watchMap();
 
         return $this->watched->controlsWatching($instance);
     }
@@ -182,15 +182,8 @@ final class ControlRegistry
             throw UnwatchableReindexException::unsearchable($control, $instance->getModel());
         }
 
-        if ($this->currentCachedWatchMap()?->covers($control, $watched) === false) {
+        if ($this->cache->readWatched()?->covers($control, $watched) === false) {
             throw UnwatchableReindexException::staleCache($control);
         }
-    }
-
-    private function currentCachedWatchMap(): ?WatchMap
-    {
-        $cached = $this->cache->readWatched();
-
-        return $cached?->isCurrent() === true ? $cached : null;
     }
 }
