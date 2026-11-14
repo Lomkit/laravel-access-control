@@ -61,6 +61,7 @@ class HasControlScope implements Scope
      * @param  Builder<covariant Model>  $builder  The Eloquent query builder instance.
      * @param  Model  $model  The related model instance (unused in this method).
      */
+    #[\Override]
     public function apply(Builder $builder, Model $model): void
     {
         if (config('access-control.queries.enabled_by_default', false)) {

@@ -42,6 +42,7 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Get the stub file for the generator.
      */
+    #[\Override]
     protected function getStub(): string
     {
         return $this->resolveStubPath('/stubs/control.stub');
@@ -62,6 +63,7 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * @param  string  $rootNamespace
      */
+    #[\Override]
     protected function getDefaultNamespace($rootNamespace): string
     {
         return $rootNamespace.'\Access\Controls';
@@ -72,6 +74,7 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * @param  string  $name
      */
+    #[\Override]
     protected function buildClass($name): string
     {
         $rootNamespace = $this->rootNamespace();
@@ -174,6 +177,7 @@ class ControlMakeCommand extends GeneratorCommand
      *
      * @return list<array{string, string, int, string}>
      */
+    #[\Override]
     protected function getOptions(): array
     {
         return [
@@ -185,6 +189,7 @@ class ControlMakeCommand extends GeneratorCommand
     /**
      * Interact further with the user if they were prompted for missing arguments.
      */
+    #[\Override]
     protected function afterPromptingForMissingArguments(InputInterface $input, OutputInterface $output): void
     {
         if ($this->didReceiveOptions($input)) {
