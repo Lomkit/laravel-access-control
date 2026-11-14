@@ -15,6 +15,6 @@ class Blog implements Fixture
     #[\Override]
     public function controls(): array
     {
-        return [PostControl::class];
+        return [PostControl::class, UserControl::class];
     }
 }

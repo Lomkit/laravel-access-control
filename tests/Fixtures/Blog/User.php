@@ -9,11 +9,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Lomkit\Access\Controls\HasControl;
 
 #[Unguarded]
 #[UseFactory(UserFactory::class)]
 class User extends Authenticatable
 {
+    use HasControl;
     use HasFactory;
 
     public function client(): BelongsTo

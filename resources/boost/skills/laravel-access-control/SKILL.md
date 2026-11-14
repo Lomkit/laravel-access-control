@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls, Perimeters, ControlledPolicy, the controlled()/uncontrolled() query macros, and Scout integration.
+description: Build and work with Lomkit Access Control features in Laravel, including Controls, Perimeters, ControlledPolicy, the controlled(), controlledFor() and uncontrolled() query scopes, and Scout integration.
 ---
 
 # Laravel Access Control
@@ -12,10 +12,10 @@ Use this skill when working with Lomkit Access Control in a Laravel project that
 - Writes or modifies a `Policy` and wants authorization centralized in a single class.
 - Needs row-level filtering on Eloquent queries (multi-tenant, per-client, per-team, ownership).
 - Runs `php artisan make:control` or `php artisan make:perimeter`.
-- Mentions `Control`, `Perimeter`, `OverlayPerimeter`, `ControlledPolicy`, `HasControl`, `controlled()`, or `uncontrolled()`.
+- Mentions `Control`, `Perimeter`, `OverlayPerimeter`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
 - Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules.
 
-Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, check whether `config/access-control.php` exists; if not, recommend `php artisan vendor:publish --tag=access-control-config`. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
+Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that `config/access-control.php` only maps Gate methods to perimeter methods: publish it with `php artisan vendor:publish --tag=access-control-config` only to change that map. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
 
 ## Features
 
@@ -68,15 +68,19 @@ class PostControl extends Control
 }
 ```
 
-- HasControl trait: boots `HasControlScope`, which registers the `controlled()` and `uncontrolled()` macros on the model's **Eloquent** query builder, and exposes the model's Control via `newControl()`. The Scout `controlled()` macro is registered independently by `AccessServiceProvider` whenever Laravel Scout is installed (see Laravel Scout integration below); `uncontrolled()` is Eloquent-only. Example usage:
+- HasControl trait: adds three local scopes, declared with Laravel's `#[Scope]` attribute, and exposes the model's Control via `newControl()`. A query is never controlled unless it says so: `controlled()` applies the control for `Auth::user()`, read when the query is built; `controlledFor($reader)` applies it for a reader you name, for jobs, listeners and commands, which have no signed-in user; `uncontrolled()` states that the query reads every row on purpose. Without a signed-in user, `controlled()` reads nothing, and so does `controlledFor(null)`. The perimeters are grouped in one nested `where`, so the caller's own constraints are never widened. The trait also registers `HasControlScope` as a global scope that filters nothing; the three scopes remove it, and `withoutGlobalScope(HasControlScope::class)` still works. Each scope works on relations and subqueries too. The Scout `controlled()` macro is registered independently by `AccessServiceProvider` whenever Laravel Scout is installed (see Laravel Scout integration below); `controlledFor()` and `uncontrolled()` are Eloquent-only. Example usage:
 
 ```php
 use Lomkit\Access\Controls\HasControl;
 
 class Post extends Model { use HasControl; }
 
-Post::controlled()->get();    // applies perimeter queries for Auth::user()
-Post::uncontrolled()->get();  // bypasses access control (admin tools, jobs, seeds)
+Post::controlled()->get();                      // the perimeters of Auth::user()
+Post::where('published', true)->controlled();   // published and within the perimeters
+Post::controlledFor($recipient)->get();         // the perimeters of $recipient (jobs, listeners)
+$user->posts()->controlled()->get();            // a relation query
+Post::uncontrolled()->count();                  // every row, stated on purpose (stats, seeders)
+Post::query()->get();                           // every row: a plain query is not controlled
 ```
 
 - ControlledPolicy: drop-in policy that delegates every Gate method (`view`, `viewAny`, `create`, `update`, `delete`, `restore`, `forceDelete`) to the Control. `viewAny` and `create` only run `allowed` (no instance to check `should`). Example usage:
@@ -102,22 +106,17 @@ php artisan make:perimeter SharedPerimeter --overlay
 php artisan make:control PostControl --model=Post --perimeters=GlobalPerimeter --perimeters=ClientPerimeter
 ```
 
-- Laravel Scout integration: registers a `controlled()` macro on `Laravel\Scout\Builder` that uses each perimeter's `scoutQuery` closure. Scout only supports equality-style filters, so any field used in `scoutQuery` must be exposed via `toSearchableArray()`. If no perimeter matches, an impossible filter forces an empty result. Example usage:
+- Laravel Scout integration: registers a `controlled()` macro on `Laravel\Scout\Builder` that uses each perimeter's `scoutQuery` closure. Scout only supports equality-style filters, so any field used in `scoutQuery` must be exposed via `toSearchableArray()`. If no perimeter matches, or no user is signed in, the search returns an empty page without querying the engine. Example usage:
 
 ```php
 Post::search('hello')->controlled()->get();
 Post::search('hello')->controlled()->paginate(15);
 ```
 
-- Configuration: `config/access-control.php` controls query behavior and Gate method aliasing. `enabled_by_default` makes every query controlled (use `uncontrolled()` to opt out, including in tests and seeders). `isolate_parent_query` and `isolate_perimeter_queries` prevent perimeter ORs from leaking into the caller's `where` chain. Example usage:
+- Configuration: `config/access-control.php` maps each Gate method to the method its perimeters receive. Example usage:
 
 ```php
 return [
-    'queries' => [
-        'enabled_by_default'        => false,
-        'isolate_parent_query'      => true,
-        'isolate_perimeter_queries' => true,
-    ],
     'methods' => [
         'viewAny' => 'view', 'view' => 'view', 'create' => 'create',
         'update'  => 'update', 'delete' => 'delete',
@@ -133,5 +132,6 @@ return [
   - `should` is skipped for `viewAny`/`create` — use `allowed` for creation-time gates.
   - Scout cannot combine perimeters with OR: when an overlay perimeter and another perimeter both apply, their `scoutQuery` constraints are joined with AND, so a search returns fewer records than the Eloquent query. Search through a single perimeter, or denormalize the access into one indexed field (e.g. a `visible_to` array) and filter on it.
   - `scoutQuery` cannot run `whereHas`/`orWhereNotNull`; denormalize into the indexed payload.
-  - `enabled_by_default: true` also scopes tests and seeders — wrap fixtures in `->uncontrolled()` or disable it in `phpunit.xml`.
-  - Controls may execute `allowed()` twice in `index`-style endpoints (policy + `controlled()` macro); cache it on the user if expensive.
+  - Plain queries, relations, lazy loads and route model binding are never controlled: every query that must be filtered says `controlled()`, or `controlledFor($reader)` where no user is signed in. Authorize a bound model through its policy.
+  - `controlled()` and the Scout macro read `Auth::user()` when they run: do not call them from an event of the user model that the guard fires while it retrieves the user (such as `retrieved`), or the guard is asked for the user again.
+  - Controls may execute `allowed()` twice in `index`-style endpoints (policy + `controlled()` scope); cache it on the user if expensive.
