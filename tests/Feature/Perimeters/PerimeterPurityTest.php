@@ -52,6 +52,14 @@ class PerimeterPurityTest extends PackageTestCase
         Post::factory()->for($warehouse)->for($this->hank, 'author')->createOne(['title' => 'Roadmap']);
     }
 
+    #[\Override]
+    protected function tearDown(): void
+    {
+        $this->app['env'] = 'testing';
+
+        parent::tearDown();
+    }
+
     protected function expectImpure(string $control): void
     {
         $this->expectException(ImpurePerimetersException::class);
