@@ -70,6 +70,16 @@ $posts = Post::controlledFor($recipient)->get();
 
 `controlledFor(null)` reads no row, as `controlled()` does without a signed-in user: a missing reader never means every row.
 
+Both scopes list the `view` rows by default, and take the ability to list as their last argument, a name or an `Ability`. Use it to paginate or count the rows a reader may act on, in one query:
+
+```php
+Post::controlled('update')->paginate();
+Post::controlledFor($user, Ability::delete())->count();
+Comment::whereIn('post_id', Post::controlledFor($user, 'update')->select('id'))->get();
+```
+
+The list is the policy's own resolution for that ability: the perimeters that allow the reader for it, the highest level reached for it in each group, the boundary checked for it (so `readOnlyWhenNotNull('archived_at')` keeps an archived row in the `view` list and leaves it out of the `update` list), and the abilities a `ThroughParent` delegates (a child ability it does not delegate lists nothing). A name goes through `abilityFor()`, so `viewAny` lists `view`, a business ability such as `approve` lists its rows, and a name the control cannot map throws `InvalidAbilityException`. Without a reader, the list is empty whatever the ability. `create` throws `UnlistableAbilityException`, since the policy judges it only on a draft, in memory; a second ability throws `IgnoredArgumentException`: list one ability per query, and decide the others with `withAbilities()`. The list is what the control grants, like the `view` list already was: a rule that an overridden policy method adds, or a `Gate::before()`, does not change it, and `assertControlAgrees()` fails for that ability.
+
 ### Query callbacks
 
 The `query` callback of a perimeter constrains the builder it receives, and its return value is no longer used. Returning nothing is the normal form. A callback that returns the builder it receives, such as an arrow function, keeps working:
@@ -319,7 +329,7 @@ class PostControlTest extends TestCase
 }
 ```
 
-It reads the rows of the `query` callbacks with the `view` ability, not the `allowed` callbacks, and compares them with `not exists` on the key, so a `NULL` in a column cannot hide a missing row. It proves the nesting on the rows of the test only: seed the rows each level reaches.
+It reads the rows of the `query` callbacks with the `view` ability, not the `allowed` callbacks (an ability passed after the readers throws `IgnoredArgumentException`), and compares them with `not exists` on the key, so a `NULL` in a column cannot hide a missing row. It proves the nesting on the rows of the test only: seed the rows each level reaches.
 
 ### Testing the decisions
 
@@ -328,7 +338,7 @@ It reads the rows of the `query` callbacks with the `view` ability, not the `all
 - the Gate row by row, with no decision kept;
 - the Gate after `Access::preload()`;
 - the Gate after `withAbilities()`;
-- for `view`, whether `controlled()` lists the row.
+- for every ability but `create`, whether `controlledFor($reader, $ability)` lists the row.
 
 ```php
 public function test_its_decisions_agree(): void
@@ -339,7 +349,7 @@ public function test_its_decisions_agree(): void
 }
 ```
 
-The abilities default to `view`, `update` and `delete`; pass others as the fourth argument, such as `['view', 'update', 'approve']`. A failure names the reader, then each row key and ability that disagree, with the answer of each path: `granted`, a refusal code, or `denied without a code` when no policy decided. The usual cause is a `should` callback or an `includes()` hook that describes other rows than its `query()`. The rows must be saved rows of the control's model, since a draft is judged only in memory; it proves the agreement on the rows of the test only. The kept decisions are flushed before each path and after the last one.
+The abilities default to `view`, `update` and `delete`; pass others as the fourth argument, such as `['view', 'update', 'approve']`. A failure names the reader, then each row key and ability that disagree, with the answer of each path: `granted`, a refusal code, or `denied without a code` when no policy decided. The usual cause is a `should` callback or an `includes()` hook that describes other rows than its `query()`. A policy method that adds its own rule to an ability, such as an `update()` override that refuses some rows, makes the assertion fail for that ability on purpose: the Gate grants it on fewer rows than `controlled('update')` lists, so move the rule into the control. `create` is compared row by row only, since it is judged on drafts, and `viewAny` too, since it decides without a row. The rows must be saved rows of the control's model, since a draft is judged only in memory; it proves the agreement on the rows of the test only. The kept decisions are flushed before each path and after the last one.
 
 The tests need no reset trait for the kept decisions: they live in a scoped instance of the container, so each test starts with none, and every Eloquent write flushes them. After a write Eloquent does not see, such as `attach()`, call `Access::forgetDecisions()` before the next check.
 
@@ -458,6 +468,8 @@ Post::search('budget')->paginate(25);                  // throws UndeclaredSearc
 ```
 
 Without a signed-in user, with `controlledFor(null)`, or for a reader that no perimeter allows, a controlled search returns an empty page without calling the engine.
+
+A search always finds the rows the reader may view: `controlled()` and `controlledFor()` take no ability, and one given after the reader throws `UnsearchableAbilityException`, as does one given to `Access::searchToken()` or `assertSearchAgrees()`. The search keys of a reader do not depend on the ability, so a search for `update` would be wider than its SQL. Search, then decide the other ability on the results with `reachableKeys()` or `Access::preload()`.
 
 #### Engines
 
@@ -922,6 +934,14 @@ Access::preload($user, Ability::delete(), $posts);
 $editable = Access::controlFor(Post::class)->reachableKeys($user, Ability::update(), $posts);
 ```
 
+To paginate or count the rows a reader may act on, rather than decide the rows of a page, list them with `controlled('update')` (see [Named readers](#named-readers)); `reachableKeys()` stays the way to filter rows that are already loaded. The list keeps no decision: chain `withAbilities()` after it to decide the rows it loads.
+
+```php
+$editable = Post::controlledFor($user, 'update')
+    ->withAbilities(['view', 'delete'])
+    ->paginate();
+```
+
 The batches hold only what the SQL decides. The in-memory checks still run on every decision, on the row as stored: the perimeters that apply, the in-memory form of the boundary, and the perimeters with a `should` callback or an `includes()` hook. A perimeter checked in memory can grant a row that the batch answered `outside_rows`. A batched answer is therefore always the answer of the row-by-row decision. With a boundary that has no in-memory form, `withAbilities(['view', ...])` or a preload of `view` also gives the `not_found` answers of the other abilities without a query.
 
 A batch is only worth its query while nothing flushes the kept decisions: an Eloquent write for each row while the page renders, such as an access log saved through a model, forgets them, and the next checks query again. Write such logs after the rendering, or through `DB::table()`.
@@ -1153,6 +1173,14 @@ A hook receives the reader as `Model`, the type of every reader: a perimeter cla
 
 `Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` tells whether the perimeter applies to the reader for the ability and contains the row, through its hooks or its callbacks. A perimeter without a `should` callback checks the stored row through its `query()`, in one query. Inside a control, `applicablePerimeters(Model $reader, Ability $ability)` returns the perimeters that apply to the reader for the ability: together, they tell which perimeters grant a row.
 
+A perimeter has no query form of its own: a single perimeter, or a single level, evaluated in SQL would ignore the boundary, the other levels and `allowed()`, so it is not an access list, and paginating it leaks across tenants. To act on behalf of someone, or to explain why a row is listed, keep the rule in an object of the application and intersect it with the controlled list:
+
+```php
+Post::controlledFor($principal, 'update')->where(fn (Builder $query) => (new OwnPostsRule)->apply($query, $principal));
+```
+
+The boundary, the levels, `allowed()` and `ThroughParent` are all inside `controlledFor()` by construction, so the rule can only narrow the list, never widen it.
+
 `applyAllowedCallback()`, `applyShouldCallback()` and `applyQueryCallback()` are internal: they take an `AccessContext` and are called by the control. Replace your calls with `admits()`, or with the policy and the controlled queries. `applyScoutQueryCallback()` is removed. `UntypedAbilityHookException` is removed, since `allows()` reads the ability from its context.
 
 ### Perimeter callbacks
@@ -1168,7 +1196,7 @@ OwnPerimeter::new()
     ->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id)),
 ```
 
-As for `allowed`, the parameter must accept an `Ability`, or the declaration throws `AbilityParameterTypeException`. The controlled queries always pass `view`.
+As for `allowed`, the parameter must accept an `Ability`, or the declaration throws `AbilityParameterTypeException`. The controlled queries pass the ability they list: `view`, unless `controlled()` or `controlledFor()` names another one.
 
 An `allowed` or `should` callback must return a boolean: any other value, such as `1`, `'yes'` or nothing, now throws `PerimeterCallbackResultException`, which names the perimeter and the callback, instead of being converted. Return `true` or `false`.
 
@@ -1458,6 +1486,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
 | A brand or tenant read inside the callbacks, with decisions cached by hand | `Access::decisionContextUsing(fn () => ['brand' => ...])`, read in hooks with `$context->decisionContext()` |
 | `->addSelect(['can_update' => ...])` or a helper that collects the editable keys | `->withAbilities(['update'])`, then `can()`; `Access::preload()` or `reachableKeys()` for loaded rows |
+| A home-made editable-posts helper that pages or counts the rows a user may update | `Post::controlled('update')->paginate()`, `Post::controlledFor($user, 'update')->count()` |
 | `perimeterQuery()` on a rest-api resource that calls `controlled()` or `controlledFor()` | Removed: `AccessControlExtension` restricts the rows and provides the perimeter to `rest:check` |
 | `prepareAuthorization()` on a rest-api resource that calls `Access::preload()` | Removed: `AccessControlExtension` preloads the row checks |
 | `->query(fn ($query) => $query->whereHas('post', fn ($posts) => $posts->controlled()))` on a child | `ThroughParent::belongsTo('post', inverse: 'comments')`, with `->delegates([...])` beyond `view` |
