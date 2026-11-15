@@ -285,6 +285,48 @@ jobs:
           TYPESENSE_PROTOCOL: http
           TYPESENSE_API_KEY: lac-ci-api-key
 
+  without-intl:
+
+    runs-on: ubuntu-latest
+
+    name: PHP 8.4 - sqlite - highest - without intl
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # ext-intl is not required, and many PHP images ship without it: Number::format() and the helpers built on it must not be used
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: :intl
+          coverage: none
+
+      - name: Check that intl is absent
+        run: "! php -m | grep -qi '^intl$'"
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php-8.4-highest-without-intl-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            ${{ runner.os }}-php-8.4-highest-without-intl-
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run test suite without intl
+        run: vendor/bin/phpunit
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+
   coverage:
 
     runs-on: ubuntu-latest

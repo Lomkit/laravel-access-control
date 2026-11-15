@@ -39,7 +39,7 @@ final readonly class HumanReport
         $components->twoColumnDetail('cache', $discovery->cached ? 'access:cache is in use' : 'not cached');
         $components->twoColumnDetail('models', $this->listed($discovery->models));
         $components->twoColumnDetail('scout driver', $discovery->driver === null ? 'Scout is not installed' : "{$discovery->driver}, from the config of this environment");
-        $components->twoColumnDetail('pivots', Str::plural('BelongsToMany relation', $this->report->relations, prependCount: true).' with a declared return type scanned');
+        $components->twoColumnDetail('pivots', $this->report->relations.' '.Str::plural('BelongsToMany relation', $this->report->relations).' with a declared return type scanned');
     }
 
     private function renderProblems(Factory $components): void

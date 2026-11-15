@@ -97,7 +97,7 @@ class AccessCheckCommand extends Command
 
         $report->passed()
             ? $this->components->info('No problem found.')
-            : $this->components->error(Str::plural('problem', count($report->problems), prependCount: true).' found.');
+            : $this->components->error(count($report->problems).' '.Str::plural('problem', count($report->problems)).' found.');
     }
 
     private function engineOf(Control $control): ?string
