@@ -1260,6 +1260,68 @@ The check only sees what changes between two builds of the same process. It cann
 
 Read request and tenant state in the callbacks, never in `perimeters()` or in the constructor of a service it captures.
 
+### Checking the controls
+
+`php artisan access:check` builds every discovered control, declares and verifies its perimeters whatever the environment, and reports what would throw, open or hide rows, or leave search documents stale, before production meets it. It lists each control with its model, its levels, the mode of each perimeter (`memory` with a `should()` callback, `sql` without), its boundary, its `ThroughParent` relations and their delegated abilities, and the search engine of a `ControlledSearchable` model. It exits with `1` when it finds a problem, `0` otherwise; notes never change the exit code. Run it in CI with the Scout driver of production (`SCOUT_DRIVER=meilisearch php artisan access:check`): the engine checks use the driver of the environment the command runs in.
+
+```
+  controls  2 built from app/Access/Controls
+  cache ................................................................. not cached
+  models ................................................................ app/Models
+  scout driver ........................ meilisearch, from the config of this environment
+  pivots ............ 1 BelongsToMany relation with a declared return type scanned
+  App\Access\Controls\PostControl  App\Models\Post
+  #1.1 GlobalPerimeter ........................................ memory, unrestricted
+  #1.2 ClientPerimeter .................................... sql, search keys client
+  #2 SharedPerimeter .................................................... memory
+  boundary ...................... Lomkit\Access\Boundaries\ColumnBoundary, memory, searchable
+  search ................ ControlledSearchable on Laravel\Scout\Engines\MeilisearchEngine
+  App\Access\Controls\CommentControl  App\Models\Comment
+  #1 ThroughParent [post] ....... sql, update from the parent's update, view from the parent's view
+  boundary ...................................................................... none
+  search ................................................................ not searchable
+  problems .................................................................. 1 FAILED
+  ⇂ The [App\Access\Perimeters\SharedPerimeter] perimeter of the [App\Access\Controls\PostControl] control declares no search keys, so a reader that only this perimeter reaches finds none of its [App\Models\Post] rows in a controlled text search. Declare searchKeys() on the perimeter, or unrestricted() if it reaches every row
+  notes ........................................................................ none
+
+   ERROR  1 problem found.
+```
+
+Problems:
+
+| Kind | Reported when |
+|---|---|
+| `control_failure` | Building a control, its declaration or the verification of its perimeters throws: impure perimeters, empty or nested levels, a missing callback, a `ThroughParent` on a missing relation, a cycle, a parent without control, an invalid delegation, a duplicate search key name, a control without model. The message quotes the exception. |
+| `duplicate_control` | Two discovered controls, or a discovered control and `#[ControlledBy]`, declare the same model. |
+| `uncontrolled_model` | A model of the scanned directories uses `HasControl` and no control is discovered or declared for it. |
+| `invalid_controlled_by` | `#[ControlledBy]` names a class that is not a control, or the control of another model. |
+| `stale_control_cache` | `bootstrap/cache/access-controls.php` maps the models to other controls than the discovered ones. |
+| `unresolvable_policy` | The Gate throws while it resolves the policy of a controlled model. |
+| `policy_without_control` | The policy of a controlled model extends `ControlledPolicy` without `$control`: `viewAny()` and `create()` without a draft throw `MissingPolicyControlException`. |
+| `policy_for_another_control` | That policy names another control than the one of its model (`PolicyControlMismatchException`). |
+| `plain_searchable` | A controlled model uses Scout's `Searchable` instead of `ControlledSearchable`. |
+| `unsupported_search_engine` | The engine of a `ControlledSearchable` model cannot filter a controlled search: not trusted (`Access::trustSearchEngine()`), the `collection` engine, or an engine that throws when it is built. |
+| `unsearchable_boundary` | On an engine that stores documents, the boundary has no search form. |
+| `perimeter_without_search_keys` | On an engine that stores documents, a perimeter that is neither unrestricted nor a `ThroughParent` declares no `searchKeys()`: the readers it reaches find none of its rows. |
+| `search_freshness` | What would leave documents stale: Scout's `after_commit` off, `makeSearchableUsing()` overridden without `withAccessKeys()`, a relation the search keys read that nothing reindexes. |
+| `pivot_without_using` | A `BelongsToMany` relation reaches the table of a pivot that uses `ReindexesSearch` without `->using()` it: attaching or detaching through it fires no event. |
+
+Notes:
+
+| Kind | Reported when |
+|---|---|
+| `inherited_memory_perimeters` | Two discovered controls or more inherit `perimeters()` from a base class whose perimeters have a `should()` callback, so they all check them in memory. |
+| `policy_outside_control` | The policy of a controlled model does not extend `ControlledPolicy`. |
+| `model_without_policy` | No policy is registered for a controlled model (`Access::registerPolicies()` registers one). |
+
+Options:
+
+- `--json` prints the same report as one JSON document: `passed`, `discovery` (`paths`, `cached`, `models`, `scout_driver`), `controls` (each with `control`, `model`, `perimeters` as `position`, `perimeter`, `mode`, `unrestricted`, `search_keys`, `parent` with `relation` and `delegates`, then `boundary` with `boundary`, `mode`, `searchable`, and `search` with `searchable` and `engine`), `pivots` (`relations`), and `problems` and `notes`, each a list of `kind`, `subject` and `message`.
+- `--only=App\Models\Post` (repeatable, a model or a control class) checks only these controls: their declaration, policy and search. The discovery, the cache and the pivots are always checked. A name that matches no control exits with `2`.
+- `--models=app/Domain/Models` (repeatable) sets the directories scanned for models that use `HasControl` or `#[ControlledBy]`, `app/Models` by default.
+
+The command is read-only: it never writes the discovery cache, runs no query and dispatches no job. It builds the controls, resolves the policies and the Scout engines, and instantiates the `BelongsToMany` relations it scans, without running them. The pivot check only sees the public relation methods that declare a `BelongsToMany` return type (or a subclass, such as `MorphToMany`): a relation method without a return type is not scanned. It cannot tell whether a `should()` callback reads a relation: that is up to the code of the callback.
+
 ### laravel-rest-api
 
 With laravel-rest-api 3.6 or later installed, the package registers `Lomkit\Access\Integrations\RestApi\AccessControlExtension` from the `register()` method of its service provider. The extension is named `access_control`: rest-api prefixes its cache keys with this name. It applies to every rest-api resource whose model has a control, and leaves the others alone. `composer.json` conflicts with laravel-rest-api before 3.6.0, which has no extensions.
@@ -1338,6 +1400,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `Access::$controlDiscoveryPaths = [...]` | `Access::discoverControlsIn([...])` in a service provider's `boot()` |
 | `Access::flush()` | Removed: the registry is a container singleton |
 | `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` | `php artisan access:cache`, `php artisan access:clear` |
+| A misconfigured control found at its first use in production | `php artisan access:check` in CI, with the production Scout driver |
 | `config/access-control.php`, `--tag=access-control-config` | Removed: delete the published file |
 | `config('access-control.methods.view')`, `$this->viewMethod()` | `Ability::view()` (and `create()`, `update()`, `delete()`, `restore()`, `forceDelete()`) |
 | A custom `methods` map | `abilityFor()` overridden on the control |
