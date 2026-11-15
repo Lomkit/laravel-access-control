@@ -12,6 +12,7 @@ final readonly class PerimeterShape
         private bool $unrestricted,
         private array $callbacks,
         private ?SearchKeys $searchKeys,
+        private PerimeterState $state,
     ) {}
 
     public function matches(self $other): bool
@@ -20,7 +21,7 @@ final readonly class PerimeterShape
             return false;
         }
 
-        if (array_keys($this->callbacks) !== array_keys($other->callbacks) || ! $this->sameSearchKeys($other->searchKeys)) {
+        if (array_keys($this->callbacks) !== array_keys($other->callbacks) || ! $this->sameSearchKeys($other->searchKeys) || ! $this->state->matches($other->state)) {
             return false;
         }
 

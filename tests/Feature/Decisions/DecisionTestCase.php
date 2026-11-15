@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Feature\Decisions;
 
+use Closure;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +12,6 @@ use Lomkit\Access\Access;
 use Lomkit\Access\Decisions\DecisionMemo;
 use Lomkit\Access\Decisions\Verdict;
 use Lomkit\Access\Decisions\VerdictRecorder;
-use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\ClientPerimeter;
@@ -59,10 +59,10 @@ abstract class DecisionTestCase extends PackageTestCase
         $this->elsewhere = Post::factory()->for($website)->for($this->ada, 'author')->createOne(['title' => 'Elsewhere', 'workspace_id' => 2]);
     }
 
-    protected function ownInSql(): OwnPerimeter
+    protected function ownInSql(?Closure $allowed = null): OwnPerimeter
     {
         return OwnPerimeter::new()
-            ->allowed(fn (User $user): bool => true)
+            ->allowed($allowed ?? fn (User $user): bool => true)
             ->query(function (Builder $query, User $user): void {
                 $query->where('author_id', $user->getKey());
             });
@@ -73,18 +73,18 @@ abstract class DecisionTestCase extends PackageTestCase
         return $this->ownInSql()->should(fn (User $user, Post $post): bool => $post->author_id === $user->getKey());
     }
 
-    protected function clientInSql(): ClientPerimeter
+    protected function clientInSql(?Closure $allowed = null): ClientPerimeter
     {
         return ClientPerimeter::new()
-            ->allowed(fn (User $user): bool => true)
+            ->allowed($allowed ?? fn (User $user): bool => true)
             ->query(function (Builder $query, User $user): void {
                 $query->whereHas('project', fn (Builder $projects) => $projects->where('client_id', $user->client_id));
             });
     }
 
-    protected function refusing(Perimeter $perimeter): Perimeter
+    protected function refusal(): Closure
     {
-        return $perimeter->allowed(fn (User $user): bool => false);
+        return fn (User $user): bool => false;
     }
 
     protected function inspect(User $reader, string $ability, mixed $subject): Response

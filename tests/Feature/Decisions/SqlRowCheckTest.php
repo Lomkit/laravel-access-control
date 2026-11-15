@@ -49,7 +49,7 @@ class SqlRowCheckTest extends DecisionTestCase
     #[Test]
     public function it_checks_the_queries_of_every_reached_perimeter_in_one_query(): void
     {
-        ConfiguredPostControl::bind($this->ownInSql(), $this->clientInSql(), $this->refusing(SharedPerimeter::new()->query(fn (Builder $query) => $query->whereRaw('1=1'))));
+        ConfiguredPostControl::bind($this->ownInSql(), $this->clientInSql(), SharedPerimeter::new()->allowed($this->refusal())->query(fn (Builder $query) => $query->whereRaw('1=1')));
 
         $queries = $this->queriesWhile(function (): void {
             $this->assertTrue($this->inspect($this->ada, 'update', $this->adaPost)->allowed());
@@ -79,7 +79,7 @@ class SqlRowCheckTest extends DecisionTestCase
     #[Test]
     public function it_refuses_without_sql_when_no_perimeter_applies(): void
     {
-        ConfiguredPostControl::bind($this->refusing($this->ownInSql()));
+        ConfiguredPostControl::bind($this->ownInSql($this->refusal()));
 
         $queries = $this->queriesWhile(function (): void {
             $this->assertSame('no_perimeter', $this->inspect($this->ada, 'update', $this->adaPost)->code());
@@ -220,7 +220,7 @@ class SqlRowCheckTest extends DecisionTestCase
     #[Test]
     public function it_checks_only_the_highest_reached_level_in_sql(): void
     {
-        ConfiguredPostControl::bind(Levels::of($this->refusing($this->clientInSql()), $this->ownInSql()));
+        ConfiguredPostControl::bind(Levels::of($this->clientInSql($this->refusal()), $this->ownInSql()));
 
         $this->assertTrue($this->ada->can('update', $this->adaPost));
         $this->assertFalse($this->ada->can('update', $this->teamPost));
