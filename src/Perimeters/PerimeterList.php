@@ -7,6 +7,7 @@ use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Perimeters\Parents\ParentChain;
+use Lomkit\Access\Perimeters\Parents\ParentStep;
 use Lomkit\Access\Search\SearchKeys;
 
 final readonly class PerimeterList
@@ -74,15 +75,20 @@ final readonly class PerimeterList
         return $parents;
     }
 
-    public function inheritsFromParent(Ability $ability): bool
+    /** @return list<ParentStep> */
+    public function parentSteps(Ability $ability): array
     {
+        $steps = [];
+
         foreach ($this->parents() as $parent) {
-            if ($parent->inherits($ability)) {
-                return true;
+            $step = $parent->stepFor($ability);
+
+            if ($step !== null) {
+                $steps[] = $step;
             }
         }
 
-        return false;
+        return $steps;
     }
 
     /** @return list<SearchKeys> */
