@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Exceptions\InvalidReindexRowsException;
 use Lomkit\Access\Search\Freshness\ReindexRule;
+use Lomkit\Access\Search\Freshness\ReindexWhen;
 use Lomkit\Access\Search\Freshness\WatchedEvent;
 
 /** @internal */
@@ -18,6 +19,14 @@ final readonly class ChildrenReindex implements ReindexRule
         private string $parent,
         private string $inverse,
     ) {}
+
+    /** @param  class-string<Model>  $parent */
+    public function inheritsReindexOf(string $parent): bool
+    {
+        return $this->parentRule instanceof self
+            ? $this->parentRule->inheritsReindexOf($parent)
+            : $this->parentRule instanceof ReindexWhen && $this->parent === $parent;
+    }
 
     #[\Override]
     public function model(): string

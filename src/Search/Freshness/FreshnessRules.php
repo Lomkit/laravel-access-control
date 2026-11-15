@@ -4,6 +4,7 @@ namespace Lomkit\Access\Search\Freshness;
 
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Exceptions\UnsearchableThroughParentException;
+use Lomkit\Access\Search\Parents\ChildrenReindex;
 use Lomkit\Access\Search\Parents\ParentSearch;
 use Lomkit\Access\Search\SearchKeys;
 
@@ -41,7 +42,7 @@ final readonly class FreshnessRules
             $dependencies = [...$dependencies, ...$parent->freshness()];
         }
 
-        return new self(array_merge(...array_values($declared)), $dependencies, $indexed ? $dependencies : $declared);
+        return new self(array_merge(...array_values($declared)), $dependencies, $indexed ? $dependencies : []);
     }
 
     /** @return list<ReindexWhen> */
@@ -66,6 +67,20 @@ final readonly class FreshnessRules
         }
 
         return array_values(array_unique($models));
+    }
+
+    /** @param  class-string<Model>  $parent */
+    public function inheritsReindexOf(string $parent): bool
+    {
+        foreach ($this->watched as $rules) {
+            foreach ($rules as $rule) {
+                if ($rule instanceof ChildrenReindex && $rule->inheritsReindexOf($parent)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public function for(string $name, string $watched): ?ReindexRule

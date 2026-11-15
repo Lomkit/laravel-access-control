@@ -17,6 +17,12 @@ class Forum extends Model
         return $this->belongsTo(Client::class);
     }
 
+    /** @return HasMany<Board, $this> */
+    public function boards(): HasMany
+    {
+        return $this->hasMany(Board::class);
+    }
+
     /** @return HasMany<Thread, $this> */
     public function threads(): HasMany
     {

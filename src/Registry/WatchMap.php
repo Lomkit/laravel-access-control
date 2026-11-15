@@ -79,7 +79,7 @@ final readonly class WatchMap
     }
 
     /** @phpstan-assert-if-true class-string<Control> $control */
-    private static function watchable(string $model, string $control): bool
+    public static function watchable(string $model, string $control): bool
     {
         return class_exists($model)
             && ConcreteControl::is($control)
