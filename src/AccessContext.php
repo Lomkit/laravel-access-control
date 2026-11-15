@@ -30,6 +30,12 @@ final readonly class AccessContext
         return new self($reader, $ability, $decision);
     }
 
+    /** @internal */
+    public function withAbility(Ability $ability): self
+    {
+        return new self($this->reader, $ability, $this->decision);
+    }
+
     public function reader(): Model
     {
         return $this->reader;

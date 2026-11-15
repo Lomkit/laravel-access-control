@@ -2,7 +2,10 @@
 
 namespace Lomkit\Access\Perimeters;
 
+use Illuminate\Container\Container;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Perimeters\Parents\ParentChain;
 use Lomkit\Access\Search\SearchKeys;
 
 final readonly class PerimeterList
@@ -14,6 +17,18 @@ final readonly class PerimeterList
     public function __construct(array $entries)
     {
         $this->entries = array_values($entries);
+    }
+
+    public function boundTo(Control $control): self
+    {
+        return Container::getInstance()
+            ->make(ParentChain::class)
+            ->declaring($control, fn (): self => new self(array_map(
+                fn (Perimeter|Levels $entry): Perimeter|Levels => $entry instanceof Levels
+                    ? Levels::of(...array_map(fn (Perimeter $level): Perimeter => $this->bound($level, $control), $entry->all()))
+                    : $this->bound($entry, $control),
+                $this->entries,
+            )));
     }
 
     public function reachedBy(AccessContext $context): ReachedPerimeters
@@ -97,6 +112,15 @@ final readonly class PerimeterList
             return $other instanceof Levels && $entry->matches($other);
         }
 
-        return $other instanceof Perimeter && $entry->shape()->matches($other->shape());
+        if (! $other instanceof Perimeter || ! $entry->shape()->matches($other->shape())) {
+            return false;
+        }
+
+        return ! $entry instanceof ThroughParent || ($other instanceof ThroughParent && $entry->sameDeclarationAs($other));
+    }
+
+    private function bound(Perimeter $perimeter, Control $control): Perimeter
+    {
+        return $perimeter instanceof ThroughParent ? $perimeter->boundTo($control) : $perimeter;
     }
 }

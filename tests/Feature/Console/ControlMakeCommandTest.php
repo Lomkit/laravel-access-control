@@ -3,10 +3,12 @@
 namespace Lomkit\Access\Tests\Feature\Console;
 
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
+use Lomkit\Access\Tests\Fixtures\Blog\Comment;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -188,6 +190,46 @@ class ControlMakeCommandTest extends PackageTestCase
             'protected string $model = \\Lomkit\\Access\\Tests\\Fixtures\\Blog\\Comment::class;',
             File::get(app_path('Access/Controls/CommentControl.php')),
         );
+    }
+
+    #[Test]
+    public function it_generates_a_through_parent_entry_for_each_parent_before_the_perimeters(): void
+    {
+        $this->artisan('make:control', ['name' => 'CommentControl', '--model' => Comment::class, '--parent' => ['post', 'author'], '--perimeters' => ['AuditPerimeter']])->assertOk();
+
+        $source = File::get(app_path('Access/Controls/CommentControl.php'));
+
+        $this->assertStringContainsString("return [\n            \\Lomkit\\Access\\Perimeters\\ThroughParent::belongsTo('post'),\n            \\Lomkit\\Access\\Perimeters\\ThroughParent::belongsTo('author'),\n            \\App\\Access\\Perimeters\\AuditPerimeter::new()\n", $source);
+        $this->assertValidPhp(app_path('Access/Controls/CommentControl.php'));
+    }
+
+    #[Test]
+    public function it_generates_a_control_that_inherits_the_access_of_the_parent(): void
+    {
+        $this->artisan('make:control', ['name' => 'CommentControl', '--model' => Comment::class, '--parent' => ['post']])->assertOk();
+        require_once app_path('Access/Controls/CommentControl.php');
+        Gate::define('view own posts', fn (User $user): bool => true);
+        $reader = $this->reader();
+        $post = Post::factory()->for(Project::factory()->for($reader->client))->for($reader, 'author')->createOne(['title' => 'Draft', 'workspace_id' => $reader->current_workspace_id]);
+        Comment::factory()->for($post)->for($reader, 'author')->createOne(['body' => 'Looks good to me']);
+        Comment::factory()->createOne(['body' => 'Elsewhere']);
+
+        $this->assertSame(['Looks good to me'], Comment::controlledFor($reader)->pluck('body')->all());
+    }
+
+    #[Test]
+    public function it_refuses_a_parent_that_is_not_a_belongs_to_of_the_model(): void
+    {
+        foreach (['body', 'nothing', "post'), evil('"] as $relation) {
+            $this->artisan('make:control', ['name' => 'CommentControl', '--model' => Comment::class, '--parent' => [$relation]])
+                ->expectsOutputToContain(sprintf('The [%s] relation is not a belongsTo of the [%s] model.', $relation, Comment::class))
+                ->assertFailed();
+        }
+
+        $this->artisan('make:control', ['name' => 'CommentControl', '--model' => Post::class, '--parent' => ['comments']])
+            ->expectsOutputToContain(sprintf('The [comments] relation is not a belongsTo of the [%s] model.', Post::class))
+            ->assertFailed();
+        $this->assertFileDoesNotExist(app_path('Access/Controls/CommentControl.php'));
     }
 
     #[Test]

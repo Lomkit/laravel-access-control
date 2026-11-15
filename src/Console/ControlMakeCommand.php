@@ -37,6 +37,18 @@ class ControlMakeCommand extends GeneratorCommand
             return self::FAILURE;
         }
 
+        foreach ($this->parents() as $parent) {
+            if (! $parent->isBelongsToOf($model)) {
+                $this->components->error(sprintf(
+                    'The [%s] relation is not a belongsTo of the [%s] model. --parent names the belongsTo relation the rows inherit their access from, such as --parent=post.',
+                    $parent->relation(),
+                    $model,
+                ));
+
+                return self::FAILURE;
+            }
+        }
+
         return parent::handle();
     }
 
@@ -62,7 +74,7 @@ class ControlMakeCommand extends GeneratorCommand
     #[\Override]
     protected function buildClass($name): string
     {
-        $replace = (new ControlStubReplacements($this->controlledModel(), $this->perimeterClasses()))->toArray();
+        $replace = (new ControlStubReplacements($this->controlledModel(), $this->perimeterClasses(), $this->parents()))->toArray();
 
         if (file_exists($this->getPath("{$this->rootNamespace()}Access\Controls\Control"))) {
             $replace['use Lomkit\Access\Controls\Control;'] = '';
@@ -101,13 +113,25 @@ class ControlMakeCommand extends GeneratorCommand
         ));
     }
 
-    /** @return list<array{string, string, int, string}> */
+    /** @return list<GeneratedParent> */
+    protected function parents(): array
+    {
+        $parents = $this->option('parent');
+
+        return array_values(array_map(
+            fn (string $relation): GeneratedParent => new GeneratedParent($relation),
+            array_filter(is_array($parents) ? $parents : [], is_string(...)),
+        ));
+    }
+
+    /** @return list<array{string, string|null, int, string}> */
     #[\Override]
     protected function getOptions(): array
     {
         return [
             ['perimeters', 'p', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'The perimeters that the control relies on'],
             ['model', 'm', InputOption::VALUE_REQUIRED, 'The model the control relies on, named after the control by default'],
+            ['parent', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'The belongsTo relations the rows inherit their access from'],
         ];
     }
 
