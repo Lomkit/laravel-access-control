@@ -27,6 +27,31 @@ class RestCheckTest extends RestApiTestCase
     }
 
     #[Test]
+    public function it_provides_the_perimeter_of_the_controlled_resources(): void
+    {
+        [$code, $report] = $this->restCheck();
+
+        $this->assertSame(0, $code);
+        $this->assertSame([], $report['rows']['problems']);
+        $this->assertSame([], $report['rows']['without_perimeter']);
+        $this->assertContains(['resource' => PostResource::class, 'extensions' => [AccessControlExtension::name()]], $report['rows']['extension_perimeter']);
+        $this->assertContains(['resource' => CommentResource::class, 'extensions' => [AccessControlExtension::name()]], $report['rows']['extension_perimeter']);
+    }
+
+    #[Test]
+    public function it_leaves_every_row_visible_to_rest_check_once_the_extension_is_disabled(): void
+    {
+        config(['rest.disabled_extensions' => [AccessControlExtension::class]]);
+
+        [$code, $report] = $this->restCheck();
+
+        $this->assertSame(1, $code);
+        $this->assertSame([], $report['rows']['extension_perimeter']);
+        $this->assertCount(4, $report['rows']['problems']);
+        $this->assertStringContainsString(PostResource::class, implode("\n", $report['rows']['problems']));
+    }
+
+    #[Test]
     public function it_reports_a_control_that_cannot_be_built(): void
     {
         ConfiguredCommentControl::bind(ThroughParent::belongsTo('body'));

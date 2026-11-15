@@ -11,9 +11,9 @@ use Lomkit\Rest\Extensions\Extension;
 use Lomkit\Rest\Extensions\Kinds\ChecksResources;
 use Lomkit\Rest\Extensions\Kinds\ContributesCacheContext;
 use Lomkit\Rest\Extensions\Kinds\PreparesRowChecks;
-use Lomkit\Rest\Extensions\Kinds\RestrictsQueries;
+use Lomkit\Rest\Extensions\Kinds\ProvidesPerimeter;
 
-class AccessControlExtension extends Extension implements ChecksResources, ContributesCacheContext, PreparesRowChecks, RestrictsQueries
+class AccessControlExtension extends Extension implements ChecksResources, ContributesCacheContext, PreparesRowChecks, ProvidesPerimeter
 {
     #[\Override]
     public static function name(): string

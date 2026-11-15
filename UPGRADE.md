@@ -1269,9 +1269,9 @@ With laravel-rest-api 3.6 or later installed, the package registers `Lomkit\Acce
 - Row checks: before the policies check rows for an ability, the extension preloads the decisions of these rows (`Access::preload()`), so the gates of a page cost one query per ability, not one per row and ability. It decides nothing and changes no row: the policy still decides each row. The ability goes through `abilityFor()` of the control, as in `ControlledPolicy`, so a business gate such as `approve` is preloaded too.
 - Kept decisions: rest-api keeps the decisions of the abilities that a resource lists in `authorizationCache()`. The extension adds a hash of the decision context (`Access::decisionContextUsing()`) to their key, so a decision kept for one tenant is never read for another. rest-api files a kept decision under the `updated_at` of the row, which a change of its parent does not touch, so the extension keeps no decision of an ability that a `ThroughParent` delegates to the parent: these decisions are made in each request. A perimeter that reads another table through its `query()` keeps the duration of `authorizationCache()`: shorten it, or call `Rest::forgetAuthorizations()` when that table changes.
 - Columns: rest-api loads the columns of the fields and of `alwaysSelect()`, and a policy that reads another column throws `MissingColumnException`. List in `alwaysSelect()` the columns that the control reads in memory: the column and the read-only columns of the boundary, the columns of the `should()` callbacks, and `updated_at` for the kept decisions.
-- `php artisan rest:check` lists the extension, with origin `runtime`, and reports a control that cannot be built. rest-api itself reports a model without a policy: call `Access::registerPolicies()` or give the model a policy.
+- `php artisan rest:check` lists the extension, with origin `runtime`, and accepts a controlled resource without `perimeterQuery()` or `#[WithoutPerimeter]`: the extension provides its perimeter (`perimeter from access_control`, the `rows.extension_perimeter` key of `--json`). It reports a control that cannot be built. rest-api itself reports a model without a policy: call `Access::registerPolicies()` or give the model a policy. `rest:check` reads the config of its environment: where the extension is disabled, it reports again every resource without a perimeter.
 
-Remove the controls from the `perimeterQuery()` of your resources. A resource whose `perimeterQuery()` only applied the control marks the class with `#[WithoutPerimeter]` instead, or `rest:check` reports that every row is visible:
+Remove the controls from the `perimeterQuery()` of your resources. A resource whose `perimeterQuery()` only applied the control loses the method, and needs no `#[WithoutPerimeter]`:
 
 ```php
 // Before
@@ -1284,9 +1284,6 @@ class PostResource extends Resource
 }
 
 // After
-use Lomkit\Rest\Attributes\WithoutPerimeter;
-
-#[WithoutPerimeter]
 class PostResource extends Resource
 {
 }
@@ -1362,7 +1359,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
 | A brand or tenant read inside the callbacks, with decisions cached by hand | `Access::decisionContextUsing(fn () => ['brand' => ...])`, read in hooks with `$context->decisionContext()` |
 | `->addSelect(['can_update' => ...])` or a helper that collects the editable keys | `->withAbilities(['update'])`, then `can()`; `Access::preload()` or `reachableKeys()` for loaded rows |
-| `perimeterQuery()` on a rest-api resource that calls `controlled()` or `controlledFor()` | Removed: `AccessControlExtension` restricts the rows; mark the resource `#[WithoutPerimeter]` |
+| `perimeterQuery()` on a rest-api resource that calls `controlled()` or `controlledFor()` | Removed: `AccessControlExtension` restricts the rows and provides the perimeter to `rest:check` |
 | `prepareAuthorization()` on a rest-api resource that calls `Access::preload()` | Removed: `AccessControlExtension` preloads the row checks |
 | `->query(fn ($query) => $query->whereHas('post', fn ($posts) => $posts->controlled()))` on a child | `ThroughParent::belongsTo('post', inverse: 'comments')`, with `->delegates([...])` beyond `view` |
 | A test that compares `can()` with `controlled()` by hand | `assertControlAgrees(PostControl::class, $reader, $rows)` |
