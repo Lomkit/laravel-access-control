@@ -9,7 +9,6 @@ use Lomkit\Access\Search\SearchEngineKind;
 use Lomkit\Access\Search\TrustedSearchEngines;
 use Lomkit\Access\Search\UsesControlledSearchable;
 use Lomkit\Rest\Extensions\Contexts\ResourceCheckContext;
-use Lomkit\Rest\Http\Resource;
 use Lomkit\Rest\Text\ScoutEngine;
 
 /** @internal */
@@ -17,13 +16,11 @@ final readonly class SearchChecks
 {
     public function check(ResourceCheckContext $context): void
     {
-        $resource = Container::getInstance()->make($context->resource);
-
-        if (! $resource instanceof Resource || ! $resource->text() instanceof ScoutEngine) {
+        if (! $context->resource->text() instanceof ScoutEngine) {
             return;
         }
 
-        $model = $resource::newModel();
+        $model = $context->resource::newModel();
 
         if (! method_exists($model, 'searchableUsing')) {
             return;
