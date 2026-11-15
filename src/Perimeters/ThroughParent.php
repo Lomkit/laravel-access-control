@@ -16,6 +16,7 @@ use Lomkit\Access\Exceptions\ParentCycleException;
 use Lomkit\Access\Exceptions\ThroughParentCallbackException;
 use Lomkit\Access\Perimeters\Parents\Delegation;
 use Lomkit\Access\Perimeters\Parents\ParentLink;
+use Lomkit\Access\Perimeters\Parents\ParentStep;
 use Lomkit\Access\Search\Parents\ParentSearch;
 
 final class ThroughParent extends Perimeter
@@ -126,6 +127,14 @@ final class ThroughParent extends Perimeter
         }
 
         return $parent->ability()->name().':'.$this->link()->control()->declaration()->reachedBy($parent)->fingerprint($parent);
+    }
+
+    /** @internal */
+    public function stepFor(Ability $ability): ?ParentStep
+    {
+        $parent = $this->delegation()->parentAbilityFor($ability);
+
+        return $parent === null ? null : $this->link()->stepFor($parent);
     }
 
     /** @internal */

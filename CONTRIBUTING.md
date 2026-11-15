@@ -65,7 +65,7 @@ Laravel Scout is a development dependency, and the package must work without it.
 ```bash
 composer remove --dev laravel/scout --no-update
 composer update
-vendor/bin/phpunit --exclude-group scout --exclude-group meilisearch --exclude-group typesense
+vendor/bin/phpunit --exclude-group scout --exclude-group meilisearch --exclude-group typesense --exclude-group rest-api
 git checkout composer.json
 composer update
 ```
@@ -96,6 +96,17 @@ git checkout composer.json
 composer update
 ```
 
+laravel-rest-api is only suggested. The `rest-api` group holds the tests of the extension in `src/Integrations/RestApi`, and `phpunit.xml` leaves it out. The CI runs it in its own job. To run it, add laravel-rest-api, then run the suite and the group:
+
+```bash
+composer require-rest-api
+composer update
+composer test
+vendor/bin/phpunit --group rest-api
+git checkout composer.json
+composer update
+```
+
 The tests run in a random order. A test that passes alone and fails in the suite depends on state that another test left behind: fix the test, not the order. PHPUnit prints the seed of each run, and `vendor/bin/phpunit --order-by=random --random-order-seed=<seed>` replays it.
 
 Add a test for each bug fix and each new feature.
@@ -113,6 +124,7 @@ Write new tests in `tests/Feature` or `tests/Unit`:
 - A test class that touches Laravel Scout carries `#[Group('scout')]` on the class. Each concrete class needs the attribute, because PHPUnit does not inherit it. A search test extends `tests/Fixtures/Search/SearchTestCase.php`, which adds `ScoutServiceProvider` and the in-memory engine, whose `searches` lists the searches that reached it. A test of the `database` engine sets `#[WithConfig('scout.driver', 'database')]`; the `collection` driver that `PackageTestCase` sets refuses controlled searches.
 - A search engine test carries `#[Group('scout')]` and the group of its engine, and extends `tests/Fixtures/Search/EngineTestCase.php`.
 - A test class that does not touch Scout never loads the `Search` fixture, so that it runs in the job without Scout.
+- A test of the laravel-rest-api extension carries `#[Group('rest-api')]` on the class and extends `tests/Feature/RestApi/RestApiTestCase.php`, which adds `RestServiceProvider` and the routes of `tests/Fixtures/RestApi`.
 
 Pure unit tests that need neither the container nor the database extend PHPUnit's `TestCase`.
 
@@ -148,6 +160,8 @@ composer analyse
 ```
 
 The analysis also requires native type coverage of 100 % in `src` for returns, parameters, properties and constants, with [type-coverage](https://github.com/TomasVotruba/type-coverage). A PHPDoc type does not count.
+
+The analysis covers `src/Integrations/RestApi`, which needs laravel-rest-api: run `composer require-rest-api` and `composer update` first, as the CI does.
 
 The analysis has no baseline: fix an error instead of ignoring it.
 

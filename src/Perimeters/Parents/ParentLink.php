@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
@@ -20,6 +21,8 @@ final readonly class ParentLink
     private function __construct(
         private string $relation,
         private Control $parent,
+        private string $foreignKey,
+        private string $ownerKey,
     ) {}
 
     /**
@@ -44,12 +47,17 @@ final readonly class ParentLink
         $control = Access::controlFor($parent);
         $control->declaration();
 
-        return new self($relation, $control);
+        return new self($relation, $control, $belongsTo->getForeignKeyName(), $belongsTo->getOwnerKeyName());
     }
 
     public function control(): Control
     {
         return $this->parent;
+    }
+
+    public function stepFor(Ability $parentAbility): ParentStep
+    {
+        return new ParentStep($this->relation, $this->foreignKey, $this->ownerKey, $this->parent, $parentAbility);
     }
 
     /** @param  Builder<covariant Model>  $query */

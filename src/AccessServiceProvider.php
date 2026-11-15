@@ -21,11 +21,13 @@ use Lomkit\Access\Decisions\DecisionMemo;
 use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
+use Lomkit\Access\Integrations\RestApi\AccessControlExtension;
 use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Registry\PerimeterPurity;
 use Lomkit\Access\Search\Freshness\ReindexTrigger;
 use Lomkit\Access\Search\Freshness\WatchedEvent;
 use Lomkit\Access\Search\TrustedSearchEngines;
+use Lomkit\Rest\Facades\Rest;
 
 class AccessServiceProvider extends ServiceProvider
 {
@@ -67,6 +69,8 @@ class AccessServiceProvider extends ServiceProvider
         $this->app->scoped(DecisionMemo::class);
 
         $this->app->singleton(ControlledReaders::class);
+
+        $this->registerRestApiExtension();
     }
 
     /**
@@ -85,6 +89,13 @@ class AccessServiceProvider extends ServiceProvider
         $this->bootSearchFreshness();
 
         $this->app->make(DecisionFlushes::class)->listen($this->app->make(Dispatcher::class));
+    }
+
+    protected function registerRestApiExtension(): void
+    {
+        if (class_exists(Rest::class)) {
+            Rest::registerExtension(AccessControlExtension::class);
+        }
     }
 
     protected function bootScoutBuilder(): void

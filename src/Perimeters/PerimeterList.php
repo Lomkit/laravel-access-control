@@ -3,9 +3,11 @@
 namespace Lomkit\Access\Perimeters;
 
 use Illuminate\Container\Container;
+use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Perimeters\Parents\ParentChain;
+use Lomkit\Access\Perimeters\Parents\ParentStep;
 use Lomkit\Access\Search\SearchKeys;
 
 final readonly class PerimeterList
@@ -71,6 +73,22 @@ final readonly class PerimeterList
         }
 
         return $parents;
+    }
+
+    /** @return list<ParentStep> */
+    public function parentSteps(Ability $ability): array
+    {
+        $steps = [];
+
+        foreach ($this->parents() as $parent) {
+            $step = $parent->stepFor($ability);
+
+            if ($step !== null) {
+                $steps[] = $step;
+            }
+        }
+
+        return $steps;
     }
 
     /** @return list<SearchKeys> */

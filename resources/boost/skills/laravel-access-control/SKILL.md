@@ -1,6 +1,6 @@
 ---
 name: laravel-access-control
-description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext, rows checked in memory or in SQL), ThroughParent (a child inherits the access of its belongsTo parent), Levels groups, boundaries, ControlledPolicy (Response codes, drafts, Access::registerPolicies(), business abilities through decide()), unrestricted perimeters, the assertLevelsNest() and assertControlAgrees() test assertions, batched decisions (withAbilities(), Access::preload(), reachableKeys()), the controlled(), controlledFor() and uncontrolled() query scopes, and Laravel Scout searches through indexed access keys (ControlledSearchable, searchKeys(), reindexWhen(), the ReindexesSearch pivot trait, assertSearchAgrees()).
+description: Build and work with Lomkit Access Control features in Laravel, including Controls linked with #[ControlledBy], the Access facade, the Ability value object, Perimeters (fluent callbacks or protected hooks with an AccessContext, rows checked in memory or in SQL), ThroughParent (a child inherits the access of its belongsTo parent), Levels groups, boundaries, ControlledPolicy (Response codes, drafts, Access::registerPolicies(), business abilities through decide()), unrestricted perimeters, the assertLevelsNest() and assertControlAgrees() test assertions, batched decisions (withAbilities(), Access::preload(), reachableKeys()), the controlled(), controlledFor() and uncontrolled() query scopes, Laravel Scout searches through indexed access keys (ControlledSearchable, searchKeys(), reindexWhen(), the ReindexesSearch pivot trait, assertSearchAgrees()), and the laravel-rest-api extension (AccessControlExtension).
 ---
 
 # Laravel Access Control
@@ -16,6 +16,7 @@ Use this skill when working with Lomkit Access Control in a Laravel project that
 - Mentions `Ability`, `Ability::of()`, `abilityFor()`, or a business ability such as `approve` on a controlled model.
 - Mentions `Control`, `Perimeter`, `AccessContext`, `decisionContext()`, `Access::decisionContextUsing()`, `Access::forgetDecisions()`, `withAbilities()`, `Access::preload()`, `reachableKeys()`, `assertControlAgrees()`, `admits()`, `applicablePerimeters()`, `ThroughParent::belongsTo()`, `delegates()`, `Levels::of()`, `Boundary`, `boundary()`, `unrestricted()`, `assertLevelsNest()`, `ControlledPolicy`, `HasControl`, `controlled()`, `controlledFor()`, or `uncontrolled()`.
 - Wants `Model::search(...)` (Laravel Scout) to respect the same authorization rules, or mentions `ControlledSearchable`, `searchKeys()`, `reindexWhen()`, `ReindexesSearch`, `Access::searchFilterables()` or `assertSearchAgrees()`.
+- Uses `lomkit/laravel-rest-api` with controlled models, or mentions `AccessControlExtension`, `perimeterQuery()` with `controlled()`, `disabled_extensions` or `InvalidRestReaderException`.
 - Asks why a search still shows a document after a related model changed (stale access keys), or how to reindex the documents when a parent, a pivot or a mass update changes the data a key reads.
 
 Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that the package has no configuration file: a leftover `config/access-control.php` is ignored and can be deleted. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
@@ -311,8 +312,23 @@ Post::search('budget')->controlledFor($user)->get(); // jobs, listeners, command
 Post::search('budget')->uncontrolled()->get(); // back office, exports
 ```
 
+- laravel-rest-api: with `lomkit/laravel-rest-api` ^3.6 installed, the service provider registers `Lomkit\Access\Integrations\RestApi\AccessControlExtension` (name `access_control`) on install; nothing to write in the resources. On every resource whose model has a control, it restricts the rows to what `controlledFor($user)` finds for `view` wherever rest-api applies a perimeter (searches, includes, relation filters and aggregates, metrics, the key lookups of writes and actions; a guest finds none), preloads the row checks of each ability with `Access::preload()` (one query per ability for the gates of a page; the policies still decide each row), adds a hash of the decision context to the key of the decisions that `authorizationCache()` keeps and, for the abilities a `ThroughParent` delegates, the `updated_at` of every parent up the chain (a parent without `updated_at` keeps no decision on its children), provides the perimeter of these resources to `rest:check` (no `perimeterQuery()` or `#[WithoutPerimeter]` needed) and reports there a control that cannot be built. A user that is not an Eloquent model throws `InvalidRestReaderException`. On the Scout `database` and `collection` drivers the text search is restricted in SQL; rest-api refuses it on another engine (`InvalidTextSearchException`). Disable it with `'disabled_extensions' => [AccessControlExtension::class]` in `config/rest.php`; replace it with a subclass listed in `extensions` beside that entry. Example of a resource:
+
+```php
+class PostResource extends Resource // the extension restricts the rows: no perimeterQuery() that calls controlled()
+{
+    public static string $model = Post::class;
+
+    public function alwaysSelect(): array
+    {
+        return ['archived_at', 'updated_at']; // columns the control reads in memory, updated_at for authorizationCache()
+    }
+}
+```
+
 ## Common pitfalls to flag when reviewing or writing code
 
+  - With laravel-rest-api ^3.6, never apply a control in `perimeterQuery()` or preload in `prepareAuthorization()`: `AccessControlExtension` does both for every controlled resource and provides its perimeter to `rest:check`, so a resource whose `perimeterQuery()` only did that drops the method, without `#[WithoutPerimeter]`. List in `alwaysSelect()` the columns that the boundary and the `should()` callbacks read (rest-api throws `MissingColumnException` otherwise), and remember that a decision kept by `authorizationCache()` is only renewed with the `updated_at` of the row and, for a delegated ability, of its parents: a perimeter that reads another table through `query()`, or a parent written without touching its `updated_at`, keeps it for the whole duration.
   - No perimeter matches → query is forced to `0=1` (Eloquent), or the search returns an empty page without querying the engine (Scout). Empty results after wiring control usually mean no `allowed()` returned true.
   - Order and class no longer decide how perimeters combine: put a hierarchy in `Levels::of()`, widest first (admin grants first, declared with `unrestricted()`), and keep additive grants (shared, delegated) outside the group. Never put a perimeter that does not nest in a group: verify with `assertLevelsNest()`.
   - A tenant or workspace condition belongs in `boundary()`, not repeated in every `query`/`should`, and never in an override of `applies()` (final) or of the removed `applyQueryControl()`. A `Gate::before` that returns true bypasses the boundary (Laravel semantics).
