@@ -104,7 +104,7 @@ class ReachableKeysTest extends BatchTestCase
     #[Test]
     public function it_returns_no_key_without_sql_when_no_perimeter_applies(): void
     {
-        $control = ConfiguredPostControl::bind($this->refusing($this->ownInSql()));
+        $control = ConfiguredPostControl::bind($this->ownInSql($this->refusal()));
         $everyPost = $this->everyPost();
 
         $queries = $this->queriesWhile(function () use ($control, $everyPost, &$keys): void {

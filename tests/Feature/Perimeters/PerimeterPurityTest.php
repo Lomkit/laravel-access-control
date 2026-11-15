@@ -16,6 +16,7 @@ use Lomkit\Access\Tests\Fixtures\Blog\PostControl;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Purity\CountingPostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\MemoizingPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\PurePostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\ReaderBoundPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\RequestBoundPostControl;
@@ -108,6 +109,18 @@ class PerimeterPurityTest extends PackageTestCase
         $this->app->instance('request', Request::create('/posts', 'GET', ['title' => 'Roadmap']));
 
         $this->expectImpure(RequestBoundPostControl::class);
+
+        Post::controlledFor($this->ada)->get();
+    }
+
+    #[Test]
+    public function it_catches_a_perimeter_class_whose_hook_changes_its_own_state(): void
+    {
+        $this->app->instance(PostControl::class, new MemoizingPostControl);
+
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        $this->expectImpure(MemoizingPostControl::class);
 
         Post::controlledFor($this->ada)->get();
     }

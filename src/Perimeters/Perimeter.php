@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Exceptions\DuplicatePerimeterCallbackException;
 use Lomkit\Access\Exceptions\DuplicateReindexException;
 use Lomkit\Access\Exceptions\InvalidReindexAttributesException;
 use Lomkit\Access\Exceptions\InvalidReindexModelException;
@@ -52,6 +53,7 @@ class Perimeter
      *
      * @throws InvalidSearchKeyNameException If the name is not made of lowercase letters, digits and underscores.
      * @throws UnrestrictedPerimeterCallbackException If the perimeter is unrestricted.
+     * @throws DuplicatePerimeterCallbackException If the perimeter already declares search keys.
      */
     public function searchKeys(string $name, Closure $row, Closure $reader, array $load = []): static
     {
@@ -152,7 +154,7 @@ class Perimeter
     /** @internal */
     final public function shape(): PerimeterShape
     {
-        return new PerimeterShape(static::class, $this->unrestricted, $this->callbacks()->shapes(), $this->searchKeys);
+        return new PerimeterShape(static::class, $this->unrestricted, $this->callbacks()->shapes(), $this->searchKeys, PerimeterState::of($this));
     }
 
     protected function allows(AccessContext $context): bool

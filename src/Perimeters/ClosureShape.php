@@ -37,6 +37,15 @@ final readonly class ClosureShape
         return $depth >= self::NESTED_CLOSURES_COMPARED || self::same($this->captured, $other->captured, $depth);
     }
 
+    /**
+     * @param  array<array-key, mixed>  $values
+     * @param  array<array-key, mixed>  $others
+     */
+    public static function sameValues(array $values, array $others): bool
+    {
+        return self::sameArrays($values, $others, 0);
+    }
+
     private static function same(mixed $value, mixed $other, int $depth): bool
     {
         if (is_object($value) && is_object($other)) {

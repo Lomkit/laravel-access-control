@@ -71,7 +71,7 @@ class DecisionMemoTest extends DecisionTestCase
     public function it_still_refuses_a_reader_that_no_perimeter_allows_any_more(): void
     {
         $allowed = true;
-        ConfiguredPostControl::bind($this->ownInSql()->allowed(function (User $user) use (&$allowed): bool {
+        ConfiguredPostControl::bind($this->ownInSql(function (User $user) use (&$allowed): bool {
             return $allowed;
         }));
         $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
@@ -85,7 +85,7 @@ class DecisionMemoTest extends DecisionTestCase
     {
         $client = true;
         ConfiguredPostControl::bind(Levels::of(
-            $this->clientInSql()->allowed(function (User $user) use (&$client): bool {
+            $this->clientInSql(function (User $user) use (&$client): bool {
                 return $client;
             }),
             $this->ownInSql(),
@@ -169,7 +169,7 @@ class DecisionMemoTest extends DecisionTestCase
         ConfiguredPostControl::bind($this->ownInMemory());
         $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
 
-        ConfiguredPostControl::bind($this->refusing($this->ownInSql()));
+        ConfiguredPostControl::bind($this->ownInSql($this->refusal()));
         $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
 
         $this->assertSame(0, $this->memo()->count());

@@ -1169,6 +1169,55 @@ A hook receives the reader as `Model`, the type of every reader: a perimeter cla
 
 `unrestricted()` throws `UnrestrictedPerimeterCallbackException` on a perimeter class that overrides `includes()` or `scope()`: an unrestricted perimeter never runs them.
 
+A perimeter class that must be narrowed for one use, such as the entities of the reader but only the invoices, takes the variant as a parameter of the class: a typed *wither* that clones the perimeter and sets private state, which every hook reads. Declaring `query()` on a class that overrides `scope()` throws `OverriddenPerimeterHookException`, and a second `query()` would replace the first: neither narrows a class.
+
+```php
+final class OwnedByMyEntities extends Perimeter
+{
+    private ?string $kind = null;
+
+    public function ofKind(string $kind): static
+    {
+        $perimeter = clone $this;
+        $perimeter->kind = $kind;
+
+        return $perimeter;
+    }
+
+    protected function includes(Model $row, AccessContext $context): bool
+    {
+        if ($this->kind !== null && $row->kind !== $this->kind) {
+            return false;
+        }
+
+        return /* the entities of $context->reader() contain $row->entity_id */;
+    }
+
+    protected function scope(Builder $query, AccessContext $context): void
+    {
+        $query->whereIn('entity_id', /* the entities of $context->reader() */);
+
+        if ($this->kind !== null) {
+            $query->where('kind', $this->kind);
+        }
+    }
+}
+
+OwnedByMyEntities::new()
+    ->ofKind('invoice')
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} entity invoices"))
+    ->searchKeys(
+        name: 'entity_invoices',
+        row: fn (Document $document) => $document->kind === 'invoice' ? $document->entity_id : null,
+        reader: fn (User $user) => $user->entities()->pluck('id')->all(),
+    );
+```
+
+- The state is private, set only by the wither, and pure: build it from a constant or a value that does not change in the process, never from the request, the tenant or the signed-in user (see [Pure perimeter lists](#pure-perimeter-lists)).
+- Every path reads it: `scope()` for the controlled queries and the row checks in SQL, `includes()` for the in-memory checks and the drafts, and the `row:` closure of the search keys, which returns no key for a row outside the variant. The policy, the controlled queries, the batches and the search then agree, which `assertControlAgrees()` and `assertSearchAgrees()` check.
+- Two variants of one class in one control are two perimeters: with search keys, give them distinct key names, or the control throws `DuplicateSearchKeyNameException`.
+- Do not wrap a perimeter in another one to narrow it: the package recognizes a `ThroughParent` and an unrestricted perimeter by their own class, which a wrapper hides.
+
 `applyScoutQueryCallback()` has no hook in 1.0: a perimeter is searched through its search keys (see [Search](#search)). Remove the override and declare `searchKeys()` on the perimeter.
 
 `Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` tells whether the perimeter applies to the reader for the ability and contains the row, through its hooks or its callbacks. A perimeter without a `should` callback checks the stored row through its `query()`, in one query. Inside a control, `applicablePerimeters(Model $reader, Ability $ability)` returns the perimeters that apply to the reader for the ability: together, they tell which perimeters grant a row.
@@ -1236,6 +1285,8 @@ $perimeter = OwnPerimeter::new()
 
 A declaration whose result is dropped is lost: the perimeter then throws `MissingPerimeterCallbackException` when the callback is needed.
 
+Each callback is declared once. A second `allowed()`, `should()`, `query()` or `searchKeys()` on the same perimeter throws `DuplicatePerimeterCallbackException`, which names the perimeter and the callback, where the second declaration used to replace the first silently: `->query(A)->query(B)` kept only `B`, which is usually wider than the author meant, and a second `searchKeys()` dropped the `reindexWhen()` rules declared after the first. Write one callback that checks both conditions, or give a perimeter class a wither (see [Perimeter classes](#perimeter-classes)). `->searchKeys(...)->reindexWhen(...)` keeps working.
+
 The callbacks are private properties of `Perimeter`. A subclass that assigned `$this->allowedCallback`, `$this->shouldCallback`, `$this->queryCallback` or `$this->scoutQueryCallback` now writes a property of its own, which the package never reads: declare the callbacks with the fluent methods, or override the hooks.
 
 `Control::getPerimeters()` is removed. The perimeters of a control are built once by `perimeters()` and kept by the control; nothing can read or change them from outside. Inside a control, use `applicablePerimeters($reader, $ability)`; elsewhere, use the policy, `admits()` or the controlled queries.
@@ -1279,6 +1330,8 @@ The check compares the values the callbacks capture this way:
 - enums and readonly objects, such as `Ability`, by value;
 - closures by the lines that declare them and, recursively, by the values they capture;
 - any other object by its class only: a service built in `perimeters()`, such as `$rules = new PostRules`, is pure and passes.
+
+The properties that a perimeter class declares, such as the state a wither sets, are compared with the same rules, so `OwnedByMyEntities::new()->ofKind(config('documents.kind'))` is caught when the configuration changes, as the same value captured by a closure is. A hook that changes a property of its perimeter, such as a cache of the readers it allowed, is caught too: the perimeters are shared by every request of the process, so a hook must never write to them. The properties of `Perimeter` and of `ThroughParent` are compared by the package on their own: the callbacks, the search keys, and the relation, inverse and delegation of a parent.
 
 The check only sees what changes between two builds of the same process. It cannot see:
 
@@ -1449,6 +1502,8 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `HasControlScope::retrievingUser()` | Removed, no replacement |
 | `->query(fn ($query) => $query)`, `->should(fn () => true)` on a global perimeter | `->unrestricted()` |
 | `->query(fn ($query) => Model::query()->where(...))` | `->query(function ($query): void { $query->where(...); })` |
+| `->query(A)->query(B)`, or `allowed()`, `should()` or `searchKeys()` declared twice | One callback with both conditions: a second declaration throws `DuplicatePerimeterCallbackException` |
+| `->query()` on a class that overrides `scope()`, to narrow it | A wither on the class, such as `->ofKind('invoice')`, read by every hook |
 | `Access::controlForModel($model)` (returns `?Control`) | `Access::controlFor($model)` (throws `MissingControlException`) and `Access::hasControl($model)` |
 | `(new Access)->addControl($control)`, `addControls()`, `discoverControls()` | `#[ControlledBy(PostControl::class)]` on the model |
 | `Access::$controlDiscoveryPaths = [...]` | `Access::discoverControlsIn([...])` in a service provider's `boot()` |

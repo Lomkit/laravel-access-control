@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\LazyLoadingViolationException;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Exceptions\DuplicatePerimeterCallbackException;
 use Lomkit\Access\Exceptions\DuplicateReindexException;
 use Lomkit\Access\Exceptions\InvalidSearchKeyNameException;
 use Lomkit\Access\Exceptions\UndeclaredSearchKeyRelationException;
@@ -52,9 +53,14 @@ final readonly class SearchKeys
      *
      * @throws InvalidSearchKeyNameException When the name is not made of lowercase letters, digits and underscores.
      * @throws UnrestrictedPerimeterCallbackException When the perimeter is unrestricted.
+     * @throws DuplicatePerimeterCallbackException When the perimeter already declares search keys.
      */
     public static function declaredBy(Perimeter $perimeter, string $name, Closure $row, Closure $reader, array $load): self
     {
+        if ($perimeter->declaredSearchKeys() !== null) {
+            throw DuplicatePerimeterCallbackException::searchKeys($perimeter);
+        }
+
         if ($perimeter->isUnrestricted()) {
             throw UnrestrictedPerimeterCallbackException::for($perimeter, 'searchKeys');
         }

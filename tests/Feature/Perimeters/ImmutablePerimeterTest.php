@@ -107,9 +107,7 @@ class ImmutablePerimeterTest extends PackageTestCase
         );
 
         foreach ($control->applicableTo($this->ada, Ability::view()) as $perimeter) {
-            $perimeter
-                ->allowed(fn (): bool => true)
-                ->query(fn (Builder $query) => $query->whereRaw('1=1'));
+            $perimeter->should(fn (): bool => true);
         }
 
         $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
@@ -183,7 +181,7 @@ class ImmutablePerimeterTest extends PackageTestCase
         $hank = User::query()->where('name', 'Hank')->firstOrFail();
 
         foreach ($control->applicableTo($this->ada, Ability::view()) as $perimeter) {
-            $perimeter->query(fn (Builder $query) => $query->whereRaw('1=1'));
+            $perimeter->should(fn (): bool => true);
         }
 
         $this->assertSame(1, Post::controlledFor($this->ada)->count());

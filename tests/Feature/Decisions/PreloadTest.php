@@ -42,7 +42,7 @@ class PreloadTest extends BatchTestCase
                 new WorkspaceBoundary,
                 Levels::of(GlobalPerimeter::new()->allowed(fn (User $user, Ability $ability): bool => $ability->is('view'))->unrestricted(), $test->ownInSql()),
             )],
-            'no perimeter for some abilities' => [fn (self $test) => ConfiguredPostControl::bind($test->ownInSql()->allowed(fn (User $user, Ability $ability): bool => ! $ability->is('delete')))],
+            'no perimeter for some abilities' => [fn (self $test) => ConfiguredPostControl::bind($test->ownInSql(fn (User $user, Ability $ability): bool => ! $ability->is('delete')))],
         ];
     }
 
@@ -147,7 +147,7 @@ class PreloadTest extends BatchTestCase
     #[Test]
     public function it_runs_no_query_when_no_perimeter_applies_or_no_sql_is_needed(): void
     {
-        ConfiguredPostControl::bind($this->refusing($this->ownInSql()));
+        ConfiguredPostControl::bind($this->ownInSql($this->refusal()));
         $everyPost = $this->everyPost();
 
         $queries = $this->queriesWhile(function () use ($everyPost): void {
