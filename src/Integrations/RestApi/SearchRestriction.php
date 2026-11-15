@@ -63,15 +63,15 @@ final readonly class SearchRestriction
     }
 
     /** @throws UnsupportedRestSearchException When the model holds no access keys, or the engine cannot match them. */
-    private function engineOf(EngineRestrictionContext $context, Model $model): mixed
+    private function engineOf(EngineRestrictionContext $context, Model $model): object
     {
         $resource = $context->resource::class;
 
-        if (! UsesControlledSearchable::check($model) || ! method_exists($model, 'searchableUsing')) {
+        if (! UsesControlledSearchable::check($model)) {
             throw UnsupportedRestSearchException::notControlledSearchable($resource, $model::class, $this->extension);
         }
 
-        $engine = $model->searchableUsing();
+        $engine = $context->engine;
 
         if ($engine instanceof NullEngine) {
             return $engine;
