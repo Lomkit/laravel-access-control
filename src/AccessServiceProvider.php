@@ -5,11 +5,13 @@ namespace Lomkit\Access;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Foundation\Events\PublishingStubs;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Searchable;
+use Lomkit\Access\Console\AccessAboutSection;
 use Lomkit\Access\Console\AccessCacheCommand;
 use Lomkit\Access\Console\AccessCheckCommand;
 use Lomkit\Access\Console\AccessClearCommand;
@@ -91,6 +93,10 @@ class AccessServiceProvider extends ServiceProvider
         $this->bootSearchFreshness();
 
         $this->app->make(DecisionFlushes::class)->listen($this->app->make(Dispatcher::class));
+
+        if ($this->app->runningInConsole()) {
+            AboutCommand::add('Access Control', AccessAboutSection::class);
+        }
     }
 
     protected function registerRestApiExtension(): void

@@ -1323,6 +1323,31 @@ Options:
 
 The command is read-only: it never writes or rewrites the discovery cache (a stale one is reported, not fixed), runs no query and dispatches no job. It builds the controls, resolves the policies and the Scout engines, and instantiates the `BelongsToMany` relations it scans, without running them. The pivot check only sees the public relation methods that declare a `BelongsToMany` return type (or a subclass, such as `MorphToMany`): a relation method without a return type is not scanned. It cannot tell whether a `should()` callback reads a relation: that is up to the code of the callback.
 
+### The about command
+
+`php artisan about` prints an "Access Control" section (`php artisan about --only=access_control`, also with `--json`, under the `access_control` key), registered when the application runs in the console:
+
+```
+  Access Control ................................................................
+  Automatic policies ................................................. registered
+  Cache .............................................................. not cached
+  Controls ................................................................... 12
+  Discovery paths .................................................. app/Access/Controls
+  Scout ...................................................... installed, meilisearch driver
+  Version ........................................................................ 1.0.0
+  laravel-rest-api ............................... installed, AccessControlExtension enabled
+```
+
+- `Version`: the installed version of the package.
+- `Controls`: the number of controls, read from the `access:cache` file when it exists, else from the discovery paths. No control is built. When discovery fails, the row reads `discovery failed:` and the first line of the error, and the other rows still print.
+- `Discovery paths`: the directories the controls are discovered in, relative to the base path.
+- `Cache`: `cached` when `php artisan access:cache` wrote its file, `not cached` otherwise.
+- `Automatic policies`: `registered` after `Access::registerPolicies()`, `not registered` otherwise, or when the application replaced the policy guesser afterwards.
+- `Scout`: `not installed`, or the driver of the environment.
+- `laravel-rest-api`: `not installed`, `AccessControlExtension enabled`, or `AccessControlExtension listed in rest.disabled_extensions`.
+
+An empty value prints `none`, and a row that cannot be read prints `unavailable:` with the first line of the error: the section never makes `about` fail.
+
 ### laravel-rest-api
 
 With laravel-rest-api 3.6 or later installed, the package registers `Lomkit\Access\Integrations\RestApi\AccessControlExtension` from the `register()` method of its service provider. The extension is named `access_control`: rest-api prefixes its cache keys with this name. It applies to every rest-api resource whose model has a control, and leaves the others alone. `composer.json` conflicts with laravel-rest-api before 3.6.0, which has no extensions.

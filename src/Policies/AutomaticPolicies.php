@@ -28,6 +28,11 @@ final readonly class AutomaticPolicies
         $gate->guessPolicyNamesUsing(fn (string $class): array => $this->guess($gate, $conventional, $class));
     }
 
+    public static function registeredIn(Gate $gate): bool
+    {
+        return ConventionalPolicyNames::guessedIn($gate, self::class);
+    }
+
     /**
      * @param  Closure(string): array<array-key, mixed>  $conventional
      * @return array<array-key, mixed>
