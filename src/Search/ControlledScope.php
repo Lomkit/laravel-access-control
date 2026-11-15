@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Engines\NullEngine;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
@@ -98,7 +99,7 @@ final class ControlledScope implements SearchScope
 
             ConstraintGroup::wrap($query);
 
-            $this->control->restrict($query, $this->reader);
+            $this->control->restrict($query, $this->reader, Ability::view());
         };
 
         $search->queryCallback = $this->constraint;

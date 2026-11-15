@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Integrations\RestApi;
 
+use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Rest\Authorization\PendingChecks;
 use Lomkit\Rest\Authorization\RowVersions;
@@ -36,7 +37,7 @@ class AccessControlExtension extends Extension implements ChecksResources, Contr
     #[\Override]
     public function restrict(RestrictionContext $context): void
     {
-        Access::controlFor($context->resource::modelClass())->restrict($context->query, RestReader::of($context->user, static::class));
+        Access::controlFor($context->resource::modelClass())->restrict($context->query, RestReader::of($context->user, static::class), Ability::view());
     }
 
     #[\Override]

@@ -8,6 +8,7 @@ use Laravel\Scout\Builder;
 use Lomkit\Access\Exceptions\ConflictingSearchScopeException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\UndeclaredSearchScopeException;
+use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsupportedSearchEngineException;
 
@@ -24,9 +25,14 @@ final class ControlledSearchBuilder extends Builder
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsupportedSearchEngineException When the engine of the model cannot filter by the access keys.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
+     * @throws UnsearchableAbilityException When an ability is given.
      */
     public function controlled(): static
     {
+        if (func_num_args() > 0) {
+            throw UnsearchableAbilityException::search($this->model::class, __FUNCTION__);
+        }
+
         $reader = Auth::user();
 
         return $this->declare(ControlledScope::for($this->model, $reader instanceof Model ? $reader : null));
@@ -36,9 +42,14 @@ final class ControlledSearchBuilder extends Builder
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsupportedSearchEngineException When the engine of the model cannot filter by the access keys.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
+     * @throws UnsearchableAbilityException When an ability is given after the reader.
      */
     public function controlledFor(?Model $reader): static
     {
+        if (func_num_args() > 1) {
+            throw UnsearchableAbilityException::search($this->model::class, __FUNCTION__);
+        }
+
         return $this->declare(ControlledScope::for($this->model, $reader));
     }
 

@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Tests\Feature\Search\Parents;
 
 use Illuminate\Database\Eloquent\Builder;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\DuplicateSearchKeyNameException;
@@ -56,7 +57,7 @@ class ParentSearchDeclarationTest extends ParentSearchTestCase
         ConfiguredForumControl::bind(ThroughParent::belongsTo('client'));
         $this->grant(['view global clients' => ['Ada']]);
 
-        $this->assertSame(2, Forum::query()->tap(fn (Builder $query) => Access::controlFor(Forum::class)->restrict($query, $this->ada))->count());
+        $this->assertSame(2, Forum::query()->tap(fn (Builder $query) => Access::controlFor(Forum::class)->restrict($query, $this->ada, Ability::view()))->count());
     }
 
     #[Test]

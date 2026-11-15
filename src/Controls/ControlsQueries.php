@@ -9,6 +9,7 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\EmptyQueryCallbackException;
 use Lomkit\Access\Exceptions\JoinInPerimeterException;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
+use Lomkit\Access\Exceptions\UnlistableAbilityException;
 
 /** @phpstan-require-extends Control */
 trait ControlsQueries
@@ -23,16 +24,21 @@ trait ControlsQueries
      * @throws QueryCallbackReturnedAnotherBuilderException If a query callback returns another builder.
      * @throws EmptyQueryCallbackException If a query callback adds no constraint.
      * @throws JoinInPerimeterException If a query callback adds a join.
+     * @throws UnlistableAbilityException If the ability is create.
      */
-    final public function restrict(Builder $query, ?Model $reader): void
+    final public function restrict(Builder $query, ?Model $reader, Ability $ability): void
     {
+        if ($ability->is(Ability::create())) {
+            throw UnlistableAbilityException::for($this, $ability);
+        }
+
         if ($reader === null) {
             $query->whereRaw('0=1');
 
             return;
         }
 
-        $this->restrictFor($query, AccessContext::of($reader, Ability::view()));
+        $this->restrictFor($query, AccessContext::of($reader, $ability));
     }
 
     /**
