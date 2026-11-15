@@ -107,6 +107,8 @@ git checkout composer.json
 composer update
 ```
 
+The tests of the extension against real search engines are in the `rest-api` group and in the group of their engine: with the servers and the engine clients of the previous section, run `vendor/bin/phpunit --group rest-api --group meilisearch --group typesense`.
+
 The tests run in a random order. A test that passes alone and fails in the suite depends on state that another test left behind: fix the test, not the order. PHPUnit prints the seed of each run, and `vendor/bin/phpunit --order-by=random --random-order-seed=<seed>` replays it.
 
 Add a test for each bug fix and each new feature.

@@ -11,5 +11,7 @@ final readonly class ResourceChecks
     public function check(ResourceCheckContext $context): void
     {
         Access::controlFor($context->resource::modelClass());
+
+        (new SearchChecks)->check($context);
     }
 }
