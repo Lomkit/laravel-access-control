@@ -207,6 +207,25 @@ jobs:
 
     name: PHP 8.5 - sqlite - highest - rest-api
 
+    services:
+      meilisearch:
+        image: getmeili/meilisearch:v1.55.0
+        env:
+          MEILI_MASTER_KEY: lac-ci-master-key
+          MEILI_NO_ANALYTICS: 'true'
+        ports:
+          - 7700:7700
+        options: --health-cmd "curl -sf http://127.0.0.1:7700/health" --health-interval 5s --health-timeout 3s --health-retries 12
+
+      # The image has no curl or wget: the step "Wait for Typesense" polls /health from the runner
+      typesense:
+        image: typesense/typesense:30.1
+        env:
+          TYPESENSE_API_KEY: lac-ci-api-key
+          TYPESENSE_DATA_DIR: /tmp
+        ports:
+          - 8108:8108
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -224,6 +243,11 @@ jobs:
       # so only this job installs it: the lowest job keeps testing Laravel 13.0
       - name: Add laravel-rest-api
         run: composer require-rest-api
+
+      - name: Add the search engine clients
+        run: |
+          composer config allow-plugins.php-http/discovery true
+          composer require --dev --no-update --no-interaction "meilisearch/meilisearch-php:^1.17" "typesense/typesense-php:^4.9.3"
 
       - name: Get Composer cache directory
         id: composer-cache
@@ -246,11 +270,20 @@ jobs:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
 
-      - name: Run the laravel-rest-api tests
-        run: vendor/bin/phpunit --group rest-api --fail-on-skipped --fail-on-empty-test-suite
+      - name: Wait for Typesense
+        run: curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-all-errors "http://127.0.0.1:${{ job.services.typesense.ports['8108'] }}/health"
+
+      - name: Run the laravel-rest-api and search engine tests
+        run: vendor/bin/phpunit --group rest-api --group meilisearch --group typesense --fail-on-skipped --fail-on-empty-test-suite
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
+          MEILISEARCH_HOST: http://127.0.0.1:${{ job.services.meilisearch.ports['7700'] }}
+          MEILISEARCH_KEY: lac-ci-master-key
+          TYPESENSE_HOST: 127.0.0.1
+          TYPESENSE_PORT: ${{ job.services.typesense.ports['8108'] }}
+          TYPESENSE_PROTOCOL: http
+          TYPESENSE_API_KEY: lac-ci-api-key
 
   coverage:
 

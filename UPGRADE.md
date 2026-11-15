@@ -1265,7 +1265,10 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 With laravel-rest-api 3.6 or later installed, the package registers `Lomkit\Access\Integrations\RestApi\AccessControlExtension` from the `register()` method of its service provider. The extension is named `access_control`: rest-api prefixes its cache keys with this name. It applies to every rest-api resource whose model has a control, and leaves the others alone. `composer.json` conflicts with laravel-rest-api before 3.6.0, which has no extensions.
 
 - Rows: the rows of the resource are the rows that `controlledFor($user)` finds for `view`, wherever rest-api applies a perimeter: searches, includes, relation filters, sorts and aggregates, metrics and the keys of their cache, the key lookups of `mutate`, `destroy`, `restore`, `forceDestroy` and actions, the rows of queued actions and the rows read again after a write. A guest finds no row, as with `controlled()`. A user that is not an Eloquent model throws `InvalidRestReaderException`, which names its class.
-- Text search: on the Scout `database` and `collection` drivers, the rows are restricted in the SQL of the search. On another engine, rest-api refuses the text search of these resources with `InvalidTextSearchException`, and `rest:check` reports it.
+- Text search: a resource searched through `ScoutEngine` declares `withoutPerimeter()`, and the extension restricts the search. rest-api builds its own Scout query, so `controlled()` never runs there: the extension is the access filter of these searches.
+  - On the Scout `database` and `collection` drivers, the rows are restricted in the SQL of the search, with an exact total.
+  - On another engine, the extension declares `_access` and `_boundary` as lists of strings for models that use `ControlledSearchable`, and keeps the documents that share a key with the reader in each list, as `controlled()` does (on Turbopuffer, rest-api sends each list as a native `ContainsAny` filter); a guest or a reader that no perimeter reaches gets an empty page without calling the engine. rest-api then reads the rows of the page again through the SQL restriction: a row changed since it was indexed is dropped, so a page can hold fewer rows than its size while the total stays the one of the engine. Declare the two attributes in the index settings, as in [Engines](#engines).
+  - It refuses the search with `UnsupportedRestSearchException` when the model does not use `ControlledSearchable`, when the engine is not trusted (`Access::trustSearchEngine()`), and when the rest-api profile of the engine matches no list of strings, such as a profile that an extension provides without `MatchesStringLists`. A boundary without a search form throws `UnsearchableBoundaryException`. `rest:check` reports the first two and the boundary, with the Scout driver of the environment it runs in.
 - Row checks: before the policies check rows for an ability, the extension preloads the decisions of these rows (`Access::preload()`), so the gates of a page cost one query per ability, not one per row and ability. It decides nothing and changes no row: the policy still decides each row. The ability goes through `abilityFor()` of the control, as in `ControlledPolicy`, so a business gate such as `approve` is preloaded too.
 - Kept decisions: rest-api keeps the decisions of the abilities that a resource lists in `authorizationCache()`. The extension adds a hash of the decision context (`Access::decisionContextUsing()`) to their key, so a decision kept for one tenant is never read for another. rest-api files a kept decision under the `updated_at` of the row, which a change of its parent does not touch, so for an ability that a `ThroughParent` delegates, the extension adds to the key the `updated_at` of the parent, and of each parent above it that the delegated ability reaches (one query per level for the rows of a page, never one per row). When a parent changes, the decisions on its children are made again. A parent row without `updated_at`, or whose model has no timestamps, keeps no decision on its children. Like the row itself, a parent only changes its `updated_at` through Eloquent: a parent written with `DB::table()` or inside `Model::withoutTimestamps()` keeps the old decisions until the duration of `authorizationCache()` runs out. A perimeter that reads another table through its `query()` keeps the duration of `authorizationCache()` too: shorten it, or call `Rest::forgetAuthorizations()` when that table changes.
 - Columns: rest-api loads the columns of the fields and of `alwaysSelect()`, and a policy that reads another column throws `MissingColumnException`. List in `alwaysSelect()` the columns that the control reads in memory: the column and the read-only columns of the boundary, the columns of the `should()` callbacks, and `updated_at` for the kept decisions.
@@ -1284,8 +1287,15 @@ class PostResource extends Resource
 }
 
 // After
+use Lomkit\Rest\Text\ScoutEngine;
+use Lomkit\Rest\Text\TextSearch;
+
 class PostResource extends Resource
 {
+    public function text(): ?TextSearch
+    {
+        return ScoutEngine::make()->withoutPerimeter();
+    }
 }
 ```
 
