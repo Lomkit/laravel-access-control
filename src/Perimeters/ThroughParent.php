@@ -181,9 +181,10 @@ final class ThroughParent extends Perimeter
         return $ability === null ? null : $context->withAbility($ability);
     }
 
-    private function delegation(): Delegation
+    /** @internal */
+    public function delegation(): Delegation
     {
-        return $this->delegation ?? Delegation::viewOnly();
+        return $this->delegation ?? Delegation::viewOnly($this->relation);
     }
 
     private function link(): ParentLink

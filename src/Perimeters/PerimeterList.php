@@ -50,6 +50,16 @@ final readonly class PerimeterList
         return ReachedPerimeters::of($reached);
     }
 
+    /**
+     * @internal
+     *
+     * @return list<Perimeter|Levels>
+     */
+    public function entries(): array
+    {
+        return $this->entries;
+    }
+
     /** @return list<Levels> */
     public function levels(): array
     {

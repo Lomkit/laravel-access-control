@@ -11,6 +11,7 @@ use Illuminate\Support\ServiceProvider;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Searchable;
 use Lomkit\Access\Console\AccessCacheCommand;
+use Lomkit\Access\Console\AccessCheckCommand;
 use Lomkit\Access\Console\AccessClearCommand;
 use Lomkit\Access\Console\ControlMakeCommand;
 use Lomkit\Access\Console\PerimeterMakeCommand;
@@ -34,6 +35,7 @@ class AccessServiceProvider extends ServiceProvider
     /** @var array<string, class-string<Command>> */
     protected array $commands = [
         'AccessCache' => AccessCacheCommand::class,
+        'AccessCheck' => AccessCheckCommand::class,
         'AccessClear' => AccessClearCommand::class,
     ];
 

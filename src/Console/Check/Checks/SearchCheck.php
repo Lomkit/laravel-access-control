@@ -1,0 +1,84 @@
+<?php
+
+namespace Lomkit\Access\Console\Check\Checks;
+
+use Laravel\Scout\Engines\NullEngine;
+use Laravel\Scout\Searchable;
+use Lomkit\Access\Console\Check\Findings;
+use Lomkit\Access\Console\Check\Problems\PerimeterWithoutSearchKeys;
+use Lomkit\Access\Console\Check\Problems\PlainSearchable;
+use Lomkit\Access\Console\Check\Problems\SearchFreshness;
+use Lomkit\Access\Console\Check\Problems\UnsearchableBoundary;
+use Lomkit\Access\Console\Check\Problems\UnsupportedSearchEngine;
+use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Exceptions\MissingControlledSearchableException;
+use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
+use Lomkit\Access\Perimeters\Levels;
+use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\ThroughParent;
+use Lomkit\Access\Search\Freshness\Inspection\FreshnessInspector;
+use Lomkit\Access\Search\SearchEngineKind;
+use Lomkit\Access\Search\UsesControlledSearchable;
+use Throwable;
+
+/** @internal */
+final class SearchCheck
+{
+    /** @param  list<Control>  $controls */
+    public function run(Findings $findings, array $controls): void
+    {
+        foreach ($controls as $control) {
+            $model = $control->getModel();
+
+            if (UsesControlledSearchable::check($model)) {
+                $this->checkSearchable($findings, $control);
+            } elseif (in_array(Searchable::class, class_uses_recursive($model), true)) {
+                $findings->problem(new PlainSearchable($model, MissingControlledSearchableException::for(new $model)->getMessage()));
+            }
+        }
+    }
+
+    private function checkSearchable(Findings $findings, Control $control): void
+    {
+        $model = $control->getModel();
+
+        try {
+            $engine = ModelEngine::of($model);
+            SearchEngineKind::of($engine, new $model);
+        } catch (Throwable $exception) {
+            $findings->problem(new UnsupportedSearchEngine($model, $exception->getMessage()));
+
+            return;
+        }
+
+        if (! SearchEngineKind::storesDocuments($engine) || $engine instanceof NullEngine) {
+            return;
+        }
+
+        if (! $control->searchRules()->isSearchable()) {
+            $findings->problem(new UnsearchableBoundary($control::class, UnsearchableBoundaryException::for($control)->getMessage()));
+        }
+
+        foreach ($this->perimeters($control) as $perimeter) {
+            if (! $perimeter->isUnrestricted() && ! $perimeter instanceof ThroughParent && $perimeter->declaredSearchKeys() === null) {
+                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $perimeter::class, $model));
+            }
+        }
+
+        foreach (FreshnessInspector::inspect($model)->issues() as $issue) {
+            $findings->problem(new SearchFreshness($issue));
+        }
+    }
+
+    /** @return list<Perimeter> */
+    private function perimeters(Control $control): array
+    {
+        $perimeters = [];
+
+        foreach ($control->declaration()->perimeters()->entries() as $entry) {
+            array_push($perimeters, ...($entry instanceof Levels ? $entry->all() : [$entry]));
+        }
+
+        return $perimeters;
+    }
+}

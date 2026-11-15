@@ -63,12 +63,14 @@ final readonly class DiscoveryCache
         $this->files->delete([$this->path(), $this->watchedPath()]);
     }
 
-    private function path(): string
+    /** @internal */
+    public function path(): string
     {
         return $this->app->bootstrapPath('cache/access-controls.php');
     }
 
-    private function watchedPath(): string
+    /** @internal */
+    public function watchedPath(): string
     {
         return $this->app->bootstrapPath('cache/access-reindex.php');
     }

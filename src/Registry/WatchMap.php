@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Registry;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Search\UsesControlledSearchable;
@@ -14,6 +15,12 @@ final readonly class WatchMap
 
     public static function of(ControlRegistry $registry, ControlMap $controls): self
     {
+        return self::from($controls, $registry->control(...));
+    }
+
+    /** @param  Closure(class-string<Control>): Control  $resolve */
+    public static function from(ControlMap $controls, Closure $resolve): self
+    {
         $watchers = [];
 
         foreach ($controls->toArray() as $model => $control) {
@@ -21,7 +28,7 @@ final readonly class WatchMap
                 continue;
             }
 
-            $rules = $registry->control($control)->searchRules();
+            $rules = $resolve($control)->searchRules();
 
             foreach ($rules->freshness()->watchedModels() as $watched) {
                 $watchers[$watched][] = $control;
