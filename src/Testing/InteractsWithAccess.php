@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Controls\HasControl;
+use Lomkit\Access\Exceptions\IgnoredArgumentException;
+use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Search\ControlledSearchable;
@@ -19,6 +21,10 @@ trait InteractsWithAccess
      */
     public function assertLevelsNest(string $control, array $readers): void
     {
+        if (func_num_args() > 2) {
+            throw IgnoredArgumentException::levelsNest($control);
+        }
+
         $groups = Access::control($control)->declaration()->perimeters()->levels();
 
         Assert::assertNotSame([], $groups, sprintf('The [%s] control declares no Levels group, so it has no levels to nest.', $control));
@@ -67,6 +73,10 @@ trait InteractsWithAccess
      */
     public function assertSearchAgrees(string $control, array $readers): void
     {
+        if (func_num_args() > 2) {
+            throw UnsearchableAbilityException::agreement($control);
+        }
+
         $instance = Access::control($control);
         $model = $instance->getModel();
 
@@ -92,7 +102,7 @@ trait InteractsWithAccess
         $key = $reader->getKey();
 
         return sprintf(
-            "The decisions of the [%s] control disagree for the [%s] reader with key [%s]:\n- %s\nThe Gate must give the same answer row by row, after Access::preload() and after withAbilities(), and grant view exactly to the rows controlled() lists. A perimeter whose should callback or includes() hook describes other rows than its query() is the usual cause: make them describe the same rows, or drop the should callback so the row is checked through the query.",
+            "The decisions of the [%s] control disagree for the [%s] reader with key [%s]:\n- %s\nThe Gate must give the same answer row by row, after Access::preload() and after withAbilities(), and grant each ability exactly to the rows controlled() lists for it. A perimeter whose should callback or includes() hook describes other rows than its query() is the usual cause: make them describe the same rows, or drop the should callback so the row is checked through the query. A policy method that adds its own rule to an ability also disagrees with controlled() for that ability: move the rule into the control.",
             $control,
             $reader::class,
             is_int($key) || is_string($key) ? $key : get_debug_type($key),

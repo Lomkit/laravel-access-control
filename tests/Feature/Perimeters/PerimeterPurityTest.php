@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Perimeters;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Registry\ControlRegistry;
@@ -162,7 +163,7 @@ class PerimeterPurityTest extends PackageTestCase
 
             $this->fail('The perimeters built for another user were not caught.');
         } catch (ImpurePerimetersException) {
-            $this->assertSame(['Draft'], Post::uncontrolled()->tap(fn ($query) => $control->restrict($query, $this->hank))->pluck('title')->all());
+            $this->assertSame(['Draft'], Post::uncontrolled()->tap(fn ($query) => $control->restrict($query, $this->hank, Ability::view()))->pluck('title')->all());
         }
     }
 

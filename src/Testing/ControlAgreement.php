@@ -7,6 +7,7 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 
@@ -16,6 +17,12 @@ final readonly class ControlAgreement
     private const string GRANTED = 'granted';
 
     private const string VIEW = 'view';
+
+    private const string VIEW_ANY = 'viewAny';
+
+    private const string LISTED = 'listed';
+
+    private const string LISTED_PATH = 'controlled()';
 
     /**
      * @param  list<Model>  $rows
@@ -38,20 +45,20 @@ final readonly class ControlAgreement
                 }
             }),
             'withAbilities' => $this->answersAfter($reader, function () use ($reader): void {
-                $query = $this->controlled($reader);
+                $query = $this->controlled($reader, self::VIEW);
                 $query->scopes(['withAbilities' => [$this->abilities]]);
                 $query->get();
             }),
         ];
-        $listed = array_flip(array_map(self::key(...), $this->controlled($reader)->get()->all()));
+        $listed = $this->listed($reader);
         $disagreements = [];
 
         foreach ($this->rows as $row) {
             foreach ($this->abilities as $ability) {
                 $answers = array_map(fn (array $answers): string => $answers[self::key($row)][$ability], $paths);
 
-                if ($ability === self::VIEW) {
-                    $answers['controlled()'] = array_key_exists(self::key($row), $listed) ? 'listed' : 'not listed';
+                if (array_key_exists($ability, $listed)) {
+                    $answers[self::LISTED_PATH] = array_key_exists(self::key($row), $listed[$ability]) ? self::LISTED : 'not listed';
                 }
 
                 if (! $this->agree($answers)) {
@@ -61,6 +68,25 @@ final readonly class ControlAgreement
         }
 
         return $disagreements;
+    }
+
+    /** @return array<string, array<string, int>> */
+    private function listed(Model $reader): array
+    {
+        $listed = [];
+
+        foreach ($this->abilities as $ability) {
+            if ($this->isListable($ability)) {
+                $listed[$ability] = array_flip(array_map(self::key(...), $this->controlled($reader, $ability)->get()->all()));
+            }
+        }
+
+        return $listed;
+    }
+
+    private function isListable(string $ability): bool
+    {
+        return $ability !== self::VIEW_ANY && ! $this->control->abilityFor($ability)->is(Ability::create());
     }
 
     /**
@@ -86,12 +112,12 @@ final readonly class ControlAgreement
     }
 
     /** @return Builder<Model> */
-    private function controlled(Model $reader): Builder
+    private function controlled(Model $reader, string $ability): Builder
     {
         $model = $this->control->getModel();
         $query = (new $model)->newQuery();
 
-        $query->scopes(['controlledFor' => [$reader]]);
+        $query->scopes(['controlledFor' => [$reader, $ability]]);
 
         return $query->whereKey(array_map(fn (Model $row): mixed => $row->getKey(), $this->rows));
     }
@@ -112,14 +138,14 @@ final readonly class ControlAgreement
     /** @param  array<string, string>  $answers */
     private function agree(array $answers): bool
     {
-        $listed = $answers['controlled()'] ?? null;
-        unset($answers['controlled()']);
+        $listed = $answers[self::LISTED_PATH] ?? null;
+        unset($answers[self::LISTED_PATH]);
 
         if (count(array_unique($answers)) !== 1) {
             return false;
         }
 
-        return $listed === null || ($listed === 'listed') === (reset($answers) === self::GRANTED);
+        return $listed === null || ($listed === self::LISTED) === (reset($answers) === self::GRANTED);
     }
 
     /** @param  array<string, string>  $answers */

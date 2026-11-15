@@ -19,6 +19,7 @@ use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\MissingSearchClientException;
 use Lomkit\Access\Exceptions\PastSearchTokenExpiryException;
+use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsupportedSearchTokenEngineException;
 use Lomkit\Access\Policies\AutomaticPolicies;
@@ -71,9 +72,14 @@ final class Access extends Facade
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws MissingSearchClientException When the client library of the engine is not installed.
+     * @throws UnsearchableAbilityException When an ability is given after the expiry.
      */
     public static function searchToken(?Model $reader, string $model, SearchTokenKey $key, DateTimeInterface $expiresAt): SearchToken
     {
+        if (func_num_args() > 4) {
+            throw UnsearchableAbilityException::token($model);
+        }
+
         return SearchTokens::issue($reader, $model, $key, $expiresAt);
     }
 

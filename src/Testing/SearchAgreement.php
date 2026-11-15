@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Testing;
 
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Ability;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Search\SearchDocuments;
 
@@ -45,7 +46,7 @@ final class SearchAgreement
         $model = $this->control->getModel();
         $query = (new $model)->newQuery();
 
-        $this->control->restrict($query, $reader);
+        $this->control->restrict($query, $reader, Ability::view());
 
         return array_values(array_map(self::key(...), $query->get()->all()));
     }
