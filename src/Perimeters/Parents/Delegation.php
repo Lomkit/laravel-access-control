@@ -10,11 +10,14 @@ use Lomkit\Access\Exceptions\InvalidDelegationException;
 final readonly class Delegation
 {
     /** @param  non-empty-array<string, Ability>  $parents */
-    private function __construct(private array $parents) {}
+    private function __construct(
+        private string $relation,
+        private array $parents,
+    ) {}
 
-    public static function viewOnly(): self
+    public static function viewOnly(string $relation): self
     {
-        return new self(['view' => Ability::view()]);
+        return new self($relation, ['view' => Ability::view()]);
     }
 
     /**
@@ -46,7 +49,12 @@ final readonly class Delegation
             throw InvalidDelegationException::empty($relation);
         }
 
-        return new self($parents);
+        return new self($relation, $parents);
+    }
+
+    public function relation(): string
+    {
+        return $this->relation;
     }
 
     public function parentAbilityFor(Ability $child): ?Ability
@@ -60,7 +68,7 @@ final readonly class Delegation
     }
 
     /** @return array<string, string> */
-    private function names(): array
+    public function names(): array
     {
         $names = array_map(fn (Ability $ability): string => $ability->name(), $this->parents);
 

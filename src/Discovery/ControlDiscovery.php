@@ -9,8 +9,6 @@ use Lomkit\Access\Exceptions\InvalidControlModelException;
 use Lomkit\Access\Registry\ConcreteControl;
 use Lomkit\Access\Registry\ControlMap;
 use Lomkit\Access\Registry\DeclaredModel;
-use SplFileInfo;
-use Symfony\Component\Finder\Finder;
 
 final class ControlDiscovery
 {
@@ -29,6 +27,16 @@ final class ControlDiscovery
     }
 
     /**
+     * @internal
+     *
+     * @return list<string>
+     */
+    public function paths(): array
+    {
+        return $this->paths;
+    }
+
+    /**
      * @throws DuplicateControlException When two discovered controls declare the same model.
      * @throws InvalidControlModelException When a discovered control declares no Eloquent model.
      */
@@ -36,59 +44,28 @@ final class ControlDiscovery
     {
         $map = new ControlMap;
 
-        foreach ($this->classes() as $control) {
+        foreach ($this->controls() as $control) {
             $map = $map->with(DeclaredModel::of($control), $control);
         }
 
         return $map;
     }
 
-    /** @return list<class-string<Control>> */
-    private function classes(): array
+    /**
+     * @internal
+     *
+     * @return list<class-string<Control>>
+     */
+    public function controls(): array
     {
         $classes = [];
 
-        foreach ($this->directories() as $directory) {
-            $files = Finder::create()
-                ->files()
-                ->name('*.php')
-                ->sortByName()
-                ->in($directory);
-
-            foreach ($files as $file) {
-                $class = $this->classFromFile($file);
-
-                if (ConcreteControl::is($class)) {
-                    $classes[$class] = $class;
-                }
+        foreach (ClassFiles::in($this->paths) as $class) {
+            if (ConcreteControl::is($class)) {
+                $classes[$class] = $class;
             }
         }
 
         return array_values($classes);
-    }
-
-    /** @return list<string> */
-    private function directories(): array
-    {
-        $directories = [];
-
-        foreach ($this->paths as $path) {
-            foreach (glob($path, GLOB_ONLYDIR) ?: [] as $directory) {
-                $directories[] = $directory;
-            }
-        }
-
-        return $directories;
-    }
-
-    private function classFromFile(SplFileInfo $file): string
-    {
-        $contents = (string) file_get_contents($file->getRealPath());
-
-        $namespace = preg_match('/^\s*namespace\s+([^;\s]+)\s*;/m', $contents, $matches) === 1
-            ? $matches[1].'\\'
-            : '';
-
-        return $namespace.$file->getBasename('.php');
     }
 }
