@@ -273,9 +273,8 @@ jobs:
       - name: Wait for Typesense
         run: curl --fail --silent --show-error --retry 30 --retry-delay 2 --retry-all-errors "http://127.0.0.1:${{ job.services.typesense.ports['8108'] }}/health"
 
-      # The Turbopuffer test is skipped until the Turbopuffer profile of laravel-rest-api matches lists of strings
       - name: Run the laravel-rest-api and search engine tests
-        run: vendor/bin/phpunit --group rest-api --group meilisearch --group typesense --fail-on-empty-test-suite
+        run: vendor/bin/phpunit --group rest-api --group meilisearch --group typesense --fail-on-skipped --fail-on-empty-test-suite
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
