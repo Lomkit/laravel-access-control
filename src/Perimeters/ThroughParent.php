@@ -129,6 +129,12 @@ final class ThroughParent extends Perimeter
     }
 
     /** @internal */
+    public function inherits(Ability $ability): bool
+    {
+        return $this->delegation()->parentAbilityFor($ability) !== null;
+    }
+
+    /** @internal */
     public function parentSearch(): ParentSearch
     {
         return new ParentSearch($this->relation, $this->inverse, $this->link()->control(), $this->delegation()->parentAbilityFor(Ability::view()));

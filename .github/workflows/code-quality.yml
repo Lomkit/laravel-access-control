@@ -76,6 +76,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-php-8.4-highest-
 
+      # Analyses src/Integrations/RestApi, which needs laravel-rest-api
+      - name: Add laravel-rest-api
+        run: composer require-rest-api
+
       - name: Install dependencies
         run: composer update --prefer-dist --no-interaction --no-progress
 

@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Perimeters;
 
 use Illuminate\Container\Container;
+use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Perimeters\Parents\ParentChain;
@@ -71,6 +72,17 @@ final readonly class PerimeterList
         }
 
         return $parents;
+    }
+
+    public function inheritsFromParent(Ability $ability): bool
+    {
+        foreach ($this->parents() as $parent) {
+            if ($parent->inherits($ability)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @return list<SearchKeys> */

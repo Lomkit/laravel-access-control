@@ -29,7 +29,11 @@
     "tomasvotruba/type-coverage": "^2.5"
   },
   "suggest": {
-    "laravel/scout": "Filters Scout searches by the access keys that the ControlledSearchable trait indexes with each document."
+    "laravel/scout": "Filters Scout searches by the access keys that the ControlledSearchable trait indexes with each document.",
+    "lomkit/laravel-rest-api": "Applies the controls to every rest-api resource through the AccessControlExtension, registered on install (^3.6)."
+  },
+  "conflict": {
+    "lomkit/laravel-rest-api": "<3.6.0"
   },
   "autoload": {
     "psr-4": {
@@ -43,6 +47,7 @@
   },
   "scripts": {
     "test": "phpunit",
+    "require-rest-api": "@composer require --dev --no-update --no-interaction \"lomkit/laravel-rest-api:3.x-dev as 3.6.0\"",
     "analyse": "phpstan analyse --memory-limit=1G",
     "format": "pint",
     "lint": "pint --test"
