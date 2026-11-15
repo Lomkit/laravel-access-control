@@ -12,7 +12,6 @@ use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidControlException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\UnwatchableReindexException;
-use Lomkit\Access\Search\UsesControlledSearchable;
 
 final class ControlRegistry
 {
@@ -61,6 +60,7 @@ final class ControlRegistry
      *
      * @throws InvalidControlException When the class is not a control, or the container resolves another class.
      * @throws ImpurePerimetersException When the control builds perimeters of another shape than the ones it built first, in debug mode and in tests.
+     * @throws UnwatchableReindexException When the control reindexes for a model that a fresh process would not watch, or that no searchable document uses.
      */
     public function control(string $control): Control
     {
@@ -72,8 +72,12 @@ final class ControlRegistry
 
         $this->purity->check($instance);
 
-        if (! array_key_exists($control, $this->controls)) {
-            $this->ensureWatchable($control, $instance);
+        if (array_key_exists($control, $this->controls)) {
+            return $instance;
+        }
+
+        if (! (new WatchedReindex($this, $this->discovered(), $this->cache))->verify($control, $instance)) {
+            return $instance;
         }
 
         return $this->controls[$control] = $instance;
@@ -163,27 +167,5 @@ final class ControlRegistry
         return $this->discovered ??= $this->cache->exists()
             ? $this->cache->read()
             : $this->discovery->map();
-    }
-
-    /** @throws UnwatchableReindexException When the control reindexes for a model that a fresh process would not watch. */
-    private function ensureWatchable(string $control, Control $instance): void
-    {
-        $watched = $instance->searchRules()->watchedModels();
-
-        if ($watched === []) {
-            return;
-        }
-
-        if (! in_array($control, $this->discovered()->toArray(), true)) {
-            throw UnwatchableReindexException::undiscovered($control);
-        }
-
-        if (! UsesControlledSearchable::check($instance->getModel())) {
-            throw UnwatchableReindexException::unsearchable($control, $instance->getModel());
-        }
-
-        if ($this->cache->readWatched()?->covers($control, $watched) === false) {
-            throw UnwatchableReindexException::staleCache($control);
-        }
     }
 }

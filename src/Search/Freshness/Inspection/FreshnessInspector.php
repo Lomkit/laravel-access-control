@@ -42,7 +42,7 @@ final class FreshnessInspector
         $rules = Access::controlFor($model)->searchRules();
 
         foreach ([...$rules->keys(), ...array_filter([$rules->boundaryKeys()])] as $keys) {
-            array_push($issues, ...KeyRelations::unwatched($model, $keys, $rules->reindexes()));
+            array_push($issues, ...KeyRelations::unwatched($model, $keys, $rules->freshness()->declared()));
         }
 
         return new FreshnessReport($model, $issues);

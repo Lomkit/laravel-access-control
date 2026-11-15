@@ -35,8 +35,8 @@ final readonly class ReindexTrigger
 
             $controlled = $registry->control($control);
 
-            foreach ($controlled->searchRules()->reindexesWatching($instance) as $keys => $reindex) {
-                if ($event->triggers($reindex, $instance)) {
+            foreach ($controlled->searchRules()->freshness()->watching($instance) as $keys => $reindex) {
+                if ($reindex->isTriggeredBy($event, $instance)) {
                     SearchQueue::push(ReindexWatchedRows::of($control, $keys, $reindex, $instance, $event), new ($controlled->getModel()), $instance->getConnection());
                 }
             }

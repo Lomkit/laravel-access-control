@@ -14,6 +14,11 @@ final class ParentChain
     /** @var list<Control> */
     private array $declaring = [];
 
+    public function isIdle(): bool
+    {
+        return $this->declaring === [];
+    }
+
     /**
      * @template TResult
      *

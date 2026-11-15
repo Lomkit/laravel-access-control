@@ -15,7 +15,7 @@ use Lomkit\Access\Perimeters\Perimeter;
 use ReflectionFunction;
 
 /** @internal */
-final readonly class ReindexWhen
+final readonly class ReindexWhen implements ReindexRule
 {
     /**
      * @param  class-string<Model>  $model
@@ -66,6 +66,7 @@ final readonly class ReindexWhen
      *
      * @return class-string<Model>
      */
+    #[\Override]
     public function model(): string
     {
         return $this->model;
@@ -82,9 +83,28 @@ final readonly class ReindexWhen
     }
 
     /** @internal */
+    #[\Override]
     public function watches(Model $instance): bool
     {
         return $instance instanceof $this->model;
+    }
+
+    /** @internal */
+    #[\Override]
+    public function isTriggeredBy(WatchedEvent $event, Model $instance): bool
+    {
+        return $event !== WatchedEvent::Updated || $instance->wasChanged($this->changed);
+    }
+
+    /**
+     * @internal
+     *
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function previousValues(Model $instance): array
+    {
+        return array_intersect_key($instance->getPrevious(), array_flip($this->changed));
     }
 
     /**
@@ -95,6 +115,7 @@ final readonly class ReindexWhen
      *
      * @throws InvalidReindexRowsException When the callback returns no query or relation of the controlled model.
      */
+    #[\Override]
     public function rowsFor(Model $instance, string $keys, string $controlled): Builder
     {
         $rows = ($this->rows)($instance);

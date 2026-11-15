@@ -21,9 +21,14 @@ use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\PostControl;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
+use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
+use Lomkit\Access\Tests\Fixtures\Search\Article;
+use Lomkit\Access\Tests\Fixtures\Search\ArticleControl;
+use Lomkit\Access\Tests\Fixtures\Search\Folder;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use stdClass;
 
@@ -203,14 +208,31 @@ class ReindexWhenDeclarationTest extends PackageTestCase
     }
 
     #[Test]
+    #[Group('scout')]
     public function it_refuses_a_control_that_reindexes_without_being_discovered(): void
+    {
+        ConfiguredArticleControl::bind(
+            ClientPerimeter::new()
+                ->allowed(fn (User $user): bool => true)
+                ->searchKeys('client', fn (Article $article): mixed => $article->folder?->client_id, fn (User $user): mixed => $user->client_id)
+                ->reindexWhen(Folder::class, changed: ['client_id'], rows: fn (Folder $folder) => $folder->articles()),
+        );
+
+        $this->expectException(UnwatchableReindexException::class);
+        $this->expectExceptionMessage(sprintf('The [%s] control declares reindexWhen(), but it is not in the discovered directories', ArticleControl::class));
+
+        Access::control(ArticleControl::class);
+    }
+
+    #[Test]
+    public function it_refuses_a_control_that_reindexes_an_unsearchable_model_whose_keys_no_searchable_child_inherits(): void
     {
         ConfiguredPostControl::bind(
             $this->client()->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts()),
         );
 
         $this->expectException(UnwatchableReindexException::class);
-        $this->expectExceptionMessage(sprintf('The [%s] control declares reindexWhen(), but it is not in the discovered directories', PostControl::class));
+        $this->expectExceptionMessage(sprintf('The [%s] control declares reindexWhen(), but its [%s] model does not use the ControlledSearchable trait and no searchable control inherits its keys', PostControl::class, Post::class));
 
         Access::control(PostControl::class);
     }

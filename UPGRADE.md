@@ -297,7 +297,7 @@ For an ability it does not delegate, the perimeter does not apply, as if `allowe
 | The parents lead back to the child, directly or through several hops | `ParentCycleException`, naming the cycle |
 | `delegates()` gets an empty list, an ability twice, or something else than an ability | `InvalidDelegationException` |
 
-`inverse` names the `hasMany` from the parent to its children. It is optional for now and validated when given; the search will use it to reindex the children when the parent's keys change. Until then, a `ThroughParent` adds no key to a search, so a searchable child is found only through its other perimeters, never wider than SQL.
+`inverse` names the `hasMany` from the parent to its children. The search uses it to reindex the children when the parent's keys change, so a model that uses `ControlledSearchable` requires it (see [Searching through a parent](#searching-through-a-parent)). On a model that is not searchable it is optional, and validated when given.
 
 `php artisan make:control CommentControl --parent=post` writes the `ThroughParent::belongsTo('post')` entry, and refuses a relation that is not a `belongsTo` of the model.
 
@@ -549,7 +549,7 @@ ClientPerimeter::new()
 - The job carries no full copy of the project, the way `SerializesModels` carries only a key. For a created or restored project it carries the key, and loads the row when it runs. For an update it carries the key and the previous values of the `changed` attributes only, and builds the previous state from the fresh row; an update whose row is gone when the job runs is skipped, since its deletion queued its own job. For a deleted project it carries the attributes without the model's `$hidden` columns, so a `rows` callback must not depend on a hidden attribute.
 - The job is queued after the commit, always, whatever Scout's `after_commit` option, on Scout's queue connection and queue (`scout.queue`). Without a queue it runs synchronously after the commit. A rolled back transaction queues nothing. It reindexes the rows in chunks of `scout.chunk.searchable` through Scout, whose `makeSearchableUsing()` recomputes the keys, and removes from the index the rows whose `shouldBeSearchable()` is now false. Inside `withoutSyncingToSearch()` of the controlled model, nothing is queued.
 - `reindexWhen()` comes after `searchKeys()` on the same perimeter, or throws `ReindexWithoutSearchKeysException`. A class that is not an Eloquent model throws `InvalidReindexModelException`, an empty or blank attribute `InvalidReindexAttributesException`, a `rows` callback that does not accept the model, or returns anything but a query or relation of the controlled model, `InvalidReindexRowsException`. A perimeter may watch several models, once each: a second `reindexWhen()` for the same model, or for a parent or child class of a watched model, throws `DuplicateReindexException`.
-- A queue worker that only updates a project must know that posts depend on it, without ever building `PostControl`. The package listens to every Eloquent `created`, `updated`, `deleted` and `restored` event and looks up the controls that watch the model: about a microsecond for a model nobody watches. The watched models are read from the discovered controls, so a control that declares `reindexWhen()` must be discovered (`app/Access/Controls`, or `Access::discoverControlsIn()`): one linked only by `#[ControlledBy]` throws `UnwatchableReindexException` when it is built, and so does one whose model does not use `ControlledSearchable`. `php artisan access:cache` caches the watched models with the controls, and the cache is used as is, the way Laravel uses its route and event caches: a deployment runs it again, which `php artisan optimize` does. A stale cache throws `UnwatchableReindexException` when a control whose `reindexWhen()` it does not know is built.
+- A queue worker that only updates a project must know that posts depend on it, without ever building `PostControl`. The package listens to every Eloquent `created`, `updated`, `deleted` and `restored` event and looks up the controls that watch the model: about a microsecond for a model nobody watches. The watched models are read from the discovered controls, so a control that declares `reindexWhen()` must be discovered (`app/Access/Controls`, or `Access::discoverControlsIn()`): one linked only by `#[ControlledBy]` throws `UnwatchableReindexException` when it is built. So does one whose model does not use `ControlledSearchable`, unless a searchable child inherits its keys (see [Searching through a parent](#searching-through-a-parent)): only that child must then be discovered. `php artisan access:cache` caches the watched models with the controls, and the cache is used as is, the way Laravel uses its route and event caches: a deployment runs it again, which `php artisan optimize` does. A stale cache throws `UnwatchableReindexException` when a control whose `reindexWhen()` it does not know is built.
 
 A custom pivot reindexes the documents it links with the `ReindexesSearch` trait:
 
@@ -583,6 +583,34 @@ The same holds for `DB::table()` writes, `Model::withoutEvents()`, `withoutSynci
 The document's own model needs nothing: Scout reindexes it when it is saved. When the model overrides `searchIndexShouldBeUpdated()` and it returns `false`, the package compares the keys of the row before and after the save, after the commit, each state loading its own `load:` relations (so a changed `project_id` counts), and reindexes the document when they differ: keep your override for the other attributes.
 
 The engine stays the only barrier, and freshness has a limit: between the change and the end of the job, the documents keep their former keys. Without a queue the window closes right after the commit; with one it lasts as long as the queue's backlog, and a failed job leaves the keys stale until it is retried or the model reindexed. Turn on Scout's `after_commit` option so that Scout's own indexing never writes the keys of a change that is rolled back.
+
+#### Searching through a parent
+
+A searchable child is found through its parent with the same rule as in SQL: the parent's boundary AND the parent's access keys must both open the parent for the reader. The child's own filter is `_boundary` AND `_access`, and `_access` is a union, so each pair of a parent boundary key and a parent access key becomes one composite key in the child's `_access`:
+
+| Parent document | Keys written on the child |
+| --- | --- |
+| `_boundary: [workspace_id.1]`, `_access: [author.7, client.3]` | `through.thread.2.workspace_id.1`, `through.thread.2.workspace_id.1.author.7`, `through.thread.2.workspace_id.1.client.3` |
+| No boundary, `_access: [client.3]` | `through.thread.0`, `through.thread.0.client.3` |
+
+The reader builds the same keys from the parent's filter for the reader: `through.thread.2.workspace_id.1.author.7` for an author, and the boundary key alone, `through.thread.2.workspace_id.1`, for a reader the parent does not restrict. The number after the relation counts the components of the boundary key (`0` when the parent has no boundary), so a key always splits back into one boundary key and one access key and two pairs never share a key. Nested parents compose: a reply through its thread through its forum carries `through.thread.0.through.forum.0.client.3`. A child carries, per parent, the parent's boundary keys times its access keys plus one: usually one boundary key, so one key more than the parent has. `through` is reserved: a perimeter of a control with a `ThroughParent` that names its keys `through` throws `DuplicateSearchKeyNameException`.
+
+The relation of the parent is loaded with its own `load:` relations when the child is indexed. A soft-deleted parent is not loaded, so its children lose the keys they inherit from it. On a searchable child, the control throws `UnsearchableThroughParentException` when it is built:
+
+- when a `ThroughParent` has no `inverse`, or a parent further up the chain has none;
+- when it delegates `view` to another ability of the parent: a search only knows the keys that open the parent for `view`;
+- when the parent's boundary has no search form.
+
+`assertSearchAgrees()` compares the search with the SQL on a searchable child as on any model.
+
+The children follow their parent, through the watch map, jobs queued after the commit, unique jobs and chunks, as for `reindexWhen()`:
+
+- **The parent's keys change.** On each update of the parent, the package compares the parent's keys before and after it, each state loading its own relations, and reindexes the children through `inverse` when they differ. An update that leaves the keys unchanged queues nothing, and creating a parent queues nothing.
+- **The parent is reindexed by its own `reindexWhen()`.** When a grandparent changes, the children of the rows the parent's rule reindexes are reindexed too, through every level of nesting. The parent needs neither to be searchable nor to be discovered: a control whose model does not use `ControlledSearchable` may declare `reindexWhen()` when a searchable child inherits its keys through a `ThroughParent` with `inverse`, and the job then reindexes only the children. Without such a child, building that control still throws `UnwatchableReindexException`, since nothing would use its keys.
+- **The parent is deleted, soft-deleted or restored.** Its children are reindexed, and lose or regain the keys they inherit.
+- **A child moves to another parent.** Scout reindexes the child itself, as any saved model.
+
+The control of a searchable child watches its parent and the models its parent watches, so it must be discovered, as a control that declares `reindexWhen()`. A foreign key that the database sets to null on its own, without an Eloquent event, is not seen: reindex those children yourself, as for the other writes Eloquent cannot see.
 
 #### Search from the browser
 
@@ -1292,6 +1320,7 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 | `->addSelect(['can_update' => ...])` or a helper that collects the editable keys | `->withAbilities(['update'])`, then `can()`; `Access::preload()` or `reachableKeys()` for loaded rows |
 | `->query(fn ($query) => $query->whereHas('post', fn ($posts) => $posts->controlled()))` on a child | `ThroughParent::belongsTo('post', inverse: 'comments')`, with `->delegates([...])` beyond `view` |
 | A test that compares `can()` with `controlled()` by hand | `assertControlAgrees(PostControl::class, $reader, $rows)` |
+| A listener on the parent that reindexes its children's documents | `ThroughParent::belongsTo('post', inverse: 'comments')` on the child's control |
 | `use Searchable` on a controlled model | `use ControlledSearchable`, then reindex |
 | `->scoutQuery(fn ($query, $user) => $query->where('client_id', $user->client_id))` | `->searchKeys(name: 'client', row: fn ($post) => $post->client_id, reader: fn ($user) => $user->client_id)` |
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |

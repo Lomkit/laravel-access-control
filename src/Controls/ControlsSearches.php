@@ -24,7 +24,12 @@ trait ControlsSearches
             return SearchFilter::closed();
         }
 
-        $context = AccessContext::of($reader, Ability::view());
+        return $this->searchFilterIn(AccessContext::of($reader, Ability::view()));
+    }
+
+    /** @internal */
+    final public function searchFilterIn(AccessContext $context): SearchFilter
+    {
         $perimeters = $this->declaration()->reachedBy($context);
 
         if ($perimeters->isEmpty()) {

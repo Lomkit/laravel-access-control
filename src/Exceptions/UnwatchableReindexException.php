@@ -17,7 +17,7 @@ final class UnwatchableReindexException extends LogicException
     public static function unsearchable(string $control, string $model): self
     {
         return new self(sprintf(
-            'The [%s] control declares reindexWhen(), but its [%s] model does not use the ControlledSearchable trait, so it has no document to reindex. Use ControlledSearchable on the model, or remove reindexWhen().',
+            'The [%s] control declares reindexWhen(), but its [%s] model does not use the ControlledSearchable trait and no searchable control inherits its keys through a ThroughParent with an inverse, so it has no document to reindex. Use ControlledSearchable on the model, let a searchable child inherit its keys through ThroughParent::belongsTo() with an inverse, or remove reindexWhen().',
             $control,
             $model,
         ));

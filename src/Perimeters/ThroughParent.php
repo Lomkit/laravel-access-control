@@ -5,6 +5,7 @@ namespace Lomkit\Access\Perimeters;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
@@ -15,6 +16,7 @@ use Lomkit\Access\Exceptions\ParentCycleException;
 use Lomkit\Access\Exceptions\ThroughParentCallbackException;
 use Lomkit\Access\Perimeters\Parents\Delegation;
 use Lomkit\Access\Perimeters\Parents\ParentLink;
+use Lomkit\Access\Search\Parents\ParentSearch;
 
 final class ThroughParent extends Perimeter
 {
@@ -124,6 +126,12 @@ final class ThroughParent extends Perimeter
         }
 
         return $parent->ability()->name().':'.$this->link()->control()->declaration()->reachedBy($parent)->fingerprint($parent);
+    }
+
+    /** @internal */
+    public function parentSearch(): ParentSearch
+    {
+        return new ParentSearch($this->relation, $this->inverse, $this->link()->control(), $this->delegation()->parentAbilityFor(Ability::view()));
     }
 
     /** @internal */
