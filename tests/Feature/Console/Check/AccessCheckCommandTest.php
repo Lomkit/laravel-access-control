@@ -13,6 +13,8 @@ use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\DuplicateControlException;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Registry\ControlMap;
+use Lomkit\Access\Registry\ControlRegistry;
+use Lomkit\Access\Registry\WatchMap;
 use Lomkit\Access\Tests\Fixtures\Check\Broken\Controls\GadgetControl;
 use Lomkit\Access\Tests\Fixtures\Check\Broken\Controls\GizmoControl;
 use Lomkit\Access\Tests\Fixtures\Check\Broken\Controls\WidgetControl;
@@ -168,7 +170,9 @@ class AccessCheckCommandTest extends CheckTestCase
     {
         $this->discover(['Clean']);
         Access::registerPolicies();
-        $this->app->make(DiscoveryCache::class)->write(new ControlMap([Ticket::class => TicketControl::class]));
+        $cache = $this->app->make(DiscoveryCache::class);
+        $cache->write(new ControlMap([Ticket::class => TicketControl::class]));
+        $cache->writeWatched(WatchMap::of($this->app->make(ControlRegistry::class), new ControlMap));
 
         [$code, $report] = $this->checkJson();
 

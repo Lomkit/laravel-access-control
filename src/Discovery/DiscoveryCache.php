@@ -69,7 +69,8 @@ final readonly class DiscoveryCache
         return $this->app->bootstrapPath('cache/access-controls.php');
     }
 
-    private function watchedPath(): string
+    /** @internal */
+    public function watchedPath(): string
     {
         return $this->app->bootstrapPath('cache/access-reindex.php');
     }

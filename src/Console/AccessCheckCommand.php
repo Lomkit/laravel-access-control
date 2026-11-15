@@ -17,6 +17,7 @@ use Lomkit\Access\Console\Check\Checks\ModelScan;
 use Lomkit\Access\Console\Check\Checks\PivotCheck;
 use Lomkit\Access\Console\Check\Checks\PolicyCheck;
 use Lomkit\Access\Console\Check\Checks\SearchCheck;
+use Lomkit\Access\Console\Check\Checks\WatchCacheCheck;
 use Lomkit\Access\Console\Check\Findings;
 use Lomkit\Access\Console\Check\HumanReport;
 use Lomkit\Access\Console\Check\Inventory\ControlInventory;
@@ -43,6 +44,7 @@ class AccessCheckCommand extends Command
         $paths = $this->modelPaths();
         $scanned = ModelScan::in($paths);
         $models = $this->laravel->make(DiscoveryCheck::class)->run($findings, $scanned, DiscoveryInventory::relative($this->laravel->basePath(), $cache->path()));
+        $this->laravel->make(WatchCacheCheck::class)->run($findings, DiscoveryInventory::relative($this->laravel->basePath(), $cache->watchedPath()));
         $only = $this->stringList('only');
         $selected = $models->only($only);
 

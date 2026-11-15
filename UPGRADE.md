@@ -1296,6 +1296,7 @@ Problems:
 | `uncontrolled_model` | A model of the scanned directories uses `HasControl` and no control is discovered or declared for it. |
 | `invalid_controlled_by` | `#[ControlledBy]` names a class that is not a control, or the control of another model. |
 | `stale_control_cache` | `bootstrap/cache/access-controls.php` maps the models to other controls than the discovered ones. |
+| `stale_watch_cache` | The controls are cached, and `bootstrap/cache/access-reindex.php` is missing, unreadable, or lists other watched models than the `reindexWhen()` rules of the discovered controls: the documents whose rule it misses keep stale access keys. |
 | `unresolvable_policy` | The Gate throws while it resolves the policy of a controlled model. |
 | `policy_without_control` | The policy of a controlled model extends `ControlledPolicy` without `$control`: `viewAny()` and `create()` without a draft throw `MissingPolicyControlException`. |
 | `policy_for_another_control` | That policy names another control than the one of its model (`PolicyControlMismatchException`). |
@@ -1320,7 +1321,7 @@ Options:
 - `--only=App\Models\Post` (repeatable, a model or a control class) checks only these controls: their declaration, policy and search. The discovery, the cache and the pivots are always checked. A name that matches no control exits with `2`.
 - `--models=app/Domain/Models` (repeatable) sets the directories scanned for models that use `HasControl` or `#[ControlledBy]`, `app/Models` by default.
 
-The command is read-only: it never writes the discovery cache, runs no query and dispatches no job. It builds the controls, resolves the policies and the Scout engines, and instantiates the `BelongsToMany` relations it scans, without running them. The pivot check only sees the public relation methods that declare a `BelongsToMany` return type (or a subclass, such as `MorphToMany`): a relation method without a return type is not scanned. It cannot tell whether a `should()` callback reads a relation: that is up to the code of the callback.
+The command is read-only: it never writes or rewrites the discovery cache (a stale one is reported, not fixed), runs no query and dispatches no job. It builds the controls, resolves the policies and the Scout engines, and instantiates the `BelongsToMany` relations it scans, without running them. The pivot check only sees the public relation methods that declare a `BelongsToMany` return type (or a subclass, such as `MorphToMany`): a relation method without a return type is not scanned. It cannot tell whether a `should()` callback reads a relation: that is up to the code of the callback.
 
 ### laravel-rest-api
 

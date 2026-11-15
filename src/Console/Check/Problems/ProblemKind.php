@@ -10,6 +10,7 @@ enum ProblemKind: string
     case UncontrolledModel = 'uncontrolled_model';
     case InvalidControlledBy = 'invalid_controlled_by';
     case StaleControlCache = 'stale_control_cache';
+    case StaleWatchCache = 'stale_watch_cache';
     case UnresolvablePolicy = 'unresolvable_policy';
     case PolicyWithoutControl = 'policy_without_control';
     case PolicyForAnotherControl = 'policy_for_another_control';
