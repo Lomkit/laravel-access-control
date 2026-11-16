@@ -56,6 +56,7 @@ class ControlMakeCommandTest extends PackageTestCase
             app_path('Access/Controls/ForecastControl.php'),
             app_path('Access/Perimeters/AuditPerimeter.php'),
             app_path('Access/Perimeters/MemoPerimeter.php'),
+            app_path('Access/Perimeters/LedgerPerimeter.php'),
             app_path('Models/Review.php'),
             app_path('Models/Archive.php'),
             app_path('Models/Memo.php'),
@@ -283,5 +284,40 @@ class ControlMakeCommandTest extends PackageTestCase
             ->assertOk();
 
         $this->assertStringContainsString('protected string $model = \\App\\Models\\Ledger::class;', File::get(app_path('Access/Controls/LedgerControl.php')));
+    }
+
+    #[Test]
+    public function it_leaves_out_and_warns_about_a_perimeter_whose_constructor_requires_arguments(): void
+    {
+        $this->writeModel('Review');
+        File::put(app_path('Access/Perimeters/LedgerPerimeter.php'), <<<'PHP'
+            <?php
+
+            namespace App\Access\Perimeters;
+
+            use Lomkit\Access\Perimeters\Perimeter;
+
+            final class LedgerPerimeter extends Perimeter
+            {
+                public function __construct(public readonly bool $writing) {}
+
+                public static function reading(): self
+                {
+                    return new self(false);
+                }
+            }
+
+            PHP);
+        require_once app_path('Access/Perimeters/LedgerPerimeter.php');
+
+        $this->artisan('make:control', ['name' => 'LedgerControl', '--model' => 'Review', '--perimeters' => ['LedgerPerimeter', 'AuditPerimeter']])
+            ->expectsOutputToContain('The constructor of the [App\\Access\\Perimeters\\LedgerPerimeter] perimeter')
+            ->assertOk();
+
+        $source = File::get(app_path('Access/Controls/LedgerControl.php'));
+
+        $this->assertStringNotContainsString('LedgerPerimeter', $source);
+        $this->assertStringContainsString("return [\n            \\App\\Access\\Perimeters\\AuditPerimeter::new()\n", $source);
+        $this->assertValidPhp(app_path('Access/Controls/LedgerControl.php'));
     }
 }

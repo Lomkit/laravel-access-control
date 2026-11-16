@@ -14,6 +14,9 @@ parameters:
         - tests/Fixtures/Search/Article.php
         # Analyses the ReindexesSearch trait through a pivot that uses it
         - tests/Fixtures/Search/ArticleReviewer.php
+        # Analyses perimeter classes configured by their constructor
+        - tests/Fixtures/Constructed/ShelfPerimeter.php
+        - tests/Fixtures/Constructed/ShelvedArticlesPerimeter.php
     level: 10
     phpVersion: 80300
     checkMissingOverrideMethodAttribute: true

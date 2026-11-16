@@ -44,7 +44,7 @@ Perimeter::new()
     );
 ```
 
-- Perimeter class: a class-based perimeter overrides protected hooks, each receiving a final `Lomkit\Access\AccessContext` (`reader(): Model`, `ability(): Ability`), built by the package: `allows(AccessContext $context): bool` (the permission), `includes(Model $row, AccessContext $context): bool` (this row), `scope(Builder $query, AccessContext $context): void` (the rows in SQL). Search keys have no hook: declare them with `searchKeys()`. The default hooks run the declared callbacks. A rule is written once: declaring the `allowed`, `should` or `query` callback of a hook the class overrides throws `OverriddenPerimeterHookException`, and `unrestricted()` on a class that overrides `includes` or `scope` throws `UnrestrictedPerimeterCallbackException`. The `apply*Callback()` plumbing is final and internal: never override or call it. The reader is typed `Model` in the hooks (Liskov), so narrow it with `instanceof`. `make:perimeter --hooks` generates the three hooks denying everything; `make:perimeter` alone generates an empty class for callbacks declared in the control. To narrow a perimeter class for one use, give it a typed wither (`->ofKind('invoice')`) that clones the perimeter and sets private, pure state read by every hook (`scope()`, `includes()`) and by the `row:` closure of its search keys, which returns no key for a row outside the variant; two variants in one control need distinct search key names (`DuplicateSearchKeyNameException`). Never narrow it with `->query()` (`OverriddenPerimeterHookException`), a generic `where()`, or a wrapper perimeter (it hides `ThroughParent` and `unrestricted()`). Example usage:
+- Perimeter class: a class-based perimeter overrides protected hooks, each receiving a final `Lomkit\Access\AccessContext` (`reader(): Model`, `ability(): Ability`), built by the package: `allows(AccessContext $context): bool` (the permission), `includes(Model $row, AccessContext $context): bool` (this row), `scope(Builder $query, AccessContext $context): void` (the rows in SQL). Search keys have no hook: declare them with `searchKeys()`. The default hooks run the declared callbacks. A rule is written once: declaring the `allowed`, `should` or `query` callback of a hook the class overrides throws `OverriddenPerimeterHookException`, and `unrestricted()` on a class that overrides `includes` or `scope` throws `UnrestrictedPerimeterCallbackException`. The `apply*Callback()` plumbing is final and internal: never override or call it. The reader is typed `Model` in the hooks (Liskov), so narrow it with `instanceof`. `make:perimeter --hooks` generates the three hooks denying everything; `make:perimeter` alone generates an empty class for callbacks declared in the control. To narrow a perimeter class for one use, keep the variant as private, pure state (scalars, enums, readonly objects) read by every hook (`scope()`, `includes()`) and by the `row:` closure of its search keys, which returns no key for a row outside the variant. Required state goes in a constructor with `readonly` promoted properties and a named static constructor per variant (`OwnedByMyEntities::ofKind('invoice')`), called first in the chain and never rebuilt after a fluent method (the fluent methods clone and keep it); `X::new()` on a class whose constructor requires arguments or is not public throws `UnbuildablePerimeterException`, and `make:control -p` leaves such a class out with a warning. An optional narrowing of a class with a sensible default is a typed wither (`TeamDocuments::new()->ofKind('invoice')`) that clones the perimeter and sets private state. Two variants in one control need distinct search key names (`DuplicateSearchKeyNameException`). Never narrow it with `->query()` (`OverriddenPerimeterHookException`), a generic `where()`, or a wrapper perimeter (it hides `ThroughParent` and `unrestricted()`). Example usage:
 
 ```php
 use Lomkit\Access\AccessContext;
@@ -82,6 +82,23 @@ class EditorialPerimeter extends Perimeter
 
 final class OwnedByMyEntities extends Perimeter
 {
+    private function __construct(private readonly string $kind) {}
+
+    public static function ofKind(string $kind): self
+    {
+        return new self($kind);
+    }
+
+    protected function scope(Builder $query, AccessContext $context): void
+    {
+        $query->where('kind', $this->kind)->whereIn('entity_id', /* the entities of $context->reader() */);
+    }
+}
+
+OwnedByMyEntities::ofKind('invoice')->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} entity invoices"));
+
+final class TeamDocuments extends Perimeter
+{
     private ?string $kind = null;
 
     public function ofKind(string $kind): static
@@ -94,7 +111,7 @@ final class OwnedByMyEntities extends Perimeter
 
     protected function scope(Builder $query, AccessContext $context): void
     {
-        $query->whereIn('entity_id', /* the entities of $context->reader() */);
+        $query->whereIn('team_id', /* the teams of $context->reader() */);
 
         if ($this->kind !== null) {
             $query->where('kind', $this->kind);
@@ -102,7 +119,7 @@ final class OwnedByMyEntities extends Perimeter
     }
 }
 
-OwnedByMyEntities::new()->ofKind('invoice')->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} entity invoices"));
+TeamDocuments::new()->ofKind('invoice')->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} team documents"));
 ```
 
 - Which perimeter grants a row: `Perimeter::admits(Model $reader, Ability $ability, Model $row): bool` (public, final) tells whether a perimeter applies to the reader for the ability and contains the row (in memory with `should`, otherwise one `exists` on the stored row through `query()`; an unsaved row is never admitted that way); inside a control, `applicablePerimeters(Model $reader, Ability $ability)` (protected, final) lists the perimeters that apply: the level reached in each group, then the loose perimeters that allow the reader (an unrestricted one alone). It does not check the boundary against a row: the policy does. `getPerimeters()` no longer exists. Example usage:
@@ -390,7 +407,7 @@ class PostResource extends Resource // the extension restricts the rows: no peri
   - Run `php artisan access:check` in CI with the production `SCOUT_DRIVER` instead of finding a misconfigured control at its first use: it fails on what would throw, open or hide rows, or leave search documents stale.
   - Type the ability parameter of every callback `Ability $ability` (`fn (Model $user, Ability $ability)` for `allowed`, third parameter for `should` and `query`): an untyped or `string` parameter throws `AbilityParameterTypeException` when the perimeter is declared. `Stringable`, `object`, `mixed` and unions containing `Ability` are accepted. A callback without an ability parameter is fine.
   - Never override or call `applyAllowedCallback()`, `applyShouldCallback()` or `applyQueryCallback()`: they are final and internal. Override `allows()`, `includes()` or `scope()`, which receive an `AccessContext`.
-  - `perimeters()` must be pure: the control builds its perimeters once per process (queue and Octane workers included). Never read the user, the request, the tenant, the database or the clock in `perimeters()`; read them in the callbacks, from the reader. In debug mode and in tests the registry rebuilds `perimeters()` on each lookup and throws `ImpurePerimetersException` when the result differs. It compares captured values: scalars and arrays by value, models by class and key, enums and readonly objects by value, closures recursively, any other object by class only (a service built in `perimeters()` passes). The properties a perimeter class declares (a wither's state) are compared with the same rules, so a wither fed from the config or the request is caught, and so is a hook that writes to its perimeter (a per-reader cache): perimeters are shared across requests. It cannot see the state inside a captured service, a model's attributes, or a value that is the same in both builds: never read the request or the tenant in `perimeters()` or in the constructor of a service it captures.
-  - Perimeters are immutable: `$perimeter->query(...)` returns a new perimeter; a call whose result is dropped is lost. Each callback is declared once: a second `allowed()`, `should()`, `query()` or `searchKeys()` on one perimeter throws `DuplicatePerimeterCallbackException` instead of replacing the first (`->searchKeys(...)->reindexWhen(...)` is fine). Combine both conditions in one callback, or use a wither on a perimeter class.
+  - `perimeters()` must be pure: the control builds its perimeters once per process (queue and Octane workers included). Never read the user, the request, the tenant, the database or the clock in `perimeters()`; read them in the callbacks, from the reader. In debug mode and in tests the registry rebuilds `perimeters()` on each lookup and throws `ImpurePerimetersException` when the result differs. It compares captured values: scalars and arrays by value, models by class and key, enums and readonly objects by value, closures recursively, any other object by class only (a service built in `perimeters()` passes). The properties a perimeter class declares (its promoted `readonly` constructor properties, a wither's state) are compared with the same rules, so a constructor argument or a wither fed from the config or the request is caught, and so is a hook that writes to its perimeter (a per-reader cache): perimeters are shared across requests. It cannot see the state inside a captured service, a model's attributes, or a value that is the same in both builds: never read the request or the tenant in `perimeters()` or in the constructor of a service it captures.
+  - Perimeters are immutable: `$perimeter->query(...)` returns a new perimeter; a call whose result is dropped is lost. Each callback is declared once: a second `allowed()`, `should()`, `query()` or `searchKeys()` on one perimeter throws `DuplicatePerimeterCallbackException` instead of replacing the first (`->searchKeys(...)->reindexWhen(...)` is fine). Combine both conditions in one callback, or use a named constructor or a wither on a perimeter class.
   - Abilities are compared by name with `is()`: two `Ability::view()` are not the same object, and an unserialized ability is a new one, so `===` between abilities is never reliable.
   - Controls may execute `allowed()` twice in `index`-style endpoints (policy + `controlled()` scope); cache it on the user if expensive.

@@ -15,11 +15,11 @@ use Lomkit\Access\Exceptions\InvalidReindexRowsException;
 use Lomkit\Access\Exceptions\InvalidSearchKeyNameException;
 use Lomkit\Access\Exceptions\MissingPerimeterCallbackException;
 use Lomkit\Access\Exceptions\ReindexWithoutSearchKeysException;
+use Lomkit\Access\Exceptions\UnbuildablePerimeterException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
 use Lomkit\Access\Search\Freshness\ReindexWhen;
 use Lomkit\Access\Search\SearchKeys;
 
-/** @phpstan-consistent-constructor */
 class Perimeter
 {
     private ?PerimeterCallbacks $callbacks = null;
@@ -28,9 +28,10 @@ class Perimeter
 
     private ?SearchKeys $searchKeys = null;
 
+    /** @throws UnbuildablePerimeterException If the constructor of the class requires arguments or is not public. */
     public static function new(): static
     {
-        return new static;
+        return PerimeterConstructor::build(static::class);
     }
 
     public function allowed(Closure $callback): static
