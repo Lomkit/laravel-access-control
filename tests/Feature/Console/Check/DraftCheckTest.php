@@ -65,6 +65,18 @@ class DraftCheckTest extends CheckTestCase
     }
 
     #[Test]
+    public function it_notes_nothing_for_a_perimeter_class_with_an_includes_hook_or_an_unrestricted_perimeter(): void
+    {
+        $this->discover(['DraftsGranted']);
+        Access::registerPolicies();
+
+        [$code, $report] = $this->checkJson();
+
+        $this->assertSame(0, $code);
+        $this->assertSame([], $report['notes']);
+    }
+
+    #[Test]
     public function it_prints_the_draft_notes_in_the_report(): void
     {
         $this->discover(['Drafts']);
@@ -79,6 +91,6 @@ class DraftCheckTest extends CheckTestCase
     /** @return array{kind: string, subject: string, message: string} */
     private function ungrantable(string $control, string $model): array
     {
-        return ['kind' => 'ungrantable_drafts', 'subject' => $control, 'message' => 'No perimeter of the ['.$control.'] control can grant a draft: none has a should() callback or an includes() hook, none is unrestricted, and no ThroughParent delegates create. Every create with a draft of a ['.$model.'] row is refused with outside_rows, and laravel-rest-api passes a draft for each row it creates. Add a should() callback to the perimeters through which readers create these rows, unless the model is read-only.'];
+        return ['kind' => 'ungrantable_drafts', 'subject' => $control, 'message' => 'No perimeter of the ['.$control.'] control can grant a draft: none has a should() callback or an includes() hook, none is unrestricted, and no ThroughParent delegates create. Every create with a draft of a ['.$model.'] row is refused with outside_rows once the boundary admits it, and laravel-rest-api passes a draft for each row it creates. Add a should() callback to the perimeters through which readers create these rows, or delegate create on a ThroughParent (->delegates([\'view\', \'create\' => \'update\'])), unless the model is read-only.'];
     }
 }

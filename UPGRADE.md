@@ -841,8 +841,8 @@ public function create(Model $user, ?Model $draft = null): Response
 
 laravel-rest-api always passes the draft: it checks `create` on the class, then on the draft of each row it creates. Its applications therefore judge every creation on its draft once they upgrade, and a creation that no perimeter can judge is refused with `outside_rows`, the code of a draft outside the perimeters, so the refusal reads like a missing permission.
 
-- The perimeters that can grant a draft are the ones with a `should()` callback or an `includes()` hook, an unrestricted perimeter, and a `ThroughParent` that delegates `create` (`->delegates(['view', 'create' => 'update'])`), which loads the parent through the foreign key of the draft, one query per created row, and asks the control of the parent.
-- A perimeter checked in SQL never grants a draft. Give it a `should()` callback that reads the foreign keys of the draft, such as `fn (User $user, Post $post): bool => $post->author_id === $user->id`. A rule two relations away may load the relation on the draft, one query per created row, the same count in tests and in production.
+- The perimeters that can grant a draft are the ones with a `should()` callback or an `includes()` hook, an unrestricted perimeter, and a `ThroughParent` that delegates `create` (`->delegates(['view', 'create' => 'update'])`), which loads the parent through the foreign key of the draft, one query per created row, then asks the control of the parent to decide it.
+- A perimeter checked in SQL never grants a draft. Give it a `should()` callback that reads the foreign keys of the draft, such as `fn (User $user, Post $post): bool => $post->author_id === $user->id`. The `should()` callback then decides the saved rows too, in memory: it must say exactly what `query()` says; check it with `assertControlAgrees()`. A rule two relations away may load the relation on the draft, one query per created row, the same count in tests and in production.
 - A boundary without an in-memory form refuses every creation: declare it with `Boundary::where()`, or override `includes()` on the boundary class.
 
 `php artisan access:check` lists these controls and boundaries in its notes.
@@ -915,7 +915,7 @@ The resolver returns an array of strings, ints, booleans or nulls keyed by name;
 
 #### Several brands in one list
 
-A decision runs under one decision context: the one the resolver returns when the package builds it. Switching the context between two decisions is supported, since each decision reads the resolver again. Combining in one query branches built under different contexts is not: `controlledFor()` called once per brand, with the resolver switched in between and the calls joined by `orWhere()`, only lists the rows. Everything else runs under the context in force when it runs, not under the brand of each row: `withAbilities()`, the policy, the kept decisions, `Access::preload()` and the row checks of laravel-rest-api, whose kept decisions are filed under the same context. A post of brand B listed through the rights of brand B would be granted `update` with the rights of brand A, and a branch that forgets its brand condition would list the posts of another brand with the rights of the first.
+A decision runs under one decision context: the one the resolver returns when the package builds it. Switching the context between two decisions is supported, since each decision reads the resolver again. Combining in one query branches built under different contexts is not: `controlledFor()` called once per brand, with the resolver switched in between and the calls joined by `orWhere()`, only lists the rows. Everything else runs under the context in force when it runs, not under the brand of each row: `withAbilities()`, the policy, the kept decisions, `Access::preload()` and the row checks of laravel-rest-api, whose kept decisions are filed under the same context. A post of brand B listed through the rights of brand B would be decided for `update` with the rights of brand A, granted or refused, and that decision kept under brand A, in laravel-rest-api's authorization cache too, and a branch that forgets its brand condition would list the posts of another brand with the rights of the first.
 
 When one list spans several brands, the brand is a value of the row, not of the request. Write perimeters that read the brand of the row and filter by the brands where the reader holds the right; `brandsWhere()` stands for a method of your application that returns them:
 
@@ -940,6 +940,8 @@ protected function perimeters(): array
 ```
 
 `Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one. Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
+
+Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands of the reader.
 
 #### Kept decisions
 
@@ -1615,7 +1617,7 @@ To turn the extension off, list it in `disabled_extensions` of `config/rest.php`
 ],
 ```
 
-To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name. Its `restrict()` may call `controlledFor()` on the query of the context, several times combined with `orWhere()`: these scopes add only where clauses and remove no global scope, as rest-api requires of a restriction. Every branch runs under the decision context of the request, as the row checks do: never switch the context between two branches (see [Several brands in one list](#several-brands-in-one-list)).
+To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name. Its `restrict()` may call `controlledFor()` on the query of the context and narrow it with conditions of its own: these scopes add only where clauses and remove no global scope, as rest-api requires of a restriction. The restriction must list exactly the rows the `view` policy grants: an `orWhere()` with another `controlledFor()` branch, of another ability or built under another decision context, lists rows that the policy and the row checks refuse (see [Several brands in one list](#several-brands-in-one-list)).
 
 ### Removed helpers
 

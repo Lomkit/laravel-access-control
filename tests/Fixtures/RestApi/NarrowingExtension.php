@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Integrations\RestApi\AccessControlExtension;
 use Lomkit\Rest\Extensions\Contexts\RestrictionContext;
 
-class BranchingExtension extends AccessControlExtension
+class NarrowingExtension extends AccessControlExtension
 {
     #[\Override]
     public function restrict(RestrictionContext $context): void
@@ -16,6 +16,6 @@ class BranchingExtension extends AccessControlExtension
 
         $context->query
             ->controlledFor($reader)
-            ->orWhere(fn (Builder $branch) => $branch->controlledFor($reader, 'update'));
+            ->where(fn (Builder $narrowed) => $narrowed->controlledFor($reader, 'update'));
     }
 }

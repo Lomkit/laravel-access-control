@@ -48,6 +48,18 @@ class RowBrandsTest extends DecisionTestCase
     }
 
     #[Test]
+    public function it_lists_and_decides_the_same_rows_whatever_the_current_brand(): void
+    {
+        ConfiguredPostControl::bindWithin(Boundary::none(), $this->brandPosts(), $this->ownPosts());
+        $posts = Post::query()->orderBy('id')->get();
+
+        Access::decisionContextUsing(fn (): array => ['brand' => 2]);
+
+        $this->assertSame(['Release notes', 'Roadmap', 'Pricing', 'Elsewhere'], $this->titles(Post::controlledFor($this->ada)));
+        $this->assertControlAgrees(PostControl::class, $this->ada, $posts, ['view', 'update']);
+    }
+
+    #[Test]
     public function it_decides_each_row_of_several_brands_as_the_list_does(): void
     {
         ConfiguredPostControl::bindWithin(Boundary::none(), $this->brandPosts(), $this->ownPosts());

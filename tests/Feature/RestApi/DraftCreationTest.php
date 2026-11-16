@@ -29,7 +29,9 @@ class DraftCreationTest extends RestApiTestCase
     {
         ConfiguredPostControl::bind($this->ownPosts());
 
-        $this->create($this->ada)->assertForbidden();
+        $this->create($this->ada)
+            ->assertForbidden()
+            ->assertJsonPath('message', __('access-control::refusals.outside_rows'));
 
         $this->assertSame(5, Post::query()->count());
     }
