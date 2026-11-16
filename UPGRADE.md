@@ -901,6 +901,34 @@ public function boot(): void
 
 The resolver returns an array of strings, ints, booleans or nulls keyed by name; anything else, such as a model or a float, throws `InvalidDecisionContextException`. It runs each time the package builds an `AccessContext`, and the hooks of a perimeter class read it with `$context->decisionContext()`, sorted by key. Without a resolver, the context is `[]`. The package files the decisions it keeps for a request under this context, so a decision made for one brand is never reused for another.
 
+#### Several brands in one list
+
+A decision runs under one decision context: the one the resolver returns when the package builds it. Switching the context between two decisions is supported, since each decision reads the resolver again. Combining in one query branches built under different contexts is not: `controlledFor()` called once per brand, with the resolver switched in between and the calls joined by `orWhere()`, only lists the rows. Everything else runs under the context in force when it runs, not under the brand of each row: `withAbilities()`, the policy, the kept decisions, `Access::preload()` and the row checks of laravel-rest-api, whose kept decisions are filed under the same context. A post of brand B listed through the rights of brand B would be granted `update` with the rights of brand A, and a branch that forgets its brand condition would list the posts of another brand with the rights of the first.
+
+When one list spans several brands, the brand is a value of the row, not of the request. Write perimeters that read the brand of the row and filter by the brands where the reader holds the right; `brandsWhere()` stands for a method of your application that returns them:
+
+```php
+protected function perimeters(): array
+{
+    return [
+        BrandPerimeter::new()
+            ->allowed(fn (User $user, Ability $ability): bool => $user->brandsWhere("{$ability} brand posts") !== [])
+            ->should(fn (User $user, Post $post, Ability $ability): bool => in_array($post->brand_id, $user->brandsWhere("{$ability} brand posts"), true))
+            ->query(function (Builder $query, User $user, Ability $ability): void {
+                $query->whereIn('brand_id', $user->brandsWhere("{$ability} brand posts"));
+            }),
+        OwnPerimeter::new()
+            ->allowed(fn (User $user, Ability $ability): bool => $user->brandsWhere("{$ability} own posts") !== [])
+            ->should(fn (User $user, Post $post, Ability $ability): bool => $post->author_id === $user->id && in_array($post->brand_id, $user->brandsWhere("{$ability} own posts"), true))
+            ->query(function (Builder $query, User $user, Ability $ability): void {
+                $query->whereBelongsTo($user, 'author')->whereIn('brand_id', $user->brandsWhere("{$ability} own posts"));
+            }),
+    ];
+}
+```
+
+`Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one. Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
+
 #### Kept decisions
 
 The package keeps decisions for the length of a request or a job, under the reader (its morph class and key), the decision context, the model, the row key and the ability; a reader without a key, or not saved, is never kept. The perimeters that apply and the in-memory checks are always evaluated again; only the SQL check of a row can be answered from what was kept. Everything kept is forgotten when any Eloquent model is saved or deleted, when a transaction rolls back, at the end of each request or job, and when the application calls `Access::forgetDecisions()`. The number of kept decisions is capped, and the oldest is dropped first.
@@ -1534,7 +1562,7 @@ To turn the extension off, list it in `disabled_extensions` of `config/rest.php`
 ],
 ```
 
-To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name. Its `restrict()` may call `controlledFor()` on the query of the context, several times combined with `orWhere()`: these scopes add only where clauses and remove no global scope, as rest-api requires of a restriction.
+To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name. Its `restrict()` may call `controlledFor()` on the query of the context, several times combined with `orWhere()`: these scopes add only where clauses and remove no global scope, as rest-api requires of a restriction. Every branch runs under the decision context of the request, as the row checks do: never switch the context between two branches (see [Several brands in one list](#several-brands-in-one-list)).
 
 ### Removed helpers
 
