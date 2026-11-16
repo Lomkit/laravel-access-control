@@ -77,11 +77,11 @@ class BusinessAbilityDraftTest extends ParentTestCase
     public function it_judges_a_business_ability_on_a_draft_where_the_row_lands_without_any_query(): void
     {
         $queries = $this->queriesDuring(function (): void {
-            $this->assertSame('granted', $this->code($this->ada, 'record', [Post::class, $this->postDraft($this->ada, 1)]));
-            $this->assertSame('outside_rows', $this->code($this->ada, 'record', [Post::class, $this->postDraft($this->grace, 1)]));
-            $this->assertSame('outside_boundary', $this->code($this->ada, 'record', [Post::class, $this->postDraft($this->ada, 2)]));
-            $this->assertSame('outside_boundary', $this->code($this->ada, 'record', [Post::class, $this->postDraft($this->ada, 1, '2026-01-01 00:00:00')]));
-            $this->assertSame('no_perimeter', $this->code($this->grace, 'record', [Post::class, $this->postDraft($this->grace, 1)]));
+            $this->assertSame('granted', $this->code($this->ada, 'record', [Post::class, Draft::of($this->postDraft($this->ada, 1))]));
+            $this->assertSame('outside_rows', $this->code($this->ada, 'record', [Post::class, Draft::of($this->postDraft($this->grace, 1))]));
+            $this->assertSame('outside_boundary', $this->code($this->ada, 'record', [Post::class, Draft::of($this->postDraft($this->ada, 2))]));
+            $this->assertSame('outside_boundary', $this->code($this->ada, 'record', [Post::class, Draft::of($this->postDraft($this->ada, 1, '2026-01-01 00:00:00'))]));
+            $this->assertSame('no_perimeter', $this->code($this->grace, 'record', [Post::class, Draft::of($this->postDraft($this->grace, 1))]));
         });
 
         $this->assertSame([], $queries);
@@ -103,6 +103,17 @@ class BusinessAbilityDraftTest extends ParentTestCase
 
         $this->assertSame('unsaved', $control->decide($this->ada, Ability::of('record'), $this->postDraft($this->ada, 1))->code());
         $this->assertFalse($control->applies($this->ada, Ability::of('record'), $this->postDraft($this->ada, 1)));
+    }
+
+    #[Test]
+    public function it_judges_a_saved_row_on_its_stored_values_and_refuses_an_unsaved_model_through_the_gate(): void
+    {
+        $this->assertSame('outside_rows', $this->code($this->ada, 'record', $this->roadmap));
+
+        $this->roadmap->fill(['author_id' => $this->ada->getKey()]);
+
+        $this->assertSame('outside_rows', $this->code($this->ada, 'record', $this->roadmap));
+        $this->assertSame('unsaved', $this->code($this->ada, 'record', [Post::class, $this->postDraft($this->ada, 1)]));
     }
 
     #[Test]

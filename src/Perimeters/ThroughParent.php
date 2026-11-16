@@ -154,7 +154,7 @@ final class ThroughParent extends Perimeter
             return false;
         }
 
-        if ($this->declaredCallbacks()->declares(PerimeterHook::Allows) && ! parent::allows($context)) {
+        if ($this->declaresAllowed() && ! parent::allows($context)) {
             return false;
         }
 

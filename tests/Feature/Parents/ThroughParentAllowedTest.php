@@ -72,6 +72,16 @@ class ThroughParentAllowedTest extends ParentTestCase
     protected function queriesDuring(callable $callback): array
     {
         Access::forgetDecisions();
+
+        return $this->queriesKeepingDecisions($callback);
+    }
+
+    /**
+     * @param  callable(): mixed  $callback
+     * @return list<string>
+     */
+    protected function queriesKeepingDecisions(callable $callback): array
+    {
         $this->queries = [];
         $this->listening = true;
 
@@ -194,6 +204,14 @@ class ThroughParentAllowedTest extends ParentTestCase
     {
         $this->assertSame(['Ship it', 'Typo in the title', 'Old news'], $this->visibleComments($this->ada));
         $this->assertSame(['Ship it', 'Typo in the title'], Comment::controlledFor($this->ada, 'update')->orderBy('id')->pluck('body')->all());
+        $comments = Comment::controlledFor($this->ada)
+            ->withAbilities(['view', 'update'])
+            ->orderBy('id')
+            ->get();
+        $this->assertSame([], $this->queriesKeepingDecisions(fn () => $this->assertSame(
+            [true, true, false],
+            $comments->map(fn (Comment $comment): bool => Gate::forUser($this->ada)->allows('update', $comment))->all(),
+        )));
         $this->assertEveryReaderAgrees();
     }
 
@@ -238,8 +256,46 @@ class ThroughParentAllowedTest extends ParentTestCase
         }
 
         $this->assertCount(3, $comments);
-        $this->assertSame(['Ada:view', 'Ada:update'], array_values(array_unique($this->allowedCalls)));
-        $this->assertCount(1, array_keys($this->allowedCalls, 'Ada:update', true));
+        $this->assertSame(['Ada:view' => 1, 'Ada:update' => 1], array_count_values($this->allowedCalls));
+    }
+
+    #[Test]
+    public function it_calls_allowed_again_in_another_decision_context(): void
+    {
+        $brand = 'acme';
+        Access::decisionContextUsing(function () use (&$brand): array {
+            return ['brand' => $brand];
+        });
+        $comments = Comment::query()->orderBy('id')->get();
+
+        foreach (['acme', 'acme', 'globex', 'globex'] as $current) {
+            $brand = $current;
+
+            foreach ($comments as $comment) {
+                Gate::forUser($this->ada)->allows('view', $comment);
+            }
+        }
+
+        $this->assertSame(['Ada:view' => 2], array_count_values($this->allowedCalls));
+    }
+
+    #[Test]
+    public function it_judges_a_delegated_business_ability_draft_after_allowed(): void
+    {
+        ConfiguredCommentControl::bind($this->throughPost(['view', 'record' => 'update']));
+        $control = Access::controlFor(Comment::class);
+        $draft = Draft::of($this->draftOn($this->releaseNotes, $this->ada));
+
+        $queries = $this->queriesDuring(fn () => $this->assertSame('no_perimeter', $control->decide($this->ada, Ability::of('record'), $draft)->code()));
+
+        $this->assertSame([], $queries);
+        $this->assertSame(['Ada:record'], $this->allowedCalls);
+
+        $this->grant(['record comments' => ['Ada']]);
+        Access::forgetDecisions();
+
+        $this->assertTrue($control->decide($this->ada, Ability::of('record'), $draft)->allowed());
+        $this->assertSame('outside_rows', $control->decide($this->ada, Ability::of('record'), Draft::of($this->draftOn($this->roadmap, $this->ada)))->code());
     }
 
     #[Test]
@@ -286,7 +342,7 @@ class ThroughParentAllowedTest extends ParentTestCase
         }
 
         $this->expectException(ThroughParentCallbackException::class);
-        $this->expectExceptionMessage('A ThroughParent perimeter takes no ->should(): the control of the parent decides which rows it reaches. To require a rule of the child as well, declare ->allowed() on the ThroughParent; to grant other rows, declare a separate perimeter next to it.');
+        $this->expectExceptionMessage('A ThroughParent perimeter takes no ->should(): the control of the parent decides its rows. Put a permission of the reader in ->allowed(), a condition on the child row in the boundary of the child, and other rows in a perimeter next to it.');
 
         $perimeter->should(fn (User $user): bool => true);
     }

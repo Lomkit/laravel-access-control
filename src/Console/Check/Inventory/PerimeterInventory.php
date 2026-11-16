@@ -3,7 +3,6 @@
 namespace Lomkit\Access\Console\Check\Inventory;
 
 use Lomkit\Access\Perimeters\Perimeter;
-use Lomkit\Access\Perimeters\PerimeterHook;
 use Lomkit\Access\Perimeters\ThroughParent;
 
 /** @internal */
@@ -33,7 +32,7 @@ final readonly class PerimeterInventory
             $perimeter->declaredSearchKeys()?->name(),
             $delegation?->relation(),
             $delegation?->names() ?? [],
-            $delegation !== null && $perimeter->declaredCallbacks()->declares(PerimeterHook::Allows),
+            $delegation !== null && $perimeter->declaresAllowed(),
         );
     }
 

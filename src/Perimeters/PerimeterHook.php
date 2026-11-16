@@ -10,8 +10,6 @@ enum PerimeterHook: string
     case Includes = 'includes';
     case Scope = 'scope';
 
-    private const array PACKAGE_CLASSES = [Perimeter::class, ThroughParent::class];
-
     public function callback(): string
     {
         return match ($this) {
@@ -47,6 +45,6 @@ enum PerimeterHook: string
     {
         $declaring = (new ReflectionMethod($perimeter, $this->value))->getDeclaringClass()->getName();
 
-        return ! in_array($declaring, self::PACKAGE_CLASSES, true);
+        return $declaring !== Perimeter::class && ! ($this === self::Allows && $declaring === ThroughParent::class);
     }
 }

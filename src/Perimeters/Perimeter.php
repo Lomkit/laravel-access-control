@@ -89,7 +89,7 @@ class Perimeter
             throw UnrestrictedPerimeterCallbackException::for($this, 'searchKeys');
         }
 
-        $this->declaredCallbacks()->ensureNoRowCheck($this);
+        $this->callbacks()->ensureNoRowCheck($this);
 
         $perimeter = clone $this;
         $perimeter->unrestricted = true;
@@ -105,7 +105,7 @@ class Perimeter
     final public function checksInMemory(): bool
     {
         return $this->unrestricted
-            || $this->declaredCallbacks()->declares(PerimeterHook::Includes)
+            || $this->callbacks()->declares(PerimeterHook::Includes)
             || PerimeterHook::Includes->isOverriddenIn(static::class);
     }
 
@@ -113,11 +113,14 @@ class Perimeter
     {
         $context = AccessContext::of($reader, $ability);
 
-        if (! $this->applyAllowedCallback($context)) {
-            return false;
-        }
+        return $this->applyAllowedCallback($context)
+            && ($this->checksInMemory() ? $this->applyShouldCallback($row, $context) : StoredRowInQuery::contains($this, $row, $context));
+    }
 
-        return $this->checksInMemory() ? $this->applyShouldCallback($row, $context) : StoredRowInQuery::contains($this, $row, $context);
+    /** @internal */
+    final public function declaresAllowed(): bool
+    {
+        return $this->callbacks()->declares(PerimeterHook::Allows);
     }
 
     /** @internal */
@@ -127,7 +130,7 @@ class Perimeter
             return false;
         }
 
-        return $this->declaredCallbacks()->admit($context->reader()) && $this->allows($context);
+        return $this->callbacks()->admit($context->reader()) && $this->allows($context);
     }
 
     /** @internal */
@@ -155,7 +158,7 @@ class Perimeter
     /** @internal */
     final public function shape(): PerimeterShape
     {
-        return new PerimeterShape(static::class, $this->unrestricted, $this->declaredCallbacks()->shapes(), $this->searchKeys, PerimeterState::of($this));
+        return new PerimeterShape(static::class, $this->unrestricted, $this->callbacks()->shapes(), $this->searchKeys, PerimeterState::of($this));
     }
 
     protected function allows(AccessContext $context): bool
@@ -177,13 +180,12 @@ class Perimeter
     private function declaring(PerimeterHook $hook, Closure $callback): static
     {
         $perimeter = clone $this;
-        $perimeter->callbacks = $this->declaredCallbacks()->declaring($hook, $callback, $this);
+        $perimeter->callbacks = $this->callbacks()->declaring($hook, $callback, $this);
 
         return $perimeter;
     }
 
-    /** @internal */
-    final public function declaredCallbacks(): PerimeterCallbacks
+    private function callbacks(): PerimeterCallbacks
     {
         return $this->callbacks ??= PerimeterCallbacks::none();
     }
@@ -191,6 +193,6 @@ class Perimeter
     /** @throws MissingPerimeterCallbackException If the perimeter does not declare the callback. */
     private function callback(PerimeterHook $hook): PerimeterClosure
     {
-        return $this->declaredCallbacks()->for($hook, $this);
+        return $this->callbacks()->for($hook, $this);
     }
 }
