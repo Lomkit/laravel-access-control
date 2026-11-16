@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Tests\Feature\Decisions;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\AccessContext;
@@ -68,7 +69,7 @@ class DecisionMemoTest extends DecisionTestCase
     }
 
     #[Test]
-    public function it_still_refuses_a_reader_that_no_perimeter_allows_any_more(): void
+    public function it_refuses_a_reader_that_no_perimeter_allows_any_more_after_a_flush(): void
     {
         $allowed = true;
         ConfiguredPostControl::bind($this->ownInSql(function (User $user) use (&$allowed): bool {
@@ -76,12 +77,13 @@ class DecisionMemoTest extends DecisionTestCase
         }));
         $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
         $allowed = false;
+        Access::forgetDecisions();
 
         $this->assertSame('no_perimeter', $this->inspect($this->ada, 'update', $this->teamPost)->code());
     }
 
     #[Test]
-    public function it_checks_in_sql_again_when_the_reader_reaches_other_perimeters(): void
+    public function it_checks_in_sql_again_when_the_reader_reaches_other_perimeters_after_a_flush(): void
     {
         $client = true;
         ConfiguredPostControl::bind(Levels::of(
@@ -92,6 +94,22 @@ class DecisionMemoTest extends DecisionTestCase
         ));
         $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
         $client = false;
+        Access::forgetDecisions();
+
+        $queries = $this->queriesWhile(function (): void {
+            $this->assertFalse($this->ada->can('update', $this->teamPost));
+        });
+
+        $this->assertCount(1, $queries);
+    }
+
+    #[Test]
+    public function it_checks_in_sql_again_when_another_control_reaches_other_perimeters(): void
+    {
+        ConfiguredPostControl::bind(Levels::of($this->clientInSql(fn (User $user): bool => true), $this->ownInSql()));
+        $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
+
+        ConfiguredPostControl::bind(Levels::of($this->clientInSql(fn (User $user): bool => false), $this->ownInSql()));
 
         $queries = $this->queriesWhile(function (): void {
             $this->assertFalse($this->ada->can('update', $this->teamPost));
@@ -233,6 +251,20 @@ class DecisionMemoTest extends DecisionTestCase
         $this->assertNotSame($memo, $this->memo());
         $this->assertSame(0, $this->memo()->count());
         $this->assertFalse($this->ada->can('update', $this->teamPost));
+    }
+
+    #[Test]
+    public function it_forgets_every_decision_when_a_request_is_handled(): void
+    {
+        ConfiguredPostControl::bind($this->ownInSql());
+        Route::get('/decisions', fn (): string => 'decided');
+        $this->assertTrue($this->ada->can('update', $this->adaPost));
+        $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
+
+        $this->get('/decisions')->assertOk();
+
+        $this->assertSame(0, $this->memo()->count());
+        $this->assertSame(0, $this->memo()->reachCount());
     }
 
     #[Test]

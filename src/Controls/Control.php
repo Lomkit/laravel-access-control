@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Decisions\DecisionMemo;
+use Lomkit\Access\Decisions\MemoizedReach;
 use Lomkit\Access\Exceptions\DuplicateSearchKeyNameException;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
@@ -16,6 +18,7 @@ use Lomkit\Access\Exceptions\ParentCycleException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\PerimeterList;
+use Lomkit\Access\Perimeters\ReachedPerimeters;
 use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Search\SearchRules;
 
@@ -73,7 +76,13 @@ class Control
     /** @return list<Perimeter> */
     final protected function applicablePerimeters(Model $reader, Ability $ability): array
     {
-        return $this->declaration()->reachedBy(AccessContext::of($reader, $ability))->all();
+        return $this->reached(AccessContext::of($reader, $ability))->all();
+    }
+
+    /** @internal */
+    final public function reached(AccessContext $context): ReachedPerimeters
+    {
+        return (new MemoizedReach(Container::getInstance()->make(DecisionMemo::class)))->reachedBy($this, $context);
     }
 
     /**

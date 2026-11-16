@@ -30,7 +30,7 @@ trait ControlsSearches
     /** @internal */
     final public function searchFilterIn(AccessContext $context): SearchFilter
     {
-        $perimeters = $this->declaration()->reachedBy($context);
+        $perimeters = $this->reached($context);
 
         if ($perimeters->isEmpty()) {
             return SearchFilter::closed();

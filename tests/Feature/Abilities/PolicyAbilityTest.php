@@ -75,7 +75,7 @@ class PolicyAbilityTest extends PackageTestCase
 
         $this->assertContainsOnlyInstancesOf(Ability::class, $received);
         $this->assertSame(
-            ['view', 'view', 'create', 'update', 'delete', 'restore', 'forceDelete'],
+            ['view', 'create', 'update', 'delete', 'restore', 'forceDelete'],
             array_map(fn (Ability $ability): string => $ability->name(), $received),
         );
     }

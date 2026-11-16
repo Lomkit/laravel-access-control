@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Policies;
 
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
+use Lomkit\Access\Access;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\OwnPerimeter;
@@ -82,6 +83,7 @@ class BusinessAbilityTest extends PackageTestCase
         $this->assertSame('no_perimeter', Gate::forUser($this->ada)->inspect('export', Post::class)->code());
 
         Gate::define('export own posts', fn (User $user): bool => true);
+        Access::forgetDecisions();
 
         $this->assertTrue($this->ada->can('export', Post::class));
     }

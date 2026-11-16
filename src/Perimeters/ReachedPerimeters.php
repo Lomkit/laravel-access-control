@@ -8,22 +8,30 @@ use Lomkit\Access\AccessContext;
 final readonly class ReachedPerimeters
 {
     /** @param  array<string, Perimeter>  $perimeters */
-    private function __construct(private array $perimeters) {}
+    private function __construct(
+        private array $perimeters,
+        private bool $admitted,
+    ) {}
 
-    public static function none(): self
+    public static function outsideBoundary(): self
     {
-        return new self([]);
+        return new self([], false);
     }
 
     /** @param  array<string, Perimeter>  $perimeters */
     public static function of(array $perimeters): self
     {
-        return new self($perimeters);
+        return new self($perimeters, true);
     }
 
     public function isEmpty(): bool
     {
         return $this->perimeters === [];
+    }
+
+    public function admitted(): bool
+    {
+        return $this->admitted;
     }
 
     public function reachesEveryRow(): bool

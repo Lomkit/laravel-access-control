@@ -14,15 +14,16 @@ final readonly class DecisionKey
     public static function of(AccessContext $context, string $model, mixed $row, string $check): ?self
     {
         $reader = $context->reader();
-        $readerKey = $reader->getKey();
+        $readerKey = self::readerKey($reader);
 
-        if (! self::remembers($reader) || ! self::isKey($readerKey) || ! self::isKey($row)) {
+        if ($readerKey === null || ! self::isKey($row)) {
             return null;
         }
 
         return new self(serialize([
             $reader->getMorphClass(),
-            (string) $readerKey,
+            $reader->getConnectionName(),
+            $readerKey,
             $context->decisionContext(),
             $model,
             (string) $row,
@@ -33,7 +34,14 @@ final readonly class DecisionKey
 
     public static function remembers(Model $reader): bool
     {
-        return $reader->exists && self::isKey($reader->getKey());
+        return self::readerKey($reader) !== null;
+    }
+
+    public static function readerKey(Model $reader): ?string
+    {
+        $key = $reader->getKey();
+
+        return $reader->exists && self::isKey($key) ? (string) $key : null;
     }
 
     public function id(): string

@@ -7,32 +7,51 @@ final class DecisionMemo
 {
     public const int MAX_ENTRIES = 10_000;
 
-    /** @var array<string, Verdict> */
-    private array $verdicts = [];
+    /** @var CappedTable<Verdict> */
+    private CappedTable $verdicts;
+
+    /** @var CappedTable<KeptReach> */
+    private CappedTable $reaches;
+
+    public function __construct()
+    {
+        $this->verdicts = new CappedTable(self::MAX_ENTRIES);
+        $this->reaches = new CappedTable(self::MAX_ENTRIES);
+    }
 
     public function remember(DecisionKey $key, Verdict $verdict): void
     {
-        unset($this->verdicts[$key->id()]);
-
-        if (count($this->verdicts) >= self::MAX_ENTRIES) {
-            unset($this->verdicts[array_key_first($this->verdicts)]);
-        }
-
-        $this->verdicts[$key->id()] = $verdict;
+        $this->verdicts->put($key->id(), $verdict);
     }
 
     public function recall(DecisionKey $key): ?Verdict
     {
-        return $this->verdicts[$key->id()] ?? null;
+        return $this->verdicts->get($key->id());
+    }
+
+    public function keepReach(ReachKey $key, KeptReach $reach): void
+    {
+        $this->reaches->put($key->id(), $reach);
+    }
+
+    public function reach(ReachKey $key): ?KeptReach
+    {
+        return $this->reaches->get($key->id());
     }
 
     public function count(): int
     {
-        return count($this->verdicts);
+        return $this->verdicts->count();
+    }
+
+    public function reachCount(): int
+    {
+        return $this->reaches->count();
     }
 
     public function forget(): void
     {
-        $this->verdicts = [];
+        $this->verdicts->clear();
+        $this->reaches->clear();
     }
 }

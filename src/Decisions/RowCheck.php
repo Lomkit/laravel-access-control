@@ -54,7 +54,7 @@ final readonly class RowCheck
     public function boundaryContains(Model $row, AccessContext $context): bool
     {
         $boundary = $this->control->declaration()->boundary();
-        $perimeters = $this->control->declaration()->reachedBy($context);
+        $perimeters = $this->control->reached($context);
 
         if ($boundary->checksInMemory() || $perimeters->isEmpty()) {
             return $boundary->contains($row, $context);
