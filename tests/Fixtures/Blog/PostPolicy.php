@@ -12,16 +12,21 @@ class PostPolicy extends ControlledPolicy
 
     public function approve(User $user, Post $post): Response
     {
-        return $this->decide(__FUNCTION__, $user, $post);
+        return $this->decideByControl(__FUNCTION__, $user, $post);
+    }
+
+    public function decide(User $user, Post $post): Response
+    {
+        return $this->decideByControl(__FUNCTION__, $user, $post);
     }
 
     public function export(User $user): Response
     {
-        return $this->decide(__FUNCTION__, $user);
+        return $this->decideByControl(__FUNCTION__, $user);
     }
 
     public function duplicate(User $user, Post $post, Post $copy): Response
     {
-        return $this->decide(__FUNCTION__, $user, Draft::of($copy));
+        return $this->decideByControl(__FUNCTION__, $user, Draft::of($copy));
     }
 }

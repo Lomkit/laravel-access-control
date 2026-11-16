@@ -18,37 +18,37 @@ class ControlledPolicy
 
     public function viewAny(Model $user): Response
     {
-        return $this->decide(__FUNCTION__, $user);
+        return $this->decideByControl(__FUNCTION__, $user);
     }
 
     public function view(Model $user, Model $model): Response
     {
-        return $this->decide(__FUNCTION__, $user, $model);
+        return $this->decideByControl(__FUNCTION__, $user, $model);
     }
 
     public function create(Model $user, ?Model $draft = null): Response
     {
-        return $this->decide(__FUNCTION__, $user, $draft === null ? null : Draft::of($draft));
+        return $this->decideByControl(__FUNCTION__, $user, $draft === null ? null : Draft::of($draft));
     }
 
     public function update(Model $user, Model $model): Response
     {
-        return $this->decide(__FUNCTION__, $user, $model);
+        return $this->decideByControl(__FUNCTION__, $user, $model);
     }
 
     public function delete(Model $user, Model $model): Response
     {
-        return $this->decide(__FUNCTION__, $user, $model);
+        return $this->decideByControl(__FUNCTION__, $user, $model);
     }
 
     public function restore(Model $user, Model $model): Response
     {
-        return $this->decide(__FUNCTION__, $user, $model);
+        return $this->decideByControl(__FUNCTION__, $user, $model);
     }
 
     public function forceDelete(Model $user, Model $model): Response
     {
-        return $this->decide(__FUNCTION__, $user, $model);
+        return $this->decideByControl(__FUNCTION__, $user, $model);
     }
 
     /**
@@ -56,7 +56,7 @@ class ControlledPolicy
      * @throws MissingControlException When no control is registered for the model.
      * @throws PolicyControlMismatchException When the model is controlled by another control than the one of the policy.
      */
-    final protected function decide(string $method, Model $user, Model|Draft|null $subject = null): Response
+    final protected function decideByControl(string $method, Model $user, Model|Draft|null $subject = null): Response
     {
         $control = $this->controlOf($method, $subject);
 

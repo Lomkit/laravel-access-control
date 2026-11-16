@@ -948,7 +948,7 @@ A batch is only worth its query while nothing flushes the kept decisions: an Elo
 
 #### Business abilities
 
-A policy declares a business ability, such as `approve` or `attach`, by calling the protected `decide()` helper with the name of its method. The control maps the method to an ability through `abilityFor()`, and the helper returns the same `Response` as the standard methods:
+A policy declares a business ability, such as `approve` or `attach`, by calling the protected `decideByControl()` helper with the name of its method. The control maps the method to an ability through `abilityFor()`, and the helper returns the same `Response` as the standard methods:
 
 ```php
 use Illuminate\Auth\Access\Response;
@@ -960,17 +960,17 @@ class PostPolicy extends ControlledPolicy
 
     public function approve(User $user, Post $post): Response
     {
-        return $this->decide(__FUNCTION__, $user, $post);
+        return $this->decideByControl(__FUNCTION__, $user, $post);
     }
 
     public function export(User $user): Response
     {
-        return $this->decide(__FUNCTION__, $user);
+        return $this->decideByControl(__FUNCTION__, $user);
     }
 
     public function duplicate(User $user, Post $post, Post $copy): Response
     {
-        return $this->decide(__FUNCTION__, $user, Draft::of($copy));
+        return $this->decideByControl(__FUNCTION__, $user, Draft::of($copy));
     }
 }
 ```
@@ -989,9 +989,11 @@ public function approve(User $user, Post $post): bool
 // After
 public function approve(User $user, Post $post): Response
 {
-    return $this->decide(__FUNCTION__, $user, $post);
+    return $this->decideByControl(__FUNCTION__, $user, $post);
 }
 ```
+
+The Gate calls the policy method named after the ability, so `ControlledPolicy` reserves no ability name. Its public methods are the seven standard abilities, and its only other members are the protected `decideByControl()` and `declaredControl()`. A policy can declare any business ability, `decide` included.
 
 ### Abilities
 
@@ -1535,7 +1537,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `create(Model $user)` overridden on a policy | `create(Model $user, ?Model $draft = null): Response` |
 | `$this->authorize('create', Post::class)` before `Post::create($data)` | `$this->authorize('create', [Post::class, new Post($data)])` |
 | `$control->applies($user, $ability, new Post)` | `$control->applies($user, $ability)`, or `Draft::of($post)` for a creation |
-| `$control->applies($user, $control->abilityFor('approve'), $post)` in a policy | `$this->decide(__FUNCTION__, $user, $post)` |
+| `$control->applies($user, $control->abilityFor('approve'), $post)` in a policy | `$this->decideByControl(__FUNCTION__, $user, $post)` |
 | `$post->fill($data)` then `authorize('update', $post)` to check the new values | Decided on the stored row: check the new values through a draft |
 | A `should` callback that repeats the `query()` of its perimeter | Removed: the row is checked in SQL through the `query()` |
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
