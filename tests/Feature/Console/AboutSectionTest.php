@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Laravel\Scout\Searchable;
 use Lomkit\Access\Access;
+use Lomkit\Access\Discovery\ControlDiscovery;
+use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Tests\PackageTestCase;
 use Lomkit\Rest\Facades\Rest;
 use PHPUnit\Framework\Attributes\Test;
@@ -95,6 +97,13 @@ class AboutSectionTest extends PackageTestCase
             ->expectsOutputToContain('Automatic policies')
             ->expectsOutputToContain('not cached')
             ->assertOk();
+    }
+
+    private function forgetDiscoveredControls(): void
+    {
+        $this->app->forgetInstance(ControlDiscovery::class);
+        $this->app->forgetInstance(ControlRegistry::class);
+        Access::clearResolvedInstance(ControlRegistry::class);
     }
 
     /** @return array<string, string> */

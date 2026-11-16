@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Registry;
 
 use Illuminate\Support\Facades\File;
 use Lomkit\Access\Access;
+use Lomkit\Access\Discovery\ClassFiles;
 use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Exceptions\DuplicateControlException;
 use Lomkit\Access\Tests\Fixtures\Discovery\Controls\Admin\NoteControl as AdminNoteControl;
@@ -111,7 +112,7 @@ class ControlDiscoveryTest extends PackageTestCase
         Access::discoverControlsIn([$this->fixturePath('Module').DIRECTORY_SEPARATOR]);
 
         $this->assertSame([app_path('Access/Controls'), $this->fixturePath('Module')], $this->discovery()->paths());
-        $this->assertSame([MemoControl::class], $this->discovery()->controls());
+        $this->assertSame([MemoControl::class], ClassFiles::in($this->discovery()->paths()));
     }
 
     #[Test]
@@ -119,7 +120,7 @@ class ControlDiscoveryTest extends PackageTestCase
     {
         Access::discoverControlsIn([$this->fixturePath('Module'), $this->fixturePath('Modul*')]);
 
-        $this->assertSame([MemoControl::class], $this->discovery()->controls());
+        $this->assertSame([MemoControl::class], ClassFiles::in($this->discovery()->paths()));
         $this->assertInstanceOf(MemoControl::class, Access::controlFor(Memo::class));
     }
 

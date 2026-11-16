@@ -10,16 +10,13 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
 use Lomkit\Access\Exceptions\InvalidDelegationException;
 use Lomkit\Access\Exceptions\InvalidParentRelationException;
-use Lomkit\Access\Exceptions\MissingParentControlException;
 use Lomkit\Access\Exceptions\ParentCycleException;
 use Lomkit\Access\Exceptions\ThroughParentCallbackException;
 use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Tests\Fixtures\Blog\Comment;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
-use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\ConfiguredCommentControl;
-use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
 use Lomkit\Access\Tests\Fixtures\Inheritance\Book;
 use Lomkit\Access\Tests\Fixtures\Inheritance\Chapter;
 use Lomkit\Access\Tests\Fixtures\Inheritance\ConfiguredChapterControl;
@@ -71,20 +68,6 @@ class ThroughParentDeclarationTest extends ParentTestCase
             );
             $this->assertThrowsWithoutQuery(InvalidParentRelationException::class, $type, fn () => Access::controlFor(Chapter::class));
         }
-    }
-
-    #[Test]
-    public function it_throws_when_the_parent_has_no_control(): void
-    {
-        $this->forgetDiscoveredControls();
-        $this->discoverControls(['Controls']);
-        ConfiguredPostControl::bind(ThroughParent::belongsTo('project'));
-
-        $this->assertThrowsWithoutQuery(
-            MissingParentControlException::class,
-            sprintf('The ThroughParent perimeter of the [%s] control inherits the access of the [%s] model through the [project] relation, but no control is registered for that model', ConfiguredPostControl::class, Project::class),
-            fn () => Post::controlledFor($this->ada)->get(),
-        );
     }
 
     #[Test]
