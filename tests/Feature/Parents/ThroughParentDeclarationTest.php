@@ -167,7 +167,6 @@ class ThroughParentDeclarationTest extends ParentTestCase
     {
         $perimeter = ThroughParent::belongsTo('post');
         $calls = [
-            'allowed' => fn () => $perimeter->allowed(fn (): bool => true),
             'should' => fn () => $perimeter->should(fn (): bool => true),
             'query' => fn () => $perimeter->query(fn (): bool => true),
             'searchKeys' => fn () => $perimeter->searchKeys('post', fn (): int => 1, fn (): int => 1),

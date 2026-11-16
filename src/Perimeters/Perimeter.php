@@ -113,11 +113,14 @@ class Perimeter
     {
         $context = AccessContext::of($reader, $ability);
 
-        if (! $this->applyAllowedCallback($context)) {
-            return false;
-        }
+        return $this->applyAllowedCallback($context)
+            && ($this->checksInMemory() ? $this->applyShouldCallback($row, $context) : StoredRowInQuery::contains($this, $row, $context));
+    }
 
-        return $this->checksInMemory() ? $this->applyShouldCallback($row, $context) : StoredRowInQuery::contains($this, $row, $context);
+    /** @internal */
+    final public function declaresAllowed(): bool
+    {
+        return $this->callbacks()->declares(PerimeterHook::Allows);
     }
 
     /** @internal */

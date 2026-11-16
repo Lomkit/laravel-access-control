@@ -25,6 +25,7 @@ use Lomkit\Access\Tests\Fixtures\Check\Clean\Controls\TicketControl;
 use Lomkit\Access\Tests\Fixtures\Check\Clean\Controls\TicketReplyControl;
 use Lomkit\Access\Tests\Fixtures\Check\Clean\Models\Ticket;
 use Lomkit\Access\Tests\Fixtures\Check\Clean\Models\TicketReply;
+use Lomkit\Access\Tests\Fixtures\Check\Gated\GatedTicketReplyControl;
 use Lomkit\Access\Tests\Fixtures\Check\Inherited\Controls\AlphaControl;
 use Lomkit\Access\Tests\Fixtures\Check\Inherited\Controls\BetaControl;
 use Lomkit\Access\Tests\Fixtures\Check\Inherited\Controls\TeamControl;
@@ -54,6 +55,23 @@ class AccessCheckCommandTest extends CheckTestCase
             ->expectsOutputToContain('#1 ThroughParent [ticket]')
             ->expectsOutputToContain('No problem found.')
             ->assertExitCode(0);
+    }
+
+    #[Test]
+    public function it_shows_the_allowed_callback_of_a_through_parent_perimeter(): void
+    {
+        $this->discover(['Clean']);
+        $this->app->instance(TicketReplyControl::class, new GatedTicketReplyControl);
+        Access::registerPolicies();
+
+        $this->artisan('access:check')
+            ->expectsOutputToContain("sql, allowed, create from the parent's update")
+            ->assertOk();
+
+        [, $report] = $this->checkJson();
+        $parents = array_values(array_filter(array_column(array_merge(...array_column($report['controls'], 'perimeters')), 'parent')));
+
+        $this->assertSame([['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view'], 'allowed' => true]], $parents);
     }
 
     #[Test]
@@ -87,7 +105,7 @@ class AccessCheckCommandTest extends CheckTestCase
                 'control' => TicketReplyControl::class,
                 'model' => TicketReply::class,
                 'perimeters' => [
-                    ['position' => '#1', 'perimeter' => ThroughParent::class, 'mode' => 'sql', 'unrestricted' => false, 'search_keys' => null, 'parent' => ['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view']]],
+                    ['position' => '#1', 'perimeter' => ThroughParent::class, 'mode' => 'sql', 'unrestricted' => false, 'search_keys' => null, 'parent' => ['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view'], 'allowed' => false]],
                 ],
                 'boundary' => null,
                 'search' => ['searchable' => false, 'engine' => null],

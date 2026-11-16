@@ -43,6 +43,8 @@ enum PerimeterHook: string
     /** @param  class-string<Perimeter>  $perimeter */
     public function isOverriddenIn(string $perimeter): bool
     {
-        return (new ReflectionMethod($perimeter, $this->value))->getDeclaringClass()->getName() !== Perimeter::class;
+        $declaring = (new ReflectionMethod($perimeter, $this->value))->getDeclaringClass()->getName();
+
+        return $declaring !== Perimeter::class && ! ($this === self::Allows && $declaring === ThroughParent::class);
     }
 }

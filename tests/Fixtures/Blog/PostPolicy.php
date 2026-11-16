@@ -25,6 +25,11 @@ class PostPolicy extends ControlledPolicy
         return $this->decideByControl(__FUNCTION__, $user);
     }
 
+    public function record(User $user, Post|Draft|null $subject = null): Response
+    {
+        return $this->decideByControl(__FUNCTION__, $user, $subject);
+    }
+
     public function duplicate(User $user, Post $post, Post $copy): Response
     {
         return $this->decideByControl(__FUNCTION__, $user, Draft::of($copy));
