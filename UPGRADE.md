@@ -1171,7 +1171,49 @@ A hook receives the reader as `Model`, the type of every reader: a perimeter cla
 
 `unrestricted()` throws `UnrestrictedPerimeterCallbackException` on a perimeter class that overrides `includes()` or `scope()`: an unrestricted perimeter never runs them.
 
-A perimeter class that must be narrowed for one use, such as the entities of the reader but only the invoices, takes the variant as a parameter of the class: a typed *wither* that clones the perimeter and sets private state, which every hook reads. Declaring `query()` on a class that overrides `scope()` throws `OverriddenPerimeterHookException`, and a second `query()` would replace the first: neither narrows a class.
+A perimeter class that must be narrowed for one use, such as the entities of the reader but only the invoices, keeps the variant as state of the class, which every hook reads. Declaring `query()` on a class that overrides `scope()` throws `OverriddenPerimeterHookException`, and a second `query()` throws `DuplicatePerimeterCallbackException`: neither narrows a class. The nature of the state picks the form:
+
+- **Required state**, without which the perimeter means nothing, such as the kind of document or a read or write path: a constructor with `readonly` promoted properties, and a named static constructor for each variant. PHP refuses to build the perimeter without its state, and a hook that writes to it fails at once.
+- **Optional narrowing** of a class that has a sensible default without it: `X::new()` and a typed *wither* that clones the perimeter and sets private state.
+
+The constructor form:
+
+```php
+final class OwnedByMyEntities extends Perimeter
+{
+    private function __construct(private readonly string $kind) {}
+
+    public static function ofKind(string $kind): self
+    {
+        return new self($kind);
+    }
+
+    protected function includes(Model $row, AccessContext $context): bool
+    {
+        return $row->kind === $this->kind && /* the entities of $context->reader() contain $row->entity_id */;
+    }
+
+    protected function scope(Builder $query, AccessContext $context): void
+    {
+        $query->where('kind', $this->kind)->whereIn('entity_id', /* the entities of $context->reader() */);
+    }
+}
+
+OwnedByMyEntities::ofKind('invoice')
+    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} entity invoices"))
+    ->searchKeys(
+        name: 'entity_invoices',
+        row: fn (Document $document) => $document->kind === 'invoice' ? $document->entity_id : null,
+        reader: fn (User $user) => $user->entities()->pluck('id')->all(),
+    );
+```
+
+- The named constructor starts the chain, and the fluent methods keep the state of the constructor: `allowed()`, `should()`, `query()`, `searchKeys()`, `reindexWhen()` and `unrestricted()` clone the perimeter and never write to its properties.
+- Never rebuild the perimeter after a fluent method: an instance method that returns `new self(...)` after `->allowed()` drops the callbacks, the search keys and `unrestricted()`. A `readonly` property is written once, and a clone already carries it, so a wither cannot assign it after `clone` (on PHP 8.3 and 8.4): give each variant its own named constructor instead. Give the required state no default: a constructor whose arguments are all optional is built by `X::new()` with its defaults, so a default that means "every kind" comes back silently.
+- `X::new()` on an abstract class, or on a class whose constructor requires arguments or is not public, throws `UnbuildablePerimeterException`, which names the class and the cause (the required arguments, for instance): build it with its named constructor. `make:control --perimeters` leaves such a class out of the generated control and warns: add it to `perimeters()` by hand.
+- `Perimeter` no longer declares `@phpstan-consistent-constructor`, so PHPStan accepts a constructor with required arguments. A class of the application that builds itself with `new static`, such as an override of `new()` or a factory on a base perimeter class, now gets *Unsafe usage of new static()*: add `/** @phpstan-consistent-constructor */` to that class.
+
+The wither form, where no kind means every kind:
 
 ```php
 final class OwnedByMyEntities extends Perimeter
@@ -1215,7 +1257,9 @@ OwnedByMyEntities::new()
     );
 ```
 
-- The state is private, set only by the wither, and pure: build it from a constant or a value that does not change in the process, never from the request, the tenant or the signed-in user (see [Pure perimeter lists](#pure-perimeter-lists)).
+In both forms:
+
+- The state is private and pure: build it from scalars, enums or readonly objects that come from a constant or a value that does not change in the process, never from the request, the tenant or the signed-in user (see [Pure perimeter lists](#pure-perimeter-lists)).
 - Every path reads it: `scope()` for the controlled queries and the row checks in SQL, `includes()` for the in-memory checks and the drafts, and the `row:` closure of the search keys, which returns no key for a row outside the variant. The policy, the controlled queries, the batches and the search then agree, which `assertControlAgrees()` and `assertSearchAgrees()` check.
 - Two variants of one class in one control are two perimeters: with search keys, give them distinct key names, or the control throws `DuplicateSearchKeyNameException`.
 - Do not wrap a perimeter in another one to narrow it: the package recognizes a `ThroughParent` and an unrestricted perimeter by their own class, which a wrapper hides.
@@ -1287,7 +1331,7 @@ $perimeter = OwnPerimeter::new()
 
 A declaration whose result is dropped is lost: the perimeter then throws `MissingPerimeterCallbackException` when the callback is needed.
 
-Each callback is declared once. A second `allowed()`, `should()`, `query()` or `searchKeys()` on the same perimeter throws `DuplicatePerimeterCallbackException`, which names the perimeter and the callback, where the second declaration used to replace the first silently: `->query(A)->query(B)` kept only `B`, which is usually wider than the author meant, and a second `searchKeys()` dropped the `reindexWhen()` rules declared after the first. Write one callback that checks both conditions, or give a perimeter class a wither (see [Perimeter classes](#perimeter-classes)). `->searchKeys(...)->reindexWhen(...)` keeps working.
+Each callback is declared once. A second `allowed()`, `should()`, `query()` or `searchKeys()` on the same perimeter throws `DuplicatePerimeterCallbackException`, which names the perimeter and the callback, where the second declaration used to replace the first silently: `->query(A)->query(B)` kept only `B`, which is usually wider than the author meant, and a second `searchKeys()` dropped the `reindexWhen()` rules declared after the first. Write one callback that checks both conditions, or give a perimeter class a named constructor or a wither (see [Perimeter classes](#perimeter-classes)). `->searchKeys(...)->reindexWhen(...)` keeps working.
 
 The callbacks are private properties of `Perimeter`. A subclass that assigned `$this->allowedCallback`, `$this->shouldCallback`, `$this->queryCallback` or `$this->scoutQueryCallback` now writes a property of its own, which the package never reads: declare the callbacks with the fluent methods, or override the hooks.
 
@@ -1327,17 +1371,19 @@ The same goes for a perimeter list that depends on the user, the request, the te
 
 The check compares the values the callbacks capture this way:
 
-- scalars and arrays by value;
+- scalars and arrays by value and type;
 - Eloquent models by class and key, so a user captured at build time is caught as soon as another user signs in;
-- enums and readonly objects, such as `Ability`, by value;
+- enums by identity;
+- dates (`DateTimeInterface`, Carbon included) by their instant, so a date read from the clock while `perimeters()` builds is caught;
 - closures by the lines that declare them and, recursively, by the values they capture;
+- objects of a `readonly` class, such as `Ability`, property by property with these same rules, at any depth: a closure they hold by its lines and its captures, a model by its key, a scalar by value and type, so `'1'` and `1` differ. An object that refers to itself is compared once. An object whose class is not declared `readonly` is any other object, even when all its properties are `readonly`;
 - any other object by its class only: a service built in `perimeters()`, such as `$rules = new PostRules`, is pure and passes.
 
-The properties that a perimeter class declares, such as the state a wither sets, are compared with the same rules, so `OwnedByMyEntities::new()->ofKind(config('documents.kind'))` is caught when the configuration changes, as the same value captured by a closure is. A hook that changes a property of its perimeter, such as a cache of the readers it allowed, is caught too: the perimeters are shared by every request of the process, so a hook must never write to them. The properties of `Perimeter` and of `ThroughParent` are compared by the package on their own: the callbacks, the search keys, and the relation, inverse and delegation of a parent.
+The properties that a perimeter class declares, the `readonly` properties its constructor promotes as well as the state a wither sets, are compared with the same rules, so `OwnedByMyEntities::ofKind(config('documents.kind'))` and `OwnedByMyEntities::new()->ofKind(config('documents.kind'))` are caught when the configuration changes, as the same value captured by a closure is. A hook that changes a property of its perimeter, such as a cache of the readers it allowed, is caught too: the perimeters are shared by every request of the process, so a hook must never write to them. The properties of `Perimeter` and of `ThroughParent` are compared by the package on their own: the callbacks, the search keys, and the relation, inverse and delegation of a parent.
 
 The check only sees what changes between two builds of the same process. It cannot see:
 
-- the state inside a captured service or model: a service that reads the request or the tenant when it is built, or whose properties change later, compares equal as long as its class is the same; a model is compared by its key, not by its attributes;
+- the state inside a captured service or model: a service that reads the request or the tenant when it is built, or whose properties change later, compares equal as long as its class is the same; a model is compared by its key, not by its attributes; Inside a `readonly` object too, an object of another class, such as a collection, is compared by its class only;
 - a value that is the same in both builds, such as the tenant of a test that never switches tenant, or a row read from the database that does not change;
 - what the callbacks read when they run: that is not a purity problem, since the callbacks are where the reader, the request and the tenant belong.
 
@@ -1505,7 +1551,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `->query(fn ($query) => $query)`, `->should(fn () => true)` on a global perimeter | `->unrestricted()` |
 | `->query(fn ($query) => Model::query()->where(...))` | `->query(function ($query): void { $query->where(...); })` |
 | `->query(A)->query(B)`, or `allowed()`, `should()` or `searchKeys()` declared twice | One callback with both conditions: a second declaration throws `DuplicatePerimeterCallbackException` |
-| `->query()` on a class that overrides `scope()`, to narrow it | A wither on the class, such as `->ofKind('invoice')`, read by every hook |
+| `->query()` on a class that overrides `scope()`, to narrow it | A named constructor, such as `OwnedByMyEntities::ofKind('invoice')`, or a wither, such as `->ofKind('invoice')`, read by every hook |
 | `Access::controlForModel($model)` (returns `?Control`) | `Access::controlFor($model)` (throws `MissingControlException`) and `Access::hasControl($model)` |
 | `(new Access)->addControl($control)`, `addControls()`, `discoverControls()` | `#[ControlledBy(PostControl::class)]` on the model |
 | `Access::$controlDiscoveryPaths = [...]` | `Access::discoverControlsIn([...])` in a service provider's `boot()` |

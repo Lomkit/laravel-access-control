@@ -3,11 +3,28 @@
 namespace Lomkit\Access\Console;
 
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\PerimeterConstructor;
 use Lomkit\Access\Perimeters\PerimeterHook;
 
 final readonly class GeneratedPerimeter
 {
     public function __construct(private string $class) {}
+
+    public function isBuildable(): bool
+    {
+        return ! is_subclass_of($this->class, Perimeter::class) || PerimeterConstructor::builds($this->class);
+    }
+
+    public function skippedWarning(): ?string
+    {
+        if (! is_subclass_of($this->class, Perimeter::class)) {
+            return null;
+        }
+
+        $refusal = PerimeterConstructor::refusal($this->class);
+
+        return $refusal === null ? null : $refusal->getMessage().' The control does not list it: add it to perimeters() by hand.';
+    }
 
     public function code(): string
     {

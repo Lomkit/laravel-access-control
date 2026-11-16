@@ -74,7 +74,7 @@ class ControlMakeCommand extends GeneratorCommand
     #[\Override]
     protected function buildClass($name): string
     {
-        $replace = (new ControlStubReplacements($this->controlledModel(), $this->perimeterClasses(), $this->parents()))->toArray();
+        $replace = (new ControlStubReplacements($this->controlledModel(), $this->buildablePerimeters(), $this->parents()))->toArray();
 
         if (file_exists($this->getPath("{$this->rootNamespace()}Access\Controls\Control"))) {
             $replace['use Lomkit\Access\Controls\Control;'] = '';
@@ -100,6 +100,18 @@ class ControlMakeCommand extends GeneratorCommand
         $model = ltrim(str_replace('/', '\\', $model), '\\');
 
         return class_exists($model) ? $model : $this->qualifyModel($model);
+    }
+
+    /** @return list<string> */
+    private function buildablePerimeters(): array
+    {
+        $generated = new GeneratedPerimeters($this->perimeterClasses());
+
+        foreach ($generated->warnings() as $warning) {
+            $this->components->warn($warning);
+        }
+
+        return $generated->buildable();
     }
 
     /** @return list<string> */
