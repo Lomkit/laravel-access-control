@@ -14,6 +14,10 @@ use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\InvalidParentRelationException;
 use Lomkit\Access\Exceptions\MissingParentControlException;
 use Lomkit\Access\Exceptions\ParentCycleException;
+use Lomkit\Access\Exceptions\RelationInspectionQueryException;
+use Lomkit\Access\Relations\RelationInspector;
+use Lomkit\Access\Relations\RelationKeys;
+use Lomkit\Access\Relations\RelationShape;
 
 /** @internal */
 final readonly class ParentLink
@@ -29,25 +33,27 @@ final readonly class ParentLink
      * @throws InvalidParentRelationException When the relation is not a belongsTo of the child model, or the inverse is not its hasMany.
      * @throws MissingParentControlException When no control is registered for the parent model.
      * @throws ParentCycleException When the parents of the parent lead back to the child.
+     * @throws RelationInspectionQueryException When a relation method runs a query.
      */
     public static function resolve(Control $child, string $relation, ?string $inverse): self
     {
         $model = $child->getModel();
         $belongsTo = self::belongsTo($child, new $model, $relation);
-        $parent = $belongsTo->getRelated();
+        $keys = $belongsTo->keys() ?? throw InvalidParentRelationException::unsupported($child, $model, $relation, $belongsTo->type());
+        $parent = $belongsTo->related();
 
-        if ($inverse !== null && ! self::isInverse($parent, $inverse, $belongsTo, $model)) {
-            throw InvalidParentRelationException::inverse($child, $parent::class, $inverse, $relation, $model);
+        if ($inverse !== null && ! self::isInverse(new $parent, $inverse, $keys, $model)) {
+            throw InvalidParentRelationException::inverse($child, $parent, $inverse, $relation, $model);
         }
 
         if (! Access::hasControl($parent)) {
-            throw MissingParentControlException::for($child, $relation, $parent::class);
+            throw MissingParentControlException::for($child, $relation, $parent);
         }
 
         $control = Access::controlFor($parent);
         $control->declaration();
 
-        return new self($relation, $control, $belongsTo->getForeignKeyName(), $belongsTo->getOwnerKeyName());
+        return new self($relation, $control, $keys->foreign(), $keys->referenced());
     }
 
     public function control(): Control
@@ -87,34 +93,36 @@ final readonly class ParentLink
         return $row instanceof Model && $this->parent->applies($parent->reader(), $parent->ability(), $row);
     }
 
-    /** @return BelongsTo<Model, Model> */
-    private static function belongsTo(Control $child, Model $model, string $relation): BelongsTo
+    private static function belongsTo(Control $child, Model $model, string $relation): RelationShape
     {
         if (! $model->isRelation($relation)) {
             throw InvalidParentRelationException::missing($child, $model::class, $relation);
         }
 
-        $belongsTo = $model->{$relation}();
+        $belongsTo = RelationInspector::shape($model, $relation);
 
-        if (! $belongsTo instanceof BelongsTo || $belongsTo instanceof MorphTo) {
-            throw InvalidParentRelationException::unsupported($child, $model::class, $relation, get_debug_type($belongsTo));
+        if ($belongsTo === null) {
+            throw InvalidParentRelationException::unsupported($child, $model::class, $relation, RelationInspector::returnedType($model, $relation));
+        }
+
+        if (! $belongsTo->is(BelongsTo::class) || $belongsTo->is(MorphTo::class)) {
+            throw InvalidParentRelationException::unsupported($child, $model::class, $relation, $belongsTo->type());
         }
 
         return $belongsTo;
     }
 
-    /** @param  BelongsTo<Model, Model>  $belongsTo */
-    private static function isInverse(Model $parent, string $inverse, BelongsTo $belongsTo, string $model): bool
+    private static function isInverse(Model $parent, string $inverse, RelationKeys $keys, string $model): bool
     {
         if (! $parent->isRelation($inverse)) {
             return false;
         }
 
-        $hasMany = $parent->{$inverse}();
+        $hasMany = RelationInspector::shape($parent, $inverse);
 
-        return $hasMany instanceof HasMany
-            && $hasMany->getRelated()::class === $model
-            && $hasMany->getForeignKeyName() === $belongsTo->getForeignKeyName()
-            && $hasMany->getLocalKeyName() === $belongsTo->getOwnerKeyName();
+        return $hasMany !== null
+            && $hasMany->is(HasMany::class)
+            && $hasMany->related() === $model
+            && $hasMany->keys()?->equals($keys) === true;
     }
 }

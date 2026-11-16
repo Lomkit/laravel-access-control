@@ -3,11 +3,12 @@
 namespace Lomkit\Access\Search\Freshness\Inspection;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\Relation;
+use Lomkit\Access\Relations\RelationInspector;
+use Lomkit\Access\Relations\RelationShape;
 use Lomkit\Access\Search\Freshness\ReindexWhen;
 use Lomkit\Access\Search\ReindexesSearch;
 use Lomkit\Access\Search\SearchKeys;
+use Throwable;
 
 /** @internal */
 final class KeyRelations
@@ -21,7 +22,7 @@ final class KeyRelations
     /**
      * @param  class-string<Model>  $model
      * @param  list<ReindexWhen>  $reindexes
-     * @return list<UnwatchedKeyRelation>
+     * @return list<FreshnessIssue>
      */
     public static function unwatched(string $model, SearchKeys $keys, array $reindexes): array
     {
@@ -42,7 +43,7 @@ final class KeyRelations
      * @param  list<ReindexWhen>  $reindexes
      * @param  list<string>  $segments
      * @param  list<string>  $columns
-     * @return list<UnwatchedKeyRelation>
+     * @return list<FreshnessIssue>
      */
     private static function unwatchedAlong(string $model, SearchKeys $keys, array $reindexes, array $segments, array $columns): array
     {
@@ -52,17 +53,23 @@ final class KeyRelations
 
         foreach ($segments as $position => $segment) {
             $walked[] = $segment;
-            $relation = method_exists($parent, $segment) ? $parent->{$segment}() : null;
 
-            if (! $relation instanceof Relation) {
+            try {
+                $shape = method_exists($parent, $segment) ? RelationInspector::shape($parent, $segment) : null;
+            } catch (Throwable $exception) {
+                return [...$issues, new UnreadableKeyRelation($model, $keys->name(), $parent::class, $segment, $exception->getMessage())];
+            }
+
+            if ($shape === null) {
                 return [...$issues, new UnwatchedKeyRelation($model, $keys->name(), implode(self::NESTING, $walked), null)];
             }
 
-            $parent = $relation->getRelated();
+            $related = $shape->related();
+            $parent = new $related;
             $read = $position === array_key_last($segments) && $columns !== [] ? array_values(array_diff($columns, [$parent->getKeyName(), $parent->getQualifiedKeyName()])) : null;
 
-            if (! self::watched($parent, $read, $reindexes) && ! ($read === [] && self::reindexedByItsPivot($relation))) {
-                $issues[] = new UnwatchedKeyRelation($model, $keys->name(), implode(self::NESTING, $walked), $parent::class);
+            if (! self::watched($parent, $read, $reindexes) && ! ($read === [] && self::reindexedByItsPivot($shape))) {
+                $issues[] = new UnwatchedKeyRelation($model, $keys->name(), implode(self::NESTING, $walked), $related);
             }
         }
 
@@ -84,10 +91,10 @@ final class KeyRelations
         return false;
     }
 
-    /** @param  Relation<Model, Model, mixed>  $relation */
-    private static function reindexedByItsPivot(Relation $relation): bool
+    private static function reindexedByItsPivot(RelationShape $shape): bool
     {
-        return $relation instanceof BelongsToMany
-            && in_array(ReindexesSearch::class, class_uses_recursive($relation->getPivotClass()), true);
+        $pivot = $shape->pivot();
+
+        return $pivot !== null && in_array(ReindexesSearch::class, class_uses_recursive($pivot->class()), true);
     }
 }

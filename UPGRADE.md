@@ -386,8 +386,11 @@ It is on purpose:
 | No control is registered for the parent model | `MissingParentControlException` |
 | The parents lead back to the child, directly or through several hops | `ParentCycleException`, naming the cycle |
 | `delegates()` gets an empty list, an ability twice, or something else than an ability | `InvalidDelegationException` |
+| The relation method runs a query or reads the schema while it builds the relation | `RelationInspectionQueryException`, naming the model, the relation, the connection and the query |
 
 `inverse` names the `hasMany` from the parent to its children. The search uses it to reindex the children when the parent's keys change, so a model that uses `ControlledSearchable` requires it (see [Searching through a parent](#searching-through-a-parent)). On a model that is not searchable it is optional, and validated when given.
+
+**A model on a connection configured later.** The control reads the relation of a `ThroughParent`, and its `inverse`, without resolving a database connection: Eloquent gets a connection without PDO for the call of the relation method, and the control keeps only the related model and the key names. So a model on a connection configured at runtime, such as a tenant connection before the tenant is initialized or a connection opened with `DB::connectUsing()`, is validated outside that context, the same way: by `access:check`, `access:cache` (so `php artisan optimize`) and `make:control --parent`, and when the listeners that keep the search keys fresh build the controls on the save of a model of another connection. The decisions still use the real relation on the real connection, so the declaration is the same inside and outside that context. A relation method that runs a query while it builds the relation throws `RelationInspectionQueryException`, which names the model, the relation and the connection: build the relation from its keys alone, and move the query out of the method. The connection resolver is swapped for the call of the relation method only, which is safe under Octane since a worker serves one request at a time; a relation method that reads `getConnection()->getDriverName()` gets a placeholder name during that call, and a related model that the call instantiates for the first time boots against the same placeholder connection: a `booted()` that runs a query throws `RelationInspectionQueryException`.
 
 `php artisan make:control CommentControl --parent=post` writes the `ThroughParent::belongsTo('post')` entry, and refuses a relation that is not a `belongsTo` of the model.
 
@@ -1641,7 +1644,7 @@ Problems:
 
 | Kind | Reported when |
 |---|---|
-| `control_failure` | Building a control, its declaration or the verification of its perimeters throws: impure perimeters, empty or nested levels, a missing callback, a `ThroughParent` on a missing relation, a cycle, a parent without control, an invalid delegation, a duplicate search key name, a control without model. The message quotes the exception. |
+| `control_failure` | Building a control, its declaration or the verification of its perimeters throws: impure perimeters, empty or nested levels, a missing callback, a `ThroughParent` on a missing relation, a cycle, a parent without control, an invalid delegation, a relation method that runs a query (`RelationInspectionQueryException`), a duplicate search key name, a control without model. The message quotes the exception. A discovered control that throws while the cached watched models are compared is reported too, even when `--only` leaves it out. |
 | `duplicate_control` | Two discovered controls, or a discovered control and `#[ControlledBy]`, declare the same model. |
 | `uncontrolled_model` | A model of the scanned directories uses `HasControl` and no control is discovered or declared for it. |
 | `invalid_controlled_by` | `#[ControlledBy]` names a class that is not a control, or the control of another model. |
@@ -1656,6 +1659,7 @@ Problems:
 | `perimeter_without_search_keys` | On an engine that stores documents, a perimeter that is neither unrestricted nor a `ThroughParent` declares no `searchKeys()`: the readers it reaches find none of its rows. |
 | `search_freshness` | What would leave documents stale: Scout's `after_commit` off, `makeSearchableUsing()` overridden without `withAccessKeys()`, a relation the search keys read that nothing reindexes. |
 | `pivot_without_using` | A `BelongsToMany` relation reaches the table of a pivot that uses `ReindexesSearch` without `->using()` it: attaching or detaching through it fires no event. |
+| `unreadable_relation` | A relation that the command reads throws when it is read without a database connection: a scanned `BelongsToMany` relation, or a relation that the search keys load. It is reported instead of skipped, since the command cannot check it. |
 
 Notes:
 
@@ -1674,7 +1678,7 @@ The human output lists the notes kind by kind. When a kind has more than 5 notes
   ⇂ policy_outside_control: 325 policies, 325 extending App\Access\BasePolicy (first 3: App\Policies\InvoicePolicy, App\Policies\OrderPolicy, App\Policies\VisitPolicy); --json lists them all
 ```
 
-Problems are never grouped, and `--json` always lists every note. No attribute, interface or option silences a note: fix what it reports, or read it in the JSON.
+Problems are never grouped, and `--json` always lists every note. A problem that two checks find, with the same kind, subject and message, is listed once. No attribute, interface or option silences a note: fix what it reports, or read it in the JSON.
 
 Options:
 
@@ -1686,7 +1690,7 @@ Options:
   - `invalid_controlled_by` for a scanned model whose `#[ControlledBy]` names the control of another model, even a discovered one;
   - the `BelongsToMany` relations of the scanned models for `pivot_without_using`.
 
-The command is read-only: it never writes or rewrites the discovery cache (a stale one is reported, not fixed), runs no query and dispatches no job. It builds the controls, resolves the policies and the Scout engines, and instantiates the `BelongsToMany` relations it scans, without running them. The pivot check only sees the public relation methods that declare a `BelongsToMany` return type (or a subclass, such as `MorphToMany`): a relation method without a return type is not scanned. It cannot tell whether a `should()` callback reads a relation: that is up to the code of the callback.
+The command is read-only: it never writes or rewrites the discovery cache (a stale one is reported, not fixed), runs no query and dispatches no job. It builds the controls, resolves the policies and the Scout engines, and reads the relations without a database connection, so a model on a connection configured later is checked like the others. The pivot check only sees the public relation methods that declare a `BelongsToMany` return type (or a subclass, such as `MorphToMany`): a relation method without a return type is not scanned. It cannot tell whether a `should()` callback reads a relation: that is up to the code of the callback.
 
 ### The about command
 

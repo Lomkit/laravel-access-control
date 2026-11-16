@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Lomkit\Access\Console\Check\Findings;
 use Lomkit\Access\Console\Check\Problems\PivotWithoutUsing;
+use Lomkit\Access\Console\Check\Problems\UnreadableRelation;
+use Lomkit\Access\Relations\RelationInspector;
+use Lomkit\Access\Relations\RelationPivot;
 use Lomkit\Access\Search\ReindexesSearch;
 use ReflectionClass;
 use ReflectionMethod;
@@ -25,11 +28,11 @@ final class PivotCheck
         $reindexing = [];
 
         foreach ($models as $model) {
-            foreach ($this->relationsOf($model) as $name => $relation) {
-                $relations[] = [$model, $name, $relation->getTable(), $relation->getPivotClass()];
+            foreach ($this->pivotsOf($findings, $model) as $name => $pivot) {
+                $relations[] = [$model, $name, $pivot->table(), $pivot->class()];
 
-                if ($this->reindexes($relation->getPivotClass())) {
-                    $reindexing[$relation->getTable()] = $relation->getPivotClass();
+                if ($this->reindexes($pivot->class())) {
+                    $reindexing[$pivot->table()] = $pivot->class();
                 }
             }
         }
@@ -45,11 +48,11 @@ final class PivotCheck
 
     /**
      * @param  class-string<Model>  $model
-     * @return array<string, BelongsToMany<Model, Model>>
+     * @return array<string, RelationPivot>
      */
-    private function relationsOf(string $model): array
+    private function pivotsOf(Findings $findings, string $model): array
     {
-        $relations = [];
+        $pivots = [];
 
         foreach ((new ReflectionClass($model))->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
             if (! $this->declaresBelongsToMany($method)) {
@@ -57,17 +60,19 @@ final class PivotCheck
             }
 
             try {
-                $relation = $method->invoke(new $model);
-            } catch (Throwable) {
+                $pivot = RelationInspector::shape(new $model, $method->getName())?->pivot();
+            } catch (Throwable $exception) {
+                $findings->problem(new UnreadableRelation($model, $method->getName(), $exception->getMessage()));
+
                 continue;
             }
 
-            if ($relation instanceof BelongsToMany) {
-                $relations[$method->getName()] = $relation;
+            if ($pivot !== null) {
+                $pivots[$method->getName()] = $pivot;
             }
         }
 
-        return $relations;
+        return $pivots;
     }
 
     private function declaresBelongsToMany(ReflectionMethod $method): bool
