@@ -38,11 +38,19 @@ Relations, `whereHas()` subqueries, eager loads, lazy loads and route model bind
 
 `uncontrolled()` keeps working and still states that a query reads every row on purpose. The calls you added only to opt out of the key can stay or go: they no longer change the results.
 
-Every model that uses `HasControl` still registers `HasControlScope` as a global scope, but the scope no longer adds any constraint. `withoutGlobalScope(HasControlScope::class)` keeps working, and `controlled()`, `controlledFor()` and `uncontrolled()` remove the scope from their query.
-
 ### The control scope
 
-`HasControlScope::resolveUser()` and `HasControlScope::retrievingUser()` are removed. Controlled queries and controlled searches read the user with `Auth::user()` when they run. Replace `HasControlScope::resolveUser()` with `Auth::user()`, and remove the calls to `HasControlScope::retrievingUser()`:
+`HasControlScope` is removed. A model that uses `HasControl` registers no global scope anymore, and `controlled()`, `controlledFor()` and `uncontrolled()` remove no scope from their query. Remove `withoutGlobalScope(HasControlScope::class)` from your queries, which read every row without it, or write `uncontrolled()` to state it on purpose, and remove the imports of the class:
+
+```php
+// Before
+$posts = Post::withoutGlobalScope(HasControlScope::class)->get();
+
+// After
+$posts = Post::uncontrolled()->get();
+```
+
+`HasControlScope::resolveUser()` and `HasControlScope::retrievingUser()` go with the class. Controlled queries and controlled searches read the user with `Auth::user()` when they run. Replace `HasControlScope::resolveUser()` with `Auth::user()`, and remove the calls to `HasControlScope::retrievingUser()`:
 
 ```php
 // Before
@@ -54,7 +62,7 @@ $user = Auth::user();
 
 A controlled query no longer skips its control while the guard retrieves the user, where it used to read every row. Do not run a controlled query from an event of your user model that the guard fires while it retrieves the user, such as `retrieved`: the query asks the guard for the user again.
 
-`controlled()` and `uncontrolled()` are now local scopes of the `HasControl` trait, declared with Laravel's `#[Scope]` attribute, instead of builder macros registered by `HasControlScope::extend()`. `HasControlScope` is final and keeps only `apply()`. Remove the code that extends `HasControlScope` or calls its `extend()` method, and rename any `controlled`, `controlledFor` or `uncontrolled` method that a controlled model declares itself.
+`controlled()` and `uncontrolled()` are now local scopes of the `HasControl` trait, declared with Laravel's `#[Scope]` attribute, instead of builder macros registered by `HasControlScope::extend()`. Remove the code that extends `HasControlScope` or calls its `extend()` method, and rename any `controlled`, `controlledFor` or `uncontrolled` method that a controlled model declares itself.
 
 ### Named readers
 
@@ -1526,7 +1534,7 @@ To turn the extension off, list it in `disabled_extensions` of `config/rest.php`
 ],
 ```
 
-To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name.
+To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name. Its `restrict()` may call `controlledFor()` on the query of the context, several times combined with `orWhere()`: these scopes add only where clauses and remove no global scope, as rest-api requires of a restriction.
 
 ### Removed helpers
 
@@ -1548,6 +1556,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `$control->queried($query, $user)` (removed) | `$query->controlledFor($user)` |
 | `HasControlScope::resolveUser()` | `Auth::user()` |
 | `HasControlScope::retrievingUser()` | Removed, no replacement |
+| `withoutGlobalScope(HasControlScope::class)` | Nothing: `HasControlScope` is removed and the query reads every row; `uncontrolled()` to state it on purpose |
 | `->query(fn ($query) => $query)`, `->should(fn () => true)` on a global perimeter | `->unrestricted()` |
 | `->query(fn ($query) => Model::query()->where(...))` | `->query(function ($query): void { $query->where(...); })` |
 | `->query(A)->query(B)`, or `allowed()`, `should()` or `searchKeys()` declared twice | One callback with both conditions: a second declaration throws `DuplicatePerimeterCallbackException` |

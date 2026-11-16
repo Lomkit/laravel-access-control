@@ -19,11 +19,6 @@ use Lomkit\Access\Exceptions\UnlistableAbilityException;
 
 trait HasControl
 {
-    public static function bootHasControl(): void
-    {
-        static::addGlobalScope(new HasControlScope);
-    }
-
     /**
      * @throws MissingControlException When no control is registered for the model.
      */
@@ -66,8 +61,6 @@ trait HasControl
         }
 
         $control = $this->newControl();
-
-        $query->withoutGlobalScope(HasControlScope::class);
 
         $control->restrict($query, $reader, $ability instanceof Ability ? $ability : $control->abilityFor($ability));
 
@@ -112,8 +105,5 @@ trait HasControl
      * @param  Builder<static>  $query
      */
     #[Scope]
-    protected function uncontrolled(Builder $query): void
-    {
-        $query->withoutGlobalScope(HasControlScope::class);
-    }
+    protected function uncontrolled(Builder $query): void {}
 }
