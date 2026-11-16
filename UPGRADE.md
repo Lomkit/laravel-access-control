@@ -789,6 +789,12 @@ $controlled = Access::hasControl($post);
 
 `Access::controlFor()` throws `MissingControlException` instead of returning `null`: check `Access::hasControl()` first where a model may have no control.
 
+**No list of the controls.** There is no runtime list of the controls. At runtime the package only knows the discovered controls: `#[ControlledBy]` is resolved model by model, when a model is asked for, and cannot be listed without scanning the model directories. A list would miss those models, a guard built on it would skip them silently, and it would contradict `Access::hasControl()`. A package that fails closed cannot allow that.
+
+- For a guard, call `Access::hasControl($model)` on the model at hand. It covers the discovery and `#[ControlledBy]`, and the registry keeps its answer for each model class.
+- For an inventory, in CI or in a review, run `php artisan access:check --json`: `controls[].model` and `controls[].control` give each control and its model, and the `uncontrolled_model` problem names the scanned models that use `HasControl` without a control (see [Checking the controls](#checking-the-controls)).
+- Do not build a list on `ControlDiscovery` or `ControlRegistry`: they are not part of the API. The registry is reached through the facade only, and the methods of the discovery that list classes are `@internal`.
+
 `Access::$controlDiscoveryPaths` is replaced by `Access::discoverControlsIn()`, called from the `boot()` method of a service provider:
 
 ```php

@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Tests\Feature\Registry;
 
 use Lomkit\Access\Access;
+use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Exceptions\DuplicateControlException;
 use Lomkit\Access\Exceptions\InvalidControlException;
 use Lomkit\Access\Exceptions\InvalidControlledByException;
@@ -36,6 +37,16 @@ class ControlLinkTest extends PackageTestCase
         $this->assertInstanceOf(PostControl::class, (new Post)->newControl());
         $this->assertTrue(Access::hasControl(Post::class));
         $this->assertTrue(Access::hasControl(new Post));
+    }
+
+    #[Test]
+    public function it_has_a_control_for_a_model_whose_attribute_names_a_control_outside_the_discovered_directories(): void
+    {
+        Access::discoverControlsIn([$this->fixturePath('Controls')]);
+
+        $this->assertNotContains(PostControl::class, $this->app->make(ControlDiscovery::class)->controls());
+        $this->assertTrue(Access::hasControl(Post::class));
+        $this->assertTrue(Access::hasControl(Note::class));
     }
 
     #[Test]
