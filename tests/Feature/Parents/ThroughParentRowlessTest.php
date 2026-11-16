@@ -80,7 +80,7 @@ class ThroughParentRowlessTest extends ParentTestCase
     public function it_lists_no_row_without_access_to_the_parent(): void
     {
         $this->assertSame([], $this->visibleComments($this->grace));
-        $this->assertStringContainsString('0=1', Comment::controlledFor($this->grace)->toSql());
+        $this->assertSame('select * from comments where (0=1)', str_replace(['"', '`'], '', Comment::controlledFor($this->grace)->toSql()));
         $this->assertSame(['Ship it', 'Typo in the title', 'Old news'], $this->visibleComments($this->ada));
     }
 

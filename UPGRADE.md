@@ -365,7 +365,7 @@ Compare the abilities one by one: an ability missing from `delegates()` is refus
 | `create` without a draft | 403 `no_perimeter`, before the 422 of laravel-rest-api's validation |
 | `create` with a draft | 403 `no_perimeter`: nothing is reached, so the draft is never judged |
 
-When another perimeter of the child is reached, `viewAny` and `create` without a draft are granted, and a draft that no reached perimeter takes is refused with `outside_rows`. A reader who reaches the parent but has no row there gets 200 with an empty list: `viewAny` is granted and `controlled()` lists nothing.
+When another perimeter of the child is reached, `viewAny` and `create` without a draft are granted, and a draft that no reached perimeter takes is refused with `outside_rows`, or `outside_boundary` when the child's boundary refuses it. A reader who reaches the parent but has no row there gets 200 with an empty list: `viewAny` is granted and `controlled()` lists nothing.
 
 Where the child must be listable, grant the parent ability too. A `ControlledPolicy` may also override `viewAny()`: the lists stay controlled, so nothing opens, but `viewAny` then no longer says what the control says. It works; it is not recommended.
 
@@ -792,8 +792,8 @@ $controlled = Access::hasControl($post);
 **No list of the controls.** There is no runtime list of the controls. At runtime the package only knows the discovered controls: `#[ControlledBy]` is resolved model by model, when a model is asked for, and cannot be listed without scanning the model directories. A list would miss those models, a guard built on it would skip them silently, and it would contradict `Access::hasControl()`. A package that fails closed cannot allow that.
 
 - For a guard, call `Access::hasControl($model)` on the model at hand. It covers the discovery and `#[ControlledBy]`, and the registry keeps its answer for each model class.
-- For an inventory, in CI or in a review, run `php artisan access:check --json`: `controls[].model` and `controls[].control` give each control and its model, and the `uncontrolled_model` problem names the scanned models that use `HasControl` without a control (see [Checking the controls](#checking-the-controls)).
-- Do not build a list on `ControlDiscovery` or `ControlRegistry`: they are not part of the API. The registry is reached through the facade only, and the methods of the discovery that list classes are `@internal`.
+- For an inventory, in CI or in a review, run `php artisan access:check --json` with `--models` covering every directory that holds a controlled model: `controls[].model` and `controls[].control` give each control and its model, and the `uncontrolled_model` problem names the scanned models that use `HasControl` without a control (see [Checking the controls](#checking-the-controls)).
+- `ControlDiscovery`, `ControlMap` and `ControlRegistry` are internal, whatever the visibility of their methods, and may change in any release: do not build a list on them, and reach the registry through the methods of the `Access` facade only.
 
 `Access::$controlDiscoveryPaths` is replaced by `Access::discoverControlsIn()`, called from the `boot()` method of a service provider:
 
