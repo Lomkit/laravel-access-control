@@ -20,6 +20,7 @@ use Lomkit\Access\Tests\Fixtures\Purity\MemoizingPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\PurePostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\ReaderBoundPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\RequestBoundPostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\RuleBoundPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\ServicePostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\SignedInPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\WorkspaceBoundPostControl;
@@ -243,5 +244,87 @@ class PerimeterPurityTest extends PackageTestCase
         $this->expectImpure(WorkspaceBoundPostControl::class);
 
         Post::controlledFor($this->hank)->get();
+    }
+
+    #[Test]
+    public function it_accepts_a_readonly_object_holding_a_closure_built_alike_on_every_build(): void
+    {
+        config(['posts.title' => 'Draft']);
+        $this->app->instance(PostControl::class, new RuleBoundPostControl);
+
+        for ($lookup = 0; $lookup < 3; $lookup++) {
+            $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+        }
+    }
+
+    #[Test]
+    public function it_catches_a_scalar_that_changes_inside_a_readonly_object(): void
+    {
+        config(['posts.title' => 'Draft']);
+        $this->app->instance(PostControl::class, new RuleBoundPostControl);
+
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        config(['posts.title' => 'Roadmap']);
+
+        $this->expectImpure(RuleBoundPostControl::class);
+
+        Post::controlledFor($this->ada)->get();
+    }
+
+    #[Test]
+    public function it_catches_a_scalar_of_another_type_inside_a_readonly_object(): void
+    {
+        foreach ([['1', 1], [null, false]] as [$first, $second]) {
+            config(['posts.title' => $first]);
+            $this->app->instance(PostControl::class, $control = new RuleBoundPostControl);
+            $control->verifyPerimeters();
+
+            config(['posts.title' => $second]);
+
+            try {
+                $control->verifyPerimeters();
+
+                $this->fail(sprintf('A readonly object holding %s, then %s, was not caught.', var_export($first, true), var_export($second, true)));
+            } catch (ImpurePerimetersException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    #[Test]
+    public function it_catches_a_readonly_object_holding_a_closure_declared_on_other_lines(): void
+    {
+        config(['posts.title' => 'Draft']);
+        $this->app->instance(PostControl::class, new RuleBoundPostControl);
+
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        config(['posts.prefix' => true]);
+
+        $this->expectImpure(RuleBoundPostControl::class);
+
+        Post::controlledFor($this->ada)->get();
+    }
+
+    #[Test]
+    public function it_compares_a_model_inside_a_readonly_object_by_its_key(): void
+    {
+        config(['posts.title' => 'Draft', 'posts.owner' => $this->ada]);
+        $this->app->instance(PostControl::class, new RuleBoundPostControl);
+
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        $reloaded = User::query()->findOrFail($this->ada->getKey());
+        $reloaded->name = 'Ada Lovelace';
+        config(['posts.owner' => $reloaded]);
+
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        config(['posts.owner' => $this->hank]);
+
+        $this->expectImpure(RuleBoundPostControl::class);
+
+        Post::controlledFor($this->ada)->get();
     }
 }

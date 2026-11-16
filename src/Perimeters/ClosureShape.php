@@ -10,7 +10,7 @@ use UnitEnum;
 
 final readonly class ClosureShape
 {
-    private const int NESTED_CLOSURES_COMPARED = 3;
+    private const int NESTED_VALUES_COMPARED = 3;
 
     /** @param  array<array-key, mixed>  $captured */
     private function __construct(
@@ -34,7 +34,7 @@ final readonly class ClosureShape
             return false;
         }
 
-        return $depth >= self::NESTED_CLOSURES_COMPARED || self::same($this->captured, $other->captured, $depth);
+        return $depth >= self::NESTED_VALUES_COMPARED || self::same($this->captured, $other->captured, $depth);
     }
 
     /**
@@ -65,9 +65,14 @@ final readonly class ClosureShape
             $value instanceof Closure && $other instanceof Closure => self::of($value)->matches(self::of($other), $depth + 1),
             $value instanceof Model && $other instanceof Model => $value->is($other),
             $value instanceof UnitEnum => $value === $other,
-            (new ReflectionClass($value))->isReadOnly() => $value == $other,
+            (new ReflectionClass($value))->isReadOnly() => self::sameReadonlyObjects($value, $other, $depth + 1),
             default => true,
         };
+    }
+
+    private static function sameReadonlyObjects(object $value, object $other, int $depth): bool
+    {
+        return $depth >= self::NESTED_VALUES_COMPARED || self::sameArrays(ObjectProperties::of($value), ObjectProperties::of($other), $depth);
     }
 
     /**

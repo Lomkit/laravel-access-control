@@ -1371,10 +1371,11 @@ The same goes for a perimeter list that depends on the user, the request, the te
 
 The check compares the values the callbacks capture this way:
 
-- scalars and arrays by value;
+- scalars and arrays by value and type;
 - Eloquent models by class and key, so a user captured at build time is caught as soon as another user signs in;
-- enums and readonly objects, such as `Ability`, by value;
+- enums by identity;
 - closures by the lines that declare them and, recursively, by the values they capture;
+- objects of a `readonly` class, such as `Ability`, property by property with these same rules: a closure they hold by its lines and its captures, a model by its key, a scalar by value and type, so `'1'` and `1` differ. An object whose class is not declared `readonly` is any other object, even when all its properties are `readonly`;
 - any other object by its class only: a service built in `perimeters()`, such as `$rules = new PostRules`, is pure and passes.
 
 The properties that a perimeter class declares, the `readonly` properties its constructor promotes as well as the state a wither sets, are compared with the same rules, so `OwnedByMyEntities::ofKind(config('documents.kind'))` and `OwnedByMyEntities::new()->ofKind(config('documents.kind'))` are caught when the configuration changes, as the same value captured by a closure is. A hook that changes a property of its perimeter, such as a cache of the readers it allowed, is caught too: the perimeters are shared by every request of the process, so a hook must never write to them. The properties of `Perimeter` and of `ThroughParent` are compared by the package on their own: the callbacks, the search keys, and the relation, inverse and delegation of a parent.
