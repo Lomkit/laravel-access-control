@@ -2,9 +2,6 @@
 
 namespace Lomkit\Access\Console\Check\Inventory;
 
-use Illuminate\Contracts\Auth\Access\Gate;
-use Throwable;
-
 /** @internal */
 final readonly class PolicyInventory
 {
@@ -13,17 +10,16 @@ final readonly class PolicyInventory
         public PolicyForm $form,
     ) {}
 
-    public static function of(Gate $gate, string $model): self
+    public static function resolved(mixed $policy): self
     {
-        try {
-            $policy = $gate->getPolicyFor($model);
-        } catch (Throwable) {
-            return new self(null, PolicyForm::None);
-        }
-
         $policy = is_object($policy) ? $policy : null;
 
         return new self($policy === null ? null : $policy::class, PolicyForm::of($policy));
+    }
+
+    public static function unresolvable(): self
+    {
+        return new self(null, PolicyForm::Unresolvable);
     }
 
     public function summary(): string

@@ -2,4 +2,4 @@
 
 namespace Lomkit\Access\Tests\Fixtures\Check\Crowded;
 
-class JuliettPolicy extends BasePolicy {}
+class JuliettPolicy extends TenantPolicy {}

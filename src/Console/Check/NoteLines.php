@@ -2,12 +2,9 @@
 
 namespace Lomkit\Access\Console\Check;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Console\Check\Notes\Note;
 use Lomkit\Access\Console\Check\Notes\NoteKind;
-use Lomkit\Access\Controls\Control;
 
 /** @internal */
 final class NoteLines
@@ -16,9 +13,7 @@ final class NoteLines
 
     private const int FIRST_SUBJECTS = 3;
 
-    private const int SHARED_PARENTS = 3;
-
-    private const array ROOTS = [Model::class, Control::class, Boundary::class];
+    private const int SHARED_ANCESTORS = 3;
 
     /**
      * @param  list<Note>  $notes
@@ -35,7 +30,7 @@ final class NoteLines
                 continue;
             }
 
-            $lines[] = self::grouped($kind[0]->kind(), array_map(fn (Note $note): string => $note->subject(), $kind));
+            $lines[] = self::grouped($kind[0]->kind(), $kind);
         }
 
         return $lines;
@@ -56,21 +51,22 @@ final class NoteLines
         return array_values($kinds);
     }
 
-    /** @param  list<string>  $subjects */
-    private static function grouped(NoteKind $kind, array $subjects): string
+    /** @param  non-empty-list<Note>  $notes */
+    private static function grouped(NoteKind $kind, array $notes): string
     {
-        $count = count($subjects);
-        $counted = [$count.' '.Str::plural($kind->subjectName(), $count)];
+        $subjects = array_values(array_unique(array_map(fn (Note $note): string => $note->subject(), $notes)));
+        $named = count($subjects).' '.Str::plural($kind->subjectName(), count($subjects));
+        $counted = [count($subjects) === count($notes) ? $named : count($notes)." notes on {$named}"];
 
-        foreach (self::sharedParents($subjects) as $parent => $children) {
-            $counted[] = "{$children} extending {$parent}";
+        foreach (self::sharedAncestors($subjects) as $ancestor => $descendants) {
+            $counted[] = "{$descendants} extending {$ancestor}";
         }
 
         return sprintf(
             '%s: %s (first %d: %s); --json lists them all',
             $kind->value,
             implode(', ', $counted),
-            self::FIRST_SUBJECTS,
+            min(self::FIRST_SUBJECTS, count($subjects)),
             implode(', ', array_slice($subjects, 0, self::FIRST_SUBJECTS)),
         );
     }
@@ -79,20 +75,20 @@ final class NoteLines
      * @param  list<string>  $subjects
      * @return array<string, int>
      */
-    private static function sharedParents(array $subjects): array
+    private static function sharedAncestors(array $subjects): array
     {
-        $parents = [];
+        $ancestors = [];
 
         foreach ($subjects as $subject) {
-            $parent = class_exists($subject) ? get_parent_class($subject) : false;
-
-            if ($parent !== false && ! in_array($parent, self::ROOTS, true)) {
-                $parents[$parent] = ($parents[$parent] ?? 0) + 1;
+            foreach (class_exists($subject) ? class_parents($subject) : [] as $ancestor) {
+                if (ApplicationClass::is($ancestor)) {
+                    $ancestors[$ancestor] = ($ancestors[$ancestor] ?? 0) + 1;
+                }
             }
         }
 
-        arsort($parents);
+        arsort($ancestors);
 
-        return array_slice(array_filter($parents, fn (int $children): bool => $children > 1), 0, self::SHARED_PARENTS, true);
+        return array_slice(array_filter($ancestors, fn (int $descendants): bool => $descendants > 1), 0, self::SHARED_ANCESTORS, true);
     }
 }

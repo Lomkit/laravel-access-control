@@ -2,4 +2,4 @@
 
 namespace Lomkit\Access\Tests\Fixtures\Check\Crowded;
 
-class HotelPolicy extends BasePolicy {}
+class HotelPolicy extends TenantPolicy {}

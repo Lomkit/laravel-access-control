@@ -1584,12 +1584,12 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
 
 ### Checking the controls
 
-`php artisan access:check` builds every discovered control, declares and verifies its perimeters whatever the environment, and reports what would throw, open or hide rows, or leave search documents stale, before production meets it. It lists each control with its model, its levels, the mode of each perimeter (`memory` with a `should()` callback, `sql` without), its boundary, its `ThroughParent` relations and their delegated abilities, the search engine of a `ControlledSearchable` model, and its policy: the policy class and its form, `controlled` (a policy that extends `ControlledPolicy`), `automatic` (registered by `Access::registerPolicies()`), `own` (a policy that does not extend `ControlledPolicy`) or `none`. It exits with `1` when it finds a problem, `0` otherwise; notes never change the exit code. Run it in CI with the Scout driver of production (`SCOUT_DRIVER=meilisearch php artisan access:check`): the engine checks use the driver of the environment the command runs in.
+`php artisan access:check` builds every discovered control, declares and verifies its perimeters whatever the environment, and reports what would throw, open or hide rows, or leave search documents stale, before production meets it. It lists each control with its model, its levels, the mode of each perimeter (`memory` with a `should()` callback, `sql` without), its boundary, its `ThroughParent` relations and their delegated abilities, the search engine of a `ControlledSearchable` model, and its policy: the policy class and its form, `controlled` (a policy that extends `ControlledPolicy`), `automatic` (registered by `Access::registerPolicies()`), `own` (a policy that does not extend `ControlledPolicy`), `none`, or `unresolvable` when the Gate throws while it resolves the policy (reported as `unresolvable_policy`). It exits with `1` when it finds a problem, `0` otherwise; notes never change the exit code. Run it in CI with the Scout driver of production (`SCOUT_DRIVER=meilisearch php artisan access:check`): the engine checks use the driver of the environment the command runs in.
 
 ```
   controls  2 built from app/Access/Controls
   cache ................................................................. not cached
-  models ................................................ 0 scanned in app/Models
+  models ................................................ 2 scanned in app/Models
   scout driver ........................ meilisearch, from the config of this environment
   pivots ............ 1 BelongsToMany relation with a declared return type scanned
   App\Access\Controls\PostControl  App\Models\Post
@@ -1641,7 +1641,7 @@ Notes:
 | `ungrantable_drafts` | No perimeter of a control can grant a draft: none has a `should()` callback or an `includes()` hook, none is unrestricted, and no `ThroughParent` delegates `create`. Every creation judged on its draft is refused with `outside_rows` (see [Drafts](#drafts)). |
 | `boundary_refusing_drafts` | The boundary of a control has no in-memory form, so it refuses every draft with `outside_boundary`. |
 
-When a kind has more than 5 notes, the human output prints them on one line, with their count, the base classes they share when the application declares one, and the first three subjects:
+The human output lists the notes kind by kind. When a kind has more than 5 notes, it prints them on one line: their count, the number of distinct subjects when several notes share one (`7 notes on 1 policy`, a policy guessed for 7 models), up to three base classes of the application that at least two subjects extend, at any depth (classes of `vendor` and of the package are left out), and the first three subjects:
 
 ```
   notes ........................................................................ 325
@@ -1654,7 +1654,11 @@ Options:
 
 - `--json` prints the same report as one JSON document: `passed`, `discovery` (`paths`, `cached`, `models`, `scanned`, the number of models found there, `scout_driver`), `controls` (each with `control`, `model`, `perimeters` as `position`, `perimeter`, `mode`, `unrestricted`, `search_keys`, `parent` with `relation`, `delegates` and `allowed`, then `boundary` with `boundary`, `mode`, `searchable`, `search` with `searchable` and `engine`, and `policy` with `policy`, the class or `null`, and `form`), `pivots` (`relations`), and `problems` and `notes`, each a list of `kind`, `subject` and `message`.
 - `--only=App\Models\Post` (repeatable, a model or a control class) checks only these controls: their declaration, policy and search. The discovery, the cache and the pivots are always checked. A name that matches no control exits with `2`.
-- `--models=app/Domain/Models` (repeatable) sets the directories scanned for models that use `HasControl` or `#[ControlledBy]`, `app/Models` by default. It accepts globs: `--models='modules/*/src/Models'`. The models of the discovered controls are always checked, wherever they live; the header prints how many models the scan found and where (`0 scanned in app/Models`). Only three checks depend on the scanned directories: `uncontrolled_model` (a model that uses `HasControl` without a control), `invalid_controlled_by` and `duplicate_control` for a `#[ControlledBy]` whose control is not in a discovered directory, and the `BelongsToMany` relations of uncontrolled models for `pivot_without_using`.
+- `--models=app/Domain/Models` (repeatable) sets the directories scanned for models that use `HasControl` or `#[ControlledBy]`, `app/Models` by default. It accepts globs: `--models='modules/*/src/Models'`, resolved from the working directory. The models of the discovered controls are always checked, wherever they live; the header prints how many models the scan found and where (`0 scanned in app/Models`). The scan adds what discovery cannot see:
+  - `uncontrolled_model`: a scanned model that uses `HasControl` without a control;
+  - the control that a scanned model names with `#[ControlledBy]` when no discovered control covers that model: it is built and checked like the others (`invalid_controlled_by`, `duplicate_control`, `control_failure`, policy, drafts, search);
+  - `invalid_controlled_by` for a scanned model whose `#[ControlledBy]` names the control of another model, even a discovered one;
+  - the `BelongsToMany` relations of the scanned models for `pivot_without_using`.
 
 The command is read-only: it never writes or rewrites the discovery cache (a stale one is reported, not fixed), runs no query and dispatches no job. It builds the controls, resolves the policies and the Scout engines, and instantiates the `BelongsToMany` relations it scans, without running them. The pivot check only sees the public relation methods that declare a `BelongsToMany` return type (or a subclass, such as `MorphToMany`): a relation method without a return type is not scanned. It cannot tell whether a `should()` callback reads a relation: that is up to the code of the callback.
 

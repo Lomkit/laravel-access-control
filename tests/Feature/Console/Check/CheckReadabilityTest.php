@@ -17,8 +17,10 @@ use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Policies\AutomaticPolicy;
 use Lomkit\Access\Tests\Fixtures\Blog\Comment;
+use Lomkit\Access\Tests\Fixtures\Blog\Editor;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
+use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Check\Clean\Models\Ticket;
 use Lomkit\Access\Tests\Fixtures\Check\Clean\Models\TicketReply;
 use Lomkit\Access\Tests\Fixtures\Check\Crowded\AlphaPolicy;
@@ -34,7 +36,9 @@ use Lomkit\Access\Tests\Fixtures\Check\Crowded\IndiaPolicy;
 use Lomkit\Access\Tests\Fixtures\Check\Crowded\JuliettPolicy;
 use Lomkit\Access\Tests\Fixtures\Check\Crowded\KiloPolicy;
 use Lomkit\Access\Tests\Fixtures\Check\Crowded\LimaPolicy;
+use Lomkit\Access\Tests\Fixtures\Check\Crowded\TenantPolicy;
 use Lomkit\Access\Tests\Fixtures\Check\Policies\HandWrittenTicketPolicy;
+use Lomkit\Access\Tests\Fixtures\Check\Policies\ThrowingTicketPolicy;
 use Lomkit\Access\Tests\Fixtures\Check\Policies\TicketPolicyNamingReplies;
 use Lomkit\Access\Tests\Fixtures\Check\Uncontrolled\Models\Orphan;
 use PHPUnit\Framework\Attributes\Test;
@@ -79,22 +83,22 @@ class CheckReadabilityTest extends CheckTestCase
         $output = $this->rendered($this->report($this->crowdedNotes()));
 
         $this->assertStringContainsString(sprintf(
-            'policy_outside_control: 12 policies, 10 extending %s (first 3: %s, %s, %s); --json lists them all',
+            'policy_outside_control: 12 policies, 10 extending %s, 3 extending %s (first 3: %s, %s, %s); --json lists them all',
             BasePolicy::class,
+            TenantPolicy::class,
             AlphaPolicy::class,
             BravoPolicy::class,
             CharliePolicy::class,
         ), $output);
         $this->assertSame(1, substr_count($output, 'policy_outside_control'));
         $this->assertStringNotContainsString('does not extend ControlledPolicy', $output);
-        $this->assertStringContainsString('notes ', $output);
         $this->assertMatchesRegularExpression('/notes \.+ 12/', $output);
     }
 
     #[Test]
     public function it_names_no_parent_that_only_the_framework_or_the_package_declares(): void
     {
-        $models = [Ticket::class, TicketReply::class, Orphan::class, Post::class, Comment::class, Project::class];
+        $models = [Ticket::class, TicketReply::class, Orphan::class, Post::class, User::class, Editor::class];
 
         $output = $this->rendered($this->report(array_map(fn (string $model): Note => new ModelWithoutPolicy($model), $models)));
 
@@ -137,18 +141,42 @@ class CheckReadabilityTest extends CheckTestCase
     }
 
     #[Test]
-    public function it_prints_the_same_json_whether_the_human_report_groups_the_notes_or_not(): void
+    public function it_groups_the_notes_of_the_command_and_keeps_every_one_in_its_json(): void
     {
-        $this->discover(['Clean']);
-        Gate::policy(Ticket::class, HandWrittenTicketPolicy::class);
-        Gate::policy(TicketReply::class, HandWrittenTicketPolicy::class);
-        [, $before] = $this->checkJson();
+        $this->discover(['Clean', 'Drafts', 'DraftsGranted']);
 
-        $this->artisan('access:check')->assertOk()->run();
-        [, $after] = $this->checkJson();
+        [, $report] = $this->checkJson();
+        $notes = array_values(array_filter($report['notes'], fn (array $note): bool => $note['kind'] === 'model_without_policy'));
+        $models = array_column($report['controls'], 'model');
 
-        $this->assertSame($before, $after);
-        $this->assertCount(2, $after['notes']);
+        $this->assertCount(7, $notes);
+        $this->assertSame(
+            array_map(fn (string $model): array => ['kind' => 'model_without_policy', 'subject' => $model, 'message' => (new ModelWithoutPolicy($model))->message()], $models),
+            $notes,
+        );
+        $this->artisan('access:check')
+            ->expectsOutputToContain(sprintf('model_without_policy: 7 models (first 3: %s, %s, %s); --json lists them all', ...array_slice($models, 0, 3)))
+            ->doesntExpectOutputToContain('No policy is registered for the')
+            ->assertOk();
+    }
+
+    #[Test]
+    public function it_groups_from_six_notes_of_one_kind(): void
+    {
+        $output = $this->rendered($this->report(array_slice($this->crowdedNotes(), 0, 6)));
+
+        $this->assertStringContainsString('policy_outside_control: 6 policies, 6 extending '.BasePolicy::class, $output);
+        $this->assertStringNotContainsString('does not extend ControlledPolicy', $output);
+    }
+
+    #[Test]
+    public function it_counts_a_policy_shared_by_several_models_once(): void
+    {
+        $models = [Ticket::class, TicketReply::class, Orphan::class, Post::class, Comment::class, Project::class, User::class];
+
+        $output = $this->rendered($this->report(array_map(fn (string $model): Note => new PolicyOutsideControl($model, AlphaPolicy::class), $models)));
+
+        $this->assertStringContainsString(sprintf('policy_outside_control: 7 notes on 1 policy (first 1: %s); --json lists them all', AlphaPolicy::class), $output);
     }
 
     #[Test]
@@ -170,6 +198,19 @@ class CheckReadabilityTest extends CheckTestCase
             ->expectsOutputToContain(TicketPolicyNamingReplies::class.', controlled')
             ->expectsOutputToContain(HandWrittenTicketPolicy::class.', own')
             ->run();
+    }
+
+    #[Test]
+    public function it_shows_a_policy_the_gate_cannot_resolve(): void
+    {
+        $this->discover(['Clean']);
+        Gate::policy(Ticket::class, ThrowingTicketPolicy::class);
+
+        [$code, $report] = $this->checkJson();
+
+        $this->assertSame(1, $code);
+        $this->assertSame(['policy' => null, 'form' => 'unresolvable'], $report['controls'][0]['policy']);
+        $this->assertContains('unresolvable_policy', array_column($report['problems'], 'kind'));
     }
 
     #[Test]

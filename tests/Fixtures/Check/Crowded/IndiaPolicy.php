@@ -2,4 +2,4 @@
 
 namespace Lomkit\Access\Tests\Fixtures\Check\Crowded;
 
-class IndiaPolicy extends BasePolicy {}
+class IndiaPolicy extends TenantPolicy {}

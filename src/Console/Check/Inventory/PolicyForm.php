@@ -12,6 +12,7 @@ enum PolicyForm: string
     case Automatic = 'automatic';
     case Own = 'own';
     case None = 'none';
+    case Unresolvable = 'unresolvable';
 
     public static function of(?object $policy): self
     {
