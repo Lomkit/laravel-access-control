@@ -8,6 +8,16 @@ use Illuminate\Database\Connection;
 /** @internal */
 final readonly class FrameworkTables
 {
+    private const string DATABASE = 'database';
+
+    private const string DATABASE_UUIDS = 'database-uuids';
+
+    private const string DYNAMODB = 'dynamodb';
+
+    private const string LOCK_TABLE = 'cache_locks';
+
+    private const string BATCH_TABLE = 'job_batches';
+
     public function __construct(private Repository $config) {}
 
     public function holds(string $table, Connection $connection): bool
@@ -41,7 +51,7 @@ final readonly class FrameworkTables
             $tables = [
                 ...$tables,
                 ...$this->table($connection, $store['table'] ?? null),
-                ...$this->table($store['lock_connection'] ?? $connection, $store['lock_table'] ?? 'cache_locks'),
+                ...$this->table($store['lock_connection'] ?? $connection, $store['lock_table'] ?? self::LOCK_TABLE),
             ];
         }
 
@@ -57,17 +67,17 @@ final readonly class FrameworkTables
             $tables = [...$tables, ...$this->table($queue['connection'] ?? null, $queue['table'] ?? null)];
         }
 
-        if ($this->config->get('queue.batching.driver', 'database') === 'dynamodb') {
+        if ($this->config->get('queue.batching.driver', self::DATABASE) === self::DYNAMODB) {
             return $tables;
         }
 
-        return [...$tables, ...$this->table($this->config->get('queue.batching.database'), $this->config->get('queue.batching.table', 'job_batches'))];
+        return [...$tables, ...$this->table($this->config->get('queue.batching.database'), $this->config->get('queue.batching.table', self::BATCH_TABLE))];
     }
 
     /** @return list<array{?string, string}> */
     private function failedJobTables(): array
     {
-        if (! in_array($this->config->get('queue.failed.driver', 'database'), ['database', 'database-uuids'], true)) {
+        if (! in_array($this->config->get('queue.failed.driver', self::DATABASE), [self::DATABASE, self::DATABASE_UUIDS], true)) {
             return [];
         }
 
@@ -77,7 +87,7 @@ final readonly class FrameworkTables
     /** @return list<array{?string, string}> */
     private function sessionTables(): array
     {
-        if ($this->config->get('session.driver') !== 'database') {
+        if ($this->config->get('session.driver') !== self::DATABASE) {
             return [];
         }
 
@@ -93,7 +103,7 @@ final readonly class FrameworkTables
             return [];
         }
 
-        return array_values(array_filter($entries, fn (mixed $entry): bool => is_array($entry) && ($entry['driver'] ?? null) === 'database'));
+        return array_values(array_filter($entries, fn (mixed $entry): bool => is_array($entry) && ($entry['driver'] ?? null) === self::DATABASE));
     }
 
     /** @return list<array{?string, string}> */
@@ -103,6 +113,6 @@ final readonly class FrameworkTables
             return [];
         }
 
-        return [[$connection, $table]];
+        return [[$connection === '' ? null : $connection, $table]];
     }
 }

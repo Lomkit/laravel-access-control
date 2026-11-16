@@ -9,20 +9,25 @@ final readonly class WriteStatement
 
     private const string TABLE = '(?<table>'.self::NAME.'(?:\.'.self::NAME.')*)';
 
+    private const string READ = '/^[\s(]*(?:select|show)\b/i';
+
+    private const string SEVERAL_STATEMENTS = '/;\s*\S/';
+
     private const array ONE_TABLE = [
         '/^\s*(?:insert(?:\s+or\s+(?:ignore|replace))?(?:\s+ignore)?|replace)\s+into\s+'.self::TABLE.'\s*(?:\(|values\b|select\b|default\b)/i',
-        '/^\s*update\s+'.self::TABLE.'\s+set\s/i',
+        '/^\s*update\s+'.self::TABLE.'\s+set\s(?!.*\bfrom\b)/is',
         '/^\s*delete\s+from\s+'.self::TABLE.'\s*(?:where\b|$)/i',
+        '/^\s*merge\s+(?:into\s+)?'.self::TABLE.'(?:\s+with\s*\([^)]*\))?\s+using\b/i',
     ];
 
     public static function reads(string $sql): bool
     {
-        return preg_match('/^[\s(]*(?:select|show)\b/i', $sql) === 1;
+        return preg_match(self::READ, $sql) === 1 && ! self::holdsSeveralStatements($sql);
     }
 
     public static function table(string $sql): ?string
     {
-        if (str_contains($sql, ';')) {
+        if (self::holdsSeveralStatements($sql)) {
             return null;
         }
 
@@ -33,5 +38,10 @@ final readonly class WriteStatement
         }
 
         return null;
+    }
+
+    private static function holdsSeveralStatements(string $sql): bool
+    {
+        return preg_match(self::SEVERAL_STATEMENTS, $sql) === 1;
     }
 }

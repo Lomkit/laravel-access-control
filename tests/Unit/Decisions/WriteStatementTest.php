@@ -20,6 +20,7 @@ class WriteStatementTest extends PackageTestCase
             'a locking select' => ['select * from `jobs` where `queue` = ? limit 1 for update skip locked'],
             'a MySQL show' => ['show tables'],
             'a PostgreSQL show' => ['SHOW search_path'],
+            'a select ending with a semicolon' => ['select 1;'],
         ];
     }
 
@@ -45,6 +46,8 @@ class WriteStatementTest extends PackageTestCase
             'a session setting' => ['set search_path to other'],
             'a truncate' => ['truncate table "posts"'],
             'a word starting with select' => ['selections'],
+            'a select followed by a delete' => ['select 1; delete from "posts"'],
+            'a select followed by a delete on another line' => ["select 1;\n  delete from \"posts\""],
         ];
     }
 
@@ -67,13 +70,14 @@ class WriteStatementTest extends PackageTestCase
             'a PostgreSQL upsert' => ['insert into "cache" ("expiration", "key", "value") values (?, ?, ?) on conflict ("key") do update set "expiration" = "excluded"."expiration"', '"cache"'],
             'a PostgreSQL insert returning' => ['insert into "jobs" ("queue", "payload") values (?, ?) returning "id"', '"jobs"'],
             'a PostgreSQL delete by ctid' => ['delete from "cache" where "ctid" in (select "cache"."ctid" from "cache" where "key" = ?)', '"cache"'],
-            'a PostgreSQL update from' => ['update "cache" set "value" = ? from "posts" where "posts"."id" = ?', '"cache"'],
             'a schema-qualified table' => ['insert into "public"."cache" ("key") values (?)', '"public"."cache"'],
             'a SQLite insert or ignore' => ['insert or ignore into "cache_locks" ("key", "owner", "expiration") values (?, ?, ?)', '"cache_locks"'],
             'a SQLite insert or replace' => ['insert or replace into "cache" ("key", "value", "expiration") values (?, ?, ?)', '"cache"'],
             'a delete of every row' => ['delete from "cache"', '"cache"'],
             'an insert from a select' => ['insert into "cache" select * from "posts"', '"cache"'],
             'a SQL Server update' => ['update [jobs] set [reserved_at] = ? where [id] = ?', '[jobs]'],
+            'a SQL Server upsert' => ['merge [cache] using (values (?, ?, ?)) [laravel_source] ([key], [value], [expiration]) on [laravel_source].[key] = [cache].[key] when matched then update set [value] = [laravel_source].[value] when not matched then insert ([key], [value], [expiration]) values ([laravel_source].[key], [laravel_source].[value], [laravel_source].[expiration]);', '[cache]'],
+            'a statement ending with a semicolon' => ['delete from "cache" where "key" = ?;', '"cache"'],
             'an unquoted table' => ['DELETE FROM cache WHERE expiration <= ?', 'cache'],
         ];
     }
@@ -94,6 +98,8 @@ class WriteStatementTest extends PackageTestCase
             'a MySQL delete from two tables' => ['delete from `cache`, `posts` using `cache` inner join `posts`'],
             'a PostgreSQL delete using' => ['delete from "cache" using "posts" where "posts"."id" = ?'],
             'two statements' => ['delete from "cache"; delete from "posts"'],
+            'an update from another table' => ['update "cache" set "value" = ? from "posts" where "posts"."id" = ?'],
+            'a SQL Server update through an alias' => ['update [cache] set [title] = ? from [posts] as [cache]'],
             'a writing common table expression' => ['with "gone" as (delete from "posts" returning *) insert into "cache" select * from "gone"'],
             'a truncate' => ['truncate table "cache"'],
             'a drop' => ['drop table "cache"'],

@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Feature\Decisions;
 use Closure;
 use Illuminate\Bus\BatchRepository;
 use Illuminate\Bus\PendingBatch;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +65,7 @@ class SqlWriteFlushTest extends DecisionTestCase
             'an unprepared statement' => [fn (self $test) => DB::unprepared("update posts set title = 'Raw' where title = 'Roadmap'")],
             'a common table expression' => [fn (self $test) => DB::select('with listed as (select id from posts) select count(*) as total from listed')],
             'two statements on a framework table and a model table' => [fn (self $test) => DB::unprepared('delete from '.DB::getQueryGrammar()->wrapTable('cache').'; delete from '.DB::getQueryGrammar()->wrapTable('post_shares'))],
+            'a select followed by a write' => [fn (self $test) => DB::unprepared('select 1; delete from '.DB::getQueryGrammar()->wrapTable('post_shares'))],
         ];
     }
 
@@ -187,6 +189,31 @@ class SqlWriteFlushTest extends DecisionTestCase
         $this->remember();
         DB::table('sessions')->insert(['id' => 'session-1', 'payload' => 'payload', 'last_activity' => 60]);
         $this->assertForgotten();
+    }
+
+    #[Test]
+    public function it_forgets_the_decisions_kept_in_the_container_of_a_cloned_application(): void
+    {
+        $this->assertFalse($this->app->resolved(DecisionMemo::class));
+        $sandbox = clone $this->app;
+        $sandbox->instance('app', $sandbox);
+        Container::setInstance($sandbox);
+
+        try {
+            $this->assertTrue($this->ada->can('update', $this->adaPost));
+            $this->assertSame(1, $sandbox->make(DecisionMemo::class)->reachCount());
+
+            DB::table('posts')->update(['title' => 'Mass update']);
+
+            $this->assertSame(0, $sandbox->make(DecisionMemo::class)->reachCount());
+
+            $this->assertTrue($this->ada->can('update', $this->adaPost));
+            $this->adaPost->forceFill(['title' => 'Saved'])->save();
+
+            $this->assertSame(0, $sandbox->make(DecisionMemo::class)->reachCount());
+        } finally {
+            Container::setInstance($this->app);
+        }
     }
 
     #[Test]

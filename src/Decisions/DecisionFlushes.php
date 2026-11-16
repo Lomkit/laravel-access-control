@@ -2,7 +2,7 @@
 
 namespace Lomkit\Access\Decisions;
 
-use Illuminate\Contracts\Container\Container;
+use Illuminate\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Events\TransactionRolledBack;
@@ -13,10 +13,7 @@ final readonly class DecisionFlushes
 {
     private const array EVENTS = ['eloquent.saved: *', 'eloquent.deleted: *', TransactionRolledBack::class, RequestHandled::class];
 
-    public function __construct(
-        private Container $container,
-        private FrameworkTables $tables,
-    ) {}
+    public function __construct(private FrameworkTables $tables) {}
 
     public function listen(Dispatcher $events): void
     {
@@ -31,26 +28,25 @@ final readonly class DecisionFlushes
 
     public function flush(): void
     {
-        if ($this->container->resolved(DecisionMemo::class)) {
-            $this->container
-                ->make(DecisionMemo::class)
-                ->forget();
-        }
+        $this->memo()?->forget();
     }
 
     private function flushAfter(QueryExecuted $query): void
     {
-        if (! $this->container->resolved(DecisionMemo::class)) {
-            return;
-        }
+        $memo = $this->memo();
 
-        $memo = $this->container->make(DecisionMemo::class);
-
-        if ($memo->isEmpty() || WriteStatement::reads($query->sql) || $this->writesFrameworkTable($query)) {
+        if ($memo === null || $memo->isEmpty() || WriteStatement::reads($query->sql) || $this->writesFrameworkTable($query)) {
             return;
         }
 
         $memo->forget();
+    }
+
+    private function memo(): ?DecisionMemo
+    {
+        $container = Container::getInstance();
+
+        return $container->resolved(DecisionMemo::class) ? $container->make(DecisionMemo::class) : null;
     }
 
     private function writesFrameworkTable(QueryExecuted $query): bool
