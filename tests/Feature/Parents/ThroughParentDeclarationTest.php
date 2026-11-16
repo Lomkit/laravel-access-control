@@ -76,6 +76,7 @@ class ThroughParentDeclarationTest extends ParentTestCase
     #[Test]
     public function it_throws_when_the_parent_has_no_control(): void
     {
+        $this->forgetDiscoveredControls();
         $this->discoverControls(['Controls']);
         ConfiguredPostControl::bind(ThroughParent::belongsTo('project'));
 

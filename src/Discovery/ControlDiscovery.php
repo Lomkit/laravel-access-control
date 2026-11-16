@@ -12,18 +12,17 @@ use Lomkit\Access\Registry\DeclaredModel;
 
 final class ControlDiscovery
 {
-    /** @var list<string> */
-    private array $paths;
+    private DiscoveryPaths $paths;
 
     public function __construct(Application $app)
     {
-        $this->paths = [$app->path('Access/Controls')];
+        $this->paths = DiscoveryPaths::of($app->path('Access/Controls'));
     }
 
     /** @param  list<string>  $paths */
-    public function within(array $paths): void
+    public function add(array $paths): void
     {
-        $this->paths = $paths;
+        $this->paths = $this->paths->with($paths);
     }
 
     /**
@@ -33,7 +32,7 @@ final class ControlDiscovery
      */
     public function paths(): array
     {
-        return $this->paths;
+        return $this->paths->toArray();
     }
 
     /**
@@ -60,7 +59,7 @@ final class ControlDiscovery
     {
         $classes = [];
 
-        foreach (ClassFiles::in($this->paths) as $class) {
+        foreach (ClassFiles::in($this->paths->toArray()) as $class) {
             if (ConcreteControl::is($class)) {
                 $classes[$class] = $class;
             }

@@ -45,7 +45,7 @@ final class ClassFiles
             }
         }
 
-        return $directories;
+        return array_values(array_unique($directories));
     }
 
     private static function classFromFile(SplFileInfo $file): string

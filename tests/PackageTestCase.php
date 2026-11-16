@@ -4,7 +4,10 @@ namespace Lomkit\Access\Tests;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Lomkit\Access\Access;
 use Lomkit\Access\AccessServiceProvider;
+use Lomkit\Access\Discovery\ControlDiscovery;
+use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Tests\Fixtures\Fixture;
 use Orchestra\Testbench\Attributes\ResetRefreshDatabaseState;
 use Orchestra\Testbench\Attributes\WithConfig;
@@ -30,6 +33,13 @@ abstract class PackageTestCase extends TestCase
         Model::preventAccessingMissingAttributes(false);
 
         parent::tearDown();
+    }
+
+    protected function forgetDiscoveredControls(): void
+    {
+        $this->app->forgetInstance(ControlDiscovery::class);
+        $this->app->forgetInstance(ControlRegistry::class);
+        Access::clearResolvedInstance(ControlRegistry::class);
     }
 
     /** @return list<Fixture> */

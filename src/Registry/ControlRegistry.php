@@ -104,7 +104,7 @@ final class ControlRegistry
     /** @param  list<string>  $paths */
     public function discoverControlsIn(array $paths): void
     {
-        $this->discovery->within($paths);
+        $this->discovery->add($paths);
 
         $this->discovered = null;
         $this->watched = null;

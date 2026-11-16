@@ -9,7 +9,9 @@ use Lomkit\Access\Exceptions\DuplicateControlException;
 use Lomkit\Access\Tests\Fixtures\Discovery\Controls\Admin\NoteControl as AdminNoteControl;
 use Lomkit\Access\Tests\Fixtures\Discovery\Controls\NoteControl;
 use Lomkit\Access\Tests\Fixtures\Discovery\Models\Admin\Note as AdminNote;
+use Lomkit\Access\Tests\Fixtures\Discovery\Models\Memo;
 use Lomkit\Access\Tests\Fixtures\Discovery\Models\Note;
+use Lomkit\Access\Tests\Fixtures\Discovery\Module\MemoControl;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -40,6 +42,20 @@ class DiscoveryCacheTest extends PackageTestCase
 
         $this->assertSame(
             [AdminNote::class => AdminNoteControl::class, Note::class => NoteControl::class],
+            collect(require $this->cachePath())->sortKeys()->all(),
+        );
+    }
+
+    #[Test]
+    public function it_caches_the_controls_of_every_added_directory(): void
+    {
+        Access::discoverControlsIn([$this->fixturePath('Controls')]);
+        Access::discoverControlsIn([$this->fixturePath('Module')]);
+
+        $this->artisan('access:cache')->assertOk()->run();
+
+        $this->assertSame(
+            [AdminNote::class => AdminNoteControl::class, Memo::class => MemoControl::class, Note::class => NoteControl::class],
             collect(require $this->cachePath())->sortKeys()->all(),
         );
     }

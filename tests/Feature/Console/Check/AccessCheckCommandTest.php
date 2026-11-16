@@ -68,7 +68,7 @@ class AccessCheckCommandTest extends CheckTestCase
         $this->assertSame(['passed', 'discovery', 'controls', 'pivots', 'problems', 'notes'], array_keys($report));
         $this->assertTrue($report['passed']);
         $this->assertSame(
-            ['paths' => [$this->fixture('Clean/Controls')], 'cached' => false, 'models' => ['app/Models'], 'scout_driver' => trait_exists(Searchable::class) ? 'collection' : null],
+            ['paths' => ['app/Access/Controls', $this->fixture('Clean/Controls')], 'cached' => false, 'models' => ['app/Models'], 'scout_driver' => trait_exists(Searchable::class) ? 'collection' : null],
             $report['discovery'],
         );
         $this->assertSame([
@@ -181,6 +181,21 @@ class AccessCheckCommandTest extends CheckTestCase
         $this->assertSame([
             ['kind' => 'stale_control_cache', 'subject' => 'bootstrap/cache/access-controls.php', 'message' => 'The [bootstrap/cache/access-controls.php] cache maps the models to other controls than the ones discovered now, so the application uses the cached ones. Run "php artisan access:cache" again, or "php artisan access:clear".'],
         ], $report['problems']);
+    }
+
+    #[Test]
+    public function it_reports_a_cache_written_before_a_directory_was_added(): void
+    {
+        $this->discover(['Clean']);
+        Access::registerPolicies();
+        $this->artisan('access:cache')->assertOk()->run();
+
+        $this->discover(['Drafts']);
+        [$code, $report] = $this->checkJson();
+
+        $this->assertSame(1, $code);
+        $this->assertContains('stale_control_cache', array_column($report['problems'], 'kind'));
+        $this->assertSame(['app/Access/Controls', $this->fixture('Clean/Controls'), $this->fixture('Drafts/Controls')], $report['discovery']['paths']);
     }
 
     #[Test]

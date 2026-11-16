@@ -696,7 +696,7 @@ class Post extends Model
 }
 ```
 
-A model without the attribute falls back to the discovery: the control found in `app/Access/Controls` whose `$model` is that model. A control outside the discovered directories is only found through the attribute: in 0.x it was registered when a policy asked for it, so queries could run without it.
+A model without the attribute falls back to the discovery: the control found in `app/Access/Controls`, or in a directory added with `Access::discoverControlsIn()`, whose `$model` is that model. A control outside the discovered directories is only found through the attribute: in 0.x it was registered when a policy asked for it, so queries could run without it.
 
 A control declares its model as the default value of its `$model` property, such as `protected string $model = Post::class;`. A control whose `$model` is missing, is not a class or is not an Eloquent model now throws `InvalidControlModelException` when it is registered: move a `$model` assigned in a constructor to the property declaration.
 
@@ -726,6 +726,18 @@ Access::$controlDiscoveryPaths = [app_path('Domain/*/Controls')];
 // After
 Access::discoverControlsIn([app_path('Domain/*/Controls')]);
 ```
+
+`Access::discoverControlsIn()` **adds** directories to `app/Access/Controls`, which is always scanned. Call it from the provider of each module; the same directory twice is scanned once, and two controls for one model throw `DuplicateControlException` whatever the order. In 0.x, `$controlDiscoveryPaths` replaced the default directory.
+
+```php
+// app/Providers/BillingServiceProvider.php
+Access::discoverControlsIn([base_path('modules/Billing/src/Access/Controls')]);
+
+// vendor/acme/crm/src/CrmServiceProvider.php
+Access::discoverControlsIn([__DIR__.'/Access/Controls']);
+```
+
+The paths accept glob patterns (`app_path('Domain/*/Controls')`), and a missing directory finds nothing. A path is compared without its trailing separator. There is no way to remove a directory, including `app/Access/Controls`: `discoverControlsIn([])` adds nothing. A call made after a control was resolved is honoured: the next lookup discovers again, and the controls already built stay valid. `php artisan access:cache` runs once every provider has booted, so it caches the controls of every directory; `access:check` reports a cache written before a directory was added (`stale_control_cache`).
 
 `addControl()`, `addControls()` and `discoverControls()` are removed: declare the control on its model with `#[ControlledBy]`. `Access::flush()` is removed with every other static state: each container, so each test, gets a new registry. Remove the `Access::flush()` calls from your tests. `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` and `discoverControlsWithin()` are removed: run `php artisan access:cache` and `php artisan access:clear`.
 
@@ -1581,7 +1593,7 @@ The command is read-only: it never writes or rewrites the discovery cache (a sta
 
 - `Version`: the installed version of the package.
 - `Controls`: the number of controls, read from the `access:cache` file when it exists, else from the discovery paths. No control is built. When discovery fails, the row reads `discovery failed:` and the first line of the error, and the other rows still print.
-- `Discovery paths`: the directories the controls are discovered in, relative to the base path.
+- `Discovery paths`: every directory the controls are discovered in, relative to the base path: `app/Access/Controls` first, then the ones added with `Access::discoverControlsIn()`.
 - `Cache`: `cached` when `php artisan access:cache` wrote its file, `not cached` otherwise.
 - `Automatic policies`: `registered` after `Access::registerPolicies()`, `not registered` otherwise, or when the application replaced the policy guesser afterwards.
 - `Scout`: `not installed`, or the driver of the environment.
@@ -1667,7 +1679,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `->query()` on a class that overrides `scope()`, to narrow it | A named constructor, such as `OwnedByMyEntities::ofKind('invoice')`, or a wither, such as `->ofKind('invoice')`, read by every hook |
 | `Access::controlForModel($model)` (returns `?Control`) | `Access::controlFor($model)` (throws `MissingControlException`) and `Access::hasControl($model)` |
 | `(new Access)->addControl($control)`, `addControls()`, `discoverControls()` | `#[ControlledBy(PostControl::class)]` on the model |
-| `Access::$controlDiscoveryPaths = [...]` | `Access::discoverControlsIn([...])` in a service provider's `boot()` |
+| `Access::$controlDiscoveryPaths = [...]` (replaced `app/Access/Controls`) | `Access::discoverControlsIn([...])` in the `boot()` of each provider: adds to `app/Access/Controls`, which is always scanned |
 | `Access::flush()` | Removed: the registry is a container singleton |
 | `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` | `php artisan access:cache`, `php artisan access:clear` |
 | A misconfigured control found at its first use in production | `php artisan access:check` in CI, with the production Scout driver |

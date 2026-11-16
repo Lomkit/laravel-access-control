@@ -36,7 +36,7 @@ class AboutSectionTest extends PackageTestCase
         $this->assertSame([
             'version' => InstalledVersions::getPrettyVersion('lomkit/laravel-access-control'),
             'controls' => '2',
-            'discovery_paths' => $this->fixture('Clean/Controls'),
+            'discovery_paths' => 'app/Access/Controls, '.$this->fixture('Clean/Controls'),
             'cache' => 'not cached',
             'automatic_policies' => 'not registered',
             'scout' => trait_exists(Searchable::class) ? 'installed, collection driver' : 'not installed',
@@ -48,13 +48,24 @@ class AboutSectionTest extends PackageTestCase
     public function it_counts_the_cached_controls_once_access_cache_ran(): void
     {
         $this->artisan('access:cache')->assertOk()->run();
-        Access::discoverControlsIn([]);
+        $this->forgetDiscoveredControls();
 
         $about = $this->about();
 
         $this->assertSame('2', $about['controls']);
         $this->assertSame('cached', $about['cache']);
-        $this->assertSame('none', $about['discovery_paths']);
+        $this->assertSame('app/Access/Controls', $about['discovery_paths']);
+    }
+
+    #[Test]
+    public function it_lists_the_directories_of_every_call(): void
+    {
+        Access::discoverControlsIn([$this->fixture('Drafts/Controls')]);
+
+        $this->assertSame(
+            'app/Access/Controls, '.$this->fixture('Clean/Controls').', '.$this->fixture('Drafts/Controls'),
+            $this->about()['discovery_paths'],
+        );
     }
 
     #[Test]

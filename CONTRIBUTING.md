@@ -120,6 +120,7 @@ Write new tests in `tests/Feature` or `tests/Unit`:
 - Feature tests extend `Lomkit\Access\Tests\PackageTestCase` and declare the fixtures they need in `fixtures()`, with `#[\Override]`.
 - A fixture is a small domain in `tests/Fixtures/<Domain>`: models, factories, migrations, controls, perimeters and policies. It implements `Lomkit\Access\Tests\Fixtures\Fixture`, which gives its migrations and its controls. The existing fixtures are `Blog` (clients, users, projects, posts, comments and the `post_shares` pivot), `Agencies` (agencies and their members) and `Search` (searchable articles, their `article_shares` pivot, and an in-memory Scout engine).
 - `PackageTestCase` turns off the discovery of controls and registers only the controls of the declared fixtures. It flushes the registry before and after each test.
+- `Access::discoverControlsIn()` adds directories within a test, as in an application. To start again from `app/Access/Controls` alone, call `$this->forgetDiscoveredControls()`.
 - `PackageTestCase` calls `Model::preventAccessingMissingAttributes()`: a test fails when the package reads an attribute that its query did not load.
 - Test methods use the `#[Test]` attribute and are named `it_...`.
 - Use fixed values, not Faker, and write the expected results by hand. Factories give fixed defaults, and a test passes the values it asserts on.

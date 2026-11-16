@@ -23,6 +23,7 @@ class ForgottenParentControlTest extends ParentTestCase
     {
         parent::setUp();
 
+        $this->forgetDiscoveredControls();
         $this->discoverControls(['Controls']);
         $this->grant(['view own posts' => ['Ada'], 'view client projects' => ['Ada']]);
     }
