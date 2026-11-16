@@ -10,6 +10,8 @@ enum PerimeterHook: string
     case Includes = 'includes';
     case Scope = 'scope';
 
+    private const array PACKAGE_CLASSES = [Perimeter::class, ThroughParent::class];
+
     public function callback(): string
     {
         return match ($this) {
@@ -43,6 +45,8 @@ enum PerimeterHook: string
     /** @param  class-string<Perimeter>  $perimeter */
     public function isOverriddenIn(string $perimeter): bool
     {
-        return (new ReflectionMethod($perimeter, $this->value))->getDeclaringClass()->getName() !== Perimeter::class;
+        $declaring = (new ReflectionMethod($perimeter, $this->value))->getDeclaringClass()->getName();
+
+        return ! in_array($declaring, self::PACKAGE_CLASSES, true);
     }
 }

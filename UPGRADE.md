@@ -294,15 +294,66 @@ The control of the parent decides for the same reader and the same decision cont
 ThroughParent::belongsTo('post')->delegates(['view', 'update', 'create' => 'view']);
 ```
 
-For an ability it does not delegate, the perimeter does not apply, as if `allowed()` returned false. For a delegated one, it applies when the control of the parent reaches at least one perimeter for the reader and the mapped ability, a check that runs no query.
+For an ability it does not delegate, the perimeter does not apply, as if `allowed()` returned false. For a delegated one, it applies when its own `allowed()` callback, if it declares one, returns true, and the control of the parent reaches at least one perimeter for the reader and the mapped ability, a check that runs no query.
 
-`ThroughParent` takes no other callback: `allowed()`, `should()`, `query()`, `searchKeys()`, `reindexWhen()` and `unrestricted()` throw `ThroughParentCallbackException`. Declare another rule in a perimeter of its own next to it.
+**A permission of the child as well (AND).** A child is often writable when the reader holds a permission of the child itself and reaches the parent. Declare that permission with `allowed()` on the `ThroughParent`:
+
+```php
+ThroughParent::belongsTo('vehicle')
+    ->delegates(['view', 'create' => 'view'])
+    ->allowed(fn (User $user, Ability $ability) => match ($ability->name()) {
+        'view' => $user->can('vehicles.view'),
+        'create' => $user->can('vehicles.manage'),
+    });
+```
+
+- An ability the perimeter does not delegate is refused first, without calling `allowed`.
+- When `allowed` returns false, the perimeter does not apply, and the parent is not touched: no query, and a draft's parent is not loaded.
+- Otherwise the parent decides, as without `allowed`.
+
+The callback receives the ability **of the child** (`create` above, not the parent's `view`), like any `allowed()`, and runs once per reader, ability and decision context, like the other perimeters. A callback typed on another reader class leaves the perimeter out for other readers, as elsewhere. A second `allowed()` throws `DuplicatePerimeterCallbackException`. `access:check` prints `allowed` on the line of such a `ThroughParent`, and `--json` gives `parent.allowed`. `allowed()` can only narrow what the parent grants.
+
+**Another rule next to it (OR).** A perimeter declared next to the `ThroughParent` grants other rows: the comments the reader wrote, whatever the post. `ThroughParent` takes no other callback: `should()`, `query()`, `searchKeys()`, `reindexWhen()` and `unrestricted()` throw `ThroughParentCallbackException`. So, to add a condition, use `allowed()` on the `ThroughParent`; to grant more rows, declare a perimeter next to it.
+
+**The parent's policy is never called.** A rule that the parent's policy adds on top of its control (an update allowed on drafts only, a closed intervention) is not inherited, and delegating that ability would grant more than the Gate does on the parent. Move the rule into the parent's control, usually its boundary (`readOnlyWhenNotNull('closed_at')`, or a boundary class whose `scope()` and `includes()` refuse the other abilities than `view` on such rows): the parent's own lists become right too. Check it with `assertControlAgrees()` on the parent for that ability: it fails while the parent's policy adds a rule.
+
+A rule that no query can express stays in the policies, from policy to policy: the child policy's `update()` calls `decideByControl()`, then `Gate::inspect('update', $child->parent)` if the control grants.
+
+```php
+class CommentPolicy extends ControlledPolicy
+{
+    protected string $control = CommentControl::class;
+
+    public function update(Model $user, Model $comment): Response
+    {
+        $response = $this->decideByControl(__FUNCTION__, $user, $comment);
+
+        return $response->allowed() ? Gate::forUser($user)->inspect('update', $comment->post) : $response;
+    }
+}
+```
+
+The child's controlled lists (`controlled()`, `withAbilities()`, `Access::preload()`, the search) do not include that rule, so `assertControlAgrees()` on the child fails for that ability, on purpose. Only the policy may call the Gate: a perimeter, a boundary or a control never does. Otherwise the lists, the batches and the search would disagree with the policy, `Gate::before` would widen the access, a parent policy that checks its children would loop, and every row would cost a query.
+
+**Migrating a hand-written write delegation.** First move the business rules of the parent's policy into the parent's control, as above. Then replace the hand-written perimeter:
+
+```php
+// Before
+VehicleItemPerimeter::new()
+    ->allowed(fn (User $user) => $user->can('vehicles.manage'))
+    ->query(fn (Builder $query) => $query->whereHas('vehicle', fn (Builder $vehicles) => $vehicles->controlled('update')));
+
+// After
+ThroughParent::belongsTo('vehicle')
+    ->delegates(['view', 'update', 'create' => 'update'])
+    ->allowed(fn (User $user) => $user->can('vehicles.manage'));
+```
 
 **Composition.** A `ThroughParent` adds up with the other perimeters like any perimeter outside a group, and two of them add up: `ThroughParent::belongsTo('post')` and `ThroughParent::belongsTo('author')` grant the comments of the posts the reader may view and the comments of the users the reader may view. It may also be a level of a `Levels::of()` group: the reader reaches that level when the parent reaches a perimeter for the mapped ability. Parents nest: a comment inherits from its post, which inherits from its project.
 
 **SQL.** A stored child is checked in SQL through an `exists` subquery on the parent, built by `whereHas()` and restricted by the control of the parent for the mapped ability, so a decision costs one query, and batches and kept decisions apply to it as to any perimeter checked in SQL. The parent's global scopes apply: a soft-deleted parent grants no child. The key of a kept decision includes the perimeters the parent reaches, so a permission withdrawn from the parent during a request is never answered from a kept decision.
 
-**Drafts.** A draft is not in the database, so `create` with a draft loads its parent by the foreign key (one query) and asks the control of the parent to decide on that stored parent for the mapped ability. A draft without a parent key, or whose parent does not exist, is refused. A relation loaded on the draft is ignored: only the foreign key counts.
+**Drafts.** A draft is not in the database, so `create` with a draft loads its parent by the foreign key (one query) and asks the control of the parent to decide on that stored parent for the mapped ability. A draft without a parent key, or whose parent does not exist, is refused. A relation loaded on the draft is ignored: only the foreign key counts. A draft of a business ability, such as `record`, is judged the same way, but only when `delegates()` lists that ability (`->delegates(['view', 'record' => 'update'])`): otherwise the perimeter does not apply.
 
 **Validation.** The control validates its `ThroughParent` perimeters when it builds its perimeters, at its first use, or when the registry resolves it in debug mode and in tests, before any query:
 
@@ -864,6 +915,17 @@ $control->applies($user, Ability::create(), Draft::of($post));
 
 `Control::applies(Model $reader, Ability $ability, Model|Draft|null $subject = null): bool` takes a saved row, a `Lomkit\Access\Decisions\Draft` or nothing. `Control::decide()`, with the same parameters, returns the `Response` the policy returns.
 
+`Draft::of()` is not reserved to `create`: `Control::decide()`, `Control::applies()` and `ControlledPolicy::decideByControl()` accept it for any ability. A business ability on a row about to be created, such as `record` on a visit built in memory, takes `Draft::of($visit)`: it is judged where the row lands, in memory, like a `create` draft (`decideByControl(__FUNCTION__, $user, Draft::of($visit))`, `can('record', [Visit::class, $visit])`). Without a row, it means "somewhere" and only `allowed` runs. Passing the unsaved model itself is refused (`unsaved`): the package never guesses which of the two you meant.
+
+```php
+public function record(User $user, ?Visit $visit = null): Response
+{
+    return $this->decideByControl(__FUNCTION__, $user, $visit === null ? null : Draft::of($visit));
+}
+```
+
+A `ThroughParent` judges such a draft only when `delegates()` lists that ability.
+
 #### Decisions on the stored row
 
 The policy decides a row on the values it has in the database. After `fill()`, the `should` callbacks and the boundary receive a copy built from the original attributes (`getRawOriginal()`), without the loaded relations; a row without changes is passed as it is. In 0.x, `$post->fill(['author_id' => $me->id])` before `authorize('update', $post)` granted the update in memory. Authorize the new values through a draft, not through the modified row.
@@ -1064,7 +1126,7 @@ public function approve(User $user, Post $post): Response
 }
 ```
 
-The Gate calls the policy method named after the ability. The public methods of `ControlledPolicy` are the seven standard abilities, and a policy inherits only two other methods, the protected `decideByControl()` and `declaredControl()`: these two names, and `decide-by-control` and `declared-control`, are the only abilities a policy cannot declare. Any other business ability, `decide` included, can be declared. Keep `declaredControl()` protected. The 0.x `getControl()` helper is removed: call `decideByControl()`, or override `declaredControl()` to pick the control.
+The Gate calls the policy method named after the ability. The public methods of `ControlledPolicy` are the seven standard abilities, and a policy inherits only two other methods, the protected `decideByControl()` and `declaredControl()`: these two names, and `decide-by-control` and `declared-control`, are the only abilities a policy cannot declare. Any other business ability, `decide` included, can be declared. Keep `declaredControl()` protected. A business ability on a row about to be created takes `Draft::of($row)`, like `duplicate` above, and is judged in memory like a `create` draft (see [Unsaved models](#unsaved-models)). The 0.x `getControl()` helper is removed: call `decideByControl()`, or override `declaredControl()` to pick the control.
 
 ### Abilities
 
@@ -1558,7 +1620,7 @@ Notes:
 
 Options:
 
-- `--json` prints the same report as one JSON document: `passed`, `discovery` (`paths`, `cached`, `models`, `scout_driver`), `controls` (each with `control`, `model`, `perimeters` as `position`, `perimeter`, `mode`, `unrestricted`, `search_keys`, `parent` with `relation` and `delegates`, then `boundary` with `boundary`, `mode`, `searchable`, and `search` with `searchable` and `engine`), `pivots` (`relations`), and `problems` and `notes`, each a list of `kind`, `subject` and `message`.
+- `--json` prints the same report as one JSON document: `passed`, `discovery` (`paths`, `cached`, `models`, `scout_driver`), `controls` (each with `control`, `model`, `perimeters` as `position`, `perimeter`, `mode`, `unrestricted`, `search_keys`, `parent` with `relation`, `delegates` and `allowed`, then `boundary` with `boundary`, `mode`, `searchable`, and `search` with `searchable` and `engine`), `pivots` (`relations`), and `problems` and `notes`, each a list of `kind`, `subject` and `message`.
 - `--only=App\Models\Post` (repeatable, a model or a control class) checks only these controls: their declaration, policy and search. The discovery, the cache and the pivots are always checked. A name that matches no control exits with `2`.
 - `--models=app/Domain/Models` (repeatable) sets the directories scanned for models that use `HasControl` or `#[ControlledBy]`, `app/Models` by default.
 

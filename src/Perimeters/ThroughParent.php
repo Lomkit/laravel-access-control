@@ -59,12 +59,6 @@ final class ThroughParent extends Perimeter
     }
 
     #[\Override]
-    public function allowed(Closure $callback): never
-    {
-        throw ThroughParentCallbackException::for('allowed');
-    }
-
-    #[\Override]
     public function should(Closure $callback): never
     {
         throw ThroughParentCallbackException::for('should');
@@ -156,7 +150,15 @@ final class ThroughParent extends Perimeter
     {
         $parent = $this->parentContext($context);
 
-        return $parent !== null && ! $this->link()->control()->reached($parent)->isEmpty();
+        if ($parent === null) {
+            return false;
+        }
+
+        if ($this->declaredCallbacks()->declares(PerimeterHook::Allows) && ! parent::allows($context)) {
+            return false;
+        }
+
+        return ! $this->link()->control()->reached($parent)->isEmpty();
     }
 
     /** @param  Builder<covariant Model>  $query */

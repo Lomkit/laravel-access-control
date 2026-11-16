@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Console\Check\Inventory;
 
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\PerimeterHook;
 use Lomkit\Access\Perimeters\ThroughParent;
 
 /** @internal */
@@ -17,6 +18,7 @@ final readonly class PerimeterInventory
         public ?string $searchKeys,
         public ?string $relation,
         public array $delegates,
+        public bool $parentAllowed,
     ) {}
 
     public static function of(Perimeter $perimeter, string $position): self
@@ -31,6 +33,7 @@ final readonly class PerimeterInventory
             $perimeter->declaredSearchKeys()?->name(),
             $delegation?->relation(),
             $delegation?->names() ?? [],
+            $delegation !== null && $perimeter->declaredCallbacks()->declares(PerimeterHook::Allows),
         );
     }
 
@@ -49,6 +52,10 @@ final readonly class PerimeterInventory
             $parts[] = 'unrestricted';
         }
 
+        if ($this->parentAllowed) {
+            $parts[] = 'allowed';
+        }
+
         if ($this->searchKeys !== null) {
             $parts[] = "search keys {$this->searchKeys}";
         }
@@ -60,7 +67,7 @@ final readonly class PerimeterInventory
         return implode(', ', $parts);
     }
 
-    /** @return array{position: string, perimeter: string, mode: string, unrestricted: bool, search_keys: string|null, parent: array{relation: string, delegates: array<string, string>}|null} */
+    /** @return array{position: string, perimeter: string, mode: string, unrestricted: bool, search_keys: string|null, parent: array{relation: string, delegates: array<string, string>, allowed: bool}|null} */
     public function toArray(): array
     {
         return [
@@ -69,7 +76,7 @@ final readonly class PerimeterInventory
             'mode' => $this->mode->value,
             'unrestricted' => $this->unrestricted,
             'search_keys' => $this->searchKeys,
-            'parent' => $this->relation === null ? null : ['relation' => $this->relation, 'delegates' => $this->delegates],
+            'parent' => $this->relation === null ? null : ['relation' => $this->relation, 'delegates' => $this->delegates, 'allowed' => $this->parentAllowed],
         ];
     }
 }

@@ -9,7 +9,7 @@ final class ThroughParentCallbackException extends LogicException
     public static function for(string $method): self
     {
         return new self(sprintf(
-            'A ThroughParent perimeter takes no ->%s(): the control of the parent decides for it, for the same reader. Declare the rule in a separate perimeter of the control, next to the ThroughParent.',
+            'A ThroughParent perimeter takes no ->%s(): the control of the parent decides which rows it reaches. To require a rule of the child as well, declare ->allowed() on the ThroughParent; to grant other rows, declare a separate perimeter next to it.',
             $method,
         ));
     }
