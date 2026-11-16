@@ -1205,6 +1205,45 @@ protected function scope(Builder $query, AccessContext $context): void
 
 A hook receives the reader as `Model`, the type of every reader: a perimeter class cannot narrow it to `User` in its signature, so it checks the reader with `instanceof`, as above. The perimeter controls the rows of one model, so `$row` and `$query` are rows of that model.
 
+For PHPStan, the `scope()` hook of a perimeter class and of a boundary class receives a `Builder<covariant Model>`, the type that Laravel gives `Scope::apply()`: one class may serve several models. Laravel declares the model of `Builder` invariant, so PHPStan refuses to pass this builder to a helper typed `Builder<Post>`, `Builder<Model>` or `@template TModel of Model` with `Builder<TModel>`. Type the helpers that only add conditions `Builder<covariant Model>`, such as this method of an application class `PostRows`:
+
+```php
+/** @param  Builder<covariant Model>  $query */
+public static function visible(Builder $query): void
+{
+    $query->whereNull('archived_at');
+}
+```
+
+A helper that needs the local scopes of `Post` receives a builder narrowed by `PostRows::of()`, a check that throws when the builder reads another model; `RowsOfAnotherModelException` stands for an exception of your application:
+
+```php
+/**
+ * @template TModel of Model
+ *
+ * @param  class-string<TModel>  $model
+ * @param  Builder<covariant Model>  $query
+ * @return Builder<TModel>
+ */
+public static function of(string $model, Builder $query): Builder
+{
+    if (! $query->getModel() instanceof $model) {
+        throw RowsOfAnotherModelException::for($model, $query->getModel());
+    }
+
+    /** @var Builder<TModel> $query */
+    return $query;
+}
+
+protected function scope(Builder $query, AccessContext $context): void
+{
+    PostRows::visible($query);
+    PostRows::of(Post::class, $query)->published();
+}
+```
+
+A `query()` callback declared in the control is not typed by the package: PHPStan reads the `Builder` of its parameter without a model, and accepts it in a helper typed `Builder<Post>`.
+
 `unrestricted()` throws `UnrestrictedPerimeterCallbackException` on a perimeter class that overrides `includes()` or `scope()`: an unrestricted perimeter never runs them.
 
 A perimeter class that must be narrowed for one use, such as the entities of the reader but only the invoices, keeps the variant as state of the class, which every hook reads. Declaring `query()` on a class that overrides `scope()` throws `OverriddenPerimeterHookException`, and a second `query()` throws `DuplicatePerimeterCallbackException`: neither narrows a class. The nature of the state picks the form:

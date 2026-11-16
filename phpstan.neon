@@ -17,6 +17,8 @@ parameters:
         # Analyses perimeter classes configured by their constructor
         - tests/Fixtures/Constructed/ShelfPerimeter.php
         - tests/Fixtures/Constructed/ShelvedArticlesPerimeter.php
+        # Analyses the builder types that application helpers receive from the hooks and the query() callbacks
+        - tests/Fixtures/Types
     level: 10
     phpVersion: 80300
     checkMissingOverrideMethodAttribute: true
