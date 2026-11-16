@@ -12,6 +12,7 @@ use Lomkit\Access\Exceptions\InvalidParentRelationException;
 use Lomkit\Access\Exceptions\MissingParentControlException;
 use Lomkit\Access\Exceptions\RelationInspectionQueryException;
 use Lomkit\Access\Perimeters\ThroughParent;
+use Lomkit\Access\Relations\RelationInspector;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -23,6 +24,7 @@ use Lomkit\Access\Tests\Fixtures\Unconfigured\Invalid\QueryingOfficeControl;
 use Lomkit\Access\Tests\Fixtures\Unconfigured\Office;
 use Lomkit\Access\Tests\Fixtures\Unconfigured\QueryingOffice;
 use Lomkit\Access\Tests\Fixtures\Unconfigured\Region;
+use Lomkit\Access\Tests\Fixtures\Unconfigured\SchemaReadingOffice;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -88,9 +90,20 @@ class UnconfiguredConnectionTest extends PackageTestCase
         $this->assertThrows(
             fn () => Access::control(QueryingOfficeControl::class)->declaration(),
             RelationInspectionQueryException::class,
-            RelationInspectionQueryException::for(QueryingOffice::class, 'country', 'unconfigured')->getMessage(),
+            sprintf('The [country] relation of the [%s] model runs a query on the [unconfigured] connection when the method is called ([select min("id") as "aggregate" from "countries"]). The package reads the shape of a relation', QueryingOffice::class),
         );
         $this->assertSame($resolver, Model::getConnectionResolver());
+        $this->assertArrayNotHasKey('unconfigured', DB::getConnections());
+    }
+
+    #[Test]
+    public function it_refuses_a_relation_method_that_reads_the_schema(): void
+    {
+        $this->assertThrows(
+            fn () => RelationInspector::shape(new SchemaReadingOffice, 'country'),
+            RelationInspectionQueryException::class,
+            RelationInspectionQueryException::for(SchemaReadingOffice::class, 'country', 'unconfigured')->getMessage(),
+        );
         $this->assertArrayNotHasKey('unconfigured', DB::getConnections());
     }
 

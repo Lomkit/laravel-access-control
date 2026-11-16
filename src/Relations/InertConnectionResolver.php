@@ -2,16 +2,14 @@
 
 namespace Lomkit\Access\Relations;
 
-use Illuminate\Database\Connection;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Model;
-use Lomkit\Access\Exceptions\RelationInspectionQueryException;
+
+use function Illuminate\Support\enum_value;
 
 /** @internal */
 final class InertConnectionResolver implements ConnectionResolverInterface
 {
-    private const string DRIVER = 'inert';
-
     public function __construct(
         private readonly Model $model,
         private readonly string $relation,
@@ -19,14 +17,11 @@ final class InertConnectionResolver implements ConnectionResolverInterface
     ) {}
 
     #[\Override]
-    public function connection($name = null): Connection
+    public function connection($name = null): InertConnection
     {
-        $name = is_string($name) && $name !== '' ? $name : $this->default;
+        $name = enum_value($name);
 
-        return new Connection(
-            fn (): never => throw RelationInspectionQueryException::for($this->model::class, $this->relation, $name),
-            config: ['name' => $name, 'driver' => self::DRIVER],
-        );
+        return new InertConnection($this->model::class, $this->relation, is_string($name) && $name !== '' ? $name : $this->default);
     }
 
     #[\Override]
@@ -38,6 +33,7 @@ final class InertConnectionResolver implements ConnectionResolverInterface
     #[\Override]
     public function setDefaultConnection($name): void
     {
-        $this->default = $name;
+        $name = enum_value($name);
+        $this->default = is_string($name) ? $name : $this->default;
     }
 }

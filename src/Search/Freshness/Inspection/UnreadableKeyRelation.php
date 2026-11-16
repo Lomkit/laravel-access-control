@@ -25,6 +25,11 @@ final readonly class UnreadableKeyRelation implements FreshnessIssue
         return $this->model;
     }
 
+    public function keys(): string
+    {
+        return $this->keys;
+    }
+
     /** @return class-string<Model> */
     public function owner(): string
     {

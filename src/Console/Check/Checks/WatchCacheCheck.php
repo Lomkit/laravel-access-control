@@ -10,6 +10,7 @@ use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\InvalidControlException;
+use Lomkit\Access\Registry\ControlMap;
 use Lomkit\Access\Registry\WatchMap;
 use Throwable;
 
@@ -40,32 +41,44 @@ final readonly class WatchCacheCheck
             return;
         }
 
-        try {
-            $fresh = WatchMap::from($this->discovery->map(), fn (string $control): Control => $this->build($findings, $control));
-        } catch (Throwable) {
+        $controls = $this->discovery->map();
+
+        if (! $this->buildsEveryWatchable($findings, $controls)) {
             return;
         }
+
+        $fresh = WatchMap::from($controls, $this->build(...));
 
         if ($this->sorted($cached->toArray()) !== $this->sorted($fresh->toArray())) {
             $findings->problem(new StaleWatchCache($path, missing: false));
         }
     }
 
-    /** @param  class-string<Control>  $control */
-    private function build(Findings $findings, string $control): Control
+    private function buildsEveryWatchable(Findings $findings, ControlMap $controls): bool
     {
-        try {
-            $instance = $this->container->make($control);
+        $built = true;
 
-            if (! $instance instanceof $control) {
-                throw InvalidControlException::resolvedAs($control, $instance);
+        foreach ($controls->toArray() as $model => $control) {
+            try {
+                if (WatchMap::watchable($model, $control)) {
+                    $this->build($control)->searchRules()->freshness()->watchedModels();
+                }
+            } catch (Throwable $exception) {
+                $findings->problem(new ControlFailure($control, $exception->getMessage()));
+                $built = false;
             }
+        }
 
-            $instance->searchRules();
-        } catch (Throwable $exception) {
-            $findings->problem(new ControlFailure($control, $exception->getMessage()));
+        return $built;
+    }
 
-            throw $exception;
+    /** @param  class-string<Control>  $control */
+    private function build(string $control): Control
+    {
+        $instance = $this->container->make($control);
+
+        if (! $instance instanceof $control) {
+            throw InvalidControlException::resolvedAs($control, $instance);
         }
 
         return $instance;

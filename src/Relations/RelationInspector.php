@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\QueryException;
 use Lomkit\Access\Exceptions\RelationInspectionQueryException;
 use Throwable;
 
@@ -38,7 +39,13 @@ final class RelationInspector
         try {
             return $read($model->{$relation}());
         } catch (Throwable $exception) {
-            throw self::queryIn($exception) ?? $exception;
+            $query = self::queryIn($exception);
+
+            if ($query === null) {
+                throw $exception;
+            }
+
+            throw $exception instanceof QueryException ? RelationInspectionQueryException::for($model::class, $relation, $exception->getConnectionName(), $exception) : $query;
         } finally {
             self::restore($resolver);
         }

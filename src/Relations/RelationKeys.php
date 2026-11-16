@@ -4,7 +4,6 @@ namespace Lomkit\Access\Relations;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOneOrMany;
 use Illuminate\Database\Eloquent\Relations\Relation;
 
@@ -22,7 +21,6 @@ final readonly class RelationKeys
         [$foreign, $referenced] = match (true) {
             $relation instanceof BelongsTo => [$relation->getForeignKeyName(), $relation->getOwnerKeyName()],
             $relation instanceof HasOneOrMany => [$relation->getForeignKeyName(), $relation->getLocalKeyName()],
-            $relation instanceof BelongsToMany => [$relation->getForeignPivotKeyName(), $relation->getParentKeyName()],
             default => [null, null],
         };
 

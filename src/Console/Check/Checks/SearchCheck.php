@@ -7,6 +7,7 @@ use Laravel\Scout\Searchable;
 use Lomkit\Access\Console\Check\Findings;
 use Lomkit\Access\Console\Check\Problems\PerimeterWithoutSearchKeys;
 use Lomkit\Access\Console\Check\Problems\PlainSearchable;
+use Lomkit\Access\Console\Check\Problems\Problem;
 use Lomkit\Access\Console\Check\Problems\SearchFreshness;
 use Lomkit\Access\Console\Check\Problems\UnreadableRelation;
 use Lomkit\Access\Console\Check\Problems\UnsearchableBoundary;
@@ -18,6 +19,7 @@ use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessInspector;
+use Lomkit\Access\Search\Freshness\Inspection\FreshnessIssue;
 use Lomkit\Access\Search\Freshness\Inspection\UnreadableKeyRelation;
 use Lomkit\Access\Search\SearchEngineKind;
 use Lomkit\Access\Search\UsesControlledSearchable;
@@ -68,8 +70,17 @@ final class SearchCheck
         }
 
         foreach (FreshnessInspector::inspect($model)->issues() as $issue) {
-            $findings->problem($issue instanceof UnreadableKeyRelation ? new UnreadableRelation($issue->owner(), $issue->relation(), $issue->reason()) : new SearchFreshness($issue));
+            $findings->problem($this->problemOf($issue));
         }
+    }
+
+    private function problemOf(FreshnessIssue $issue): Problem
+    {
+        if (! $issue instanceof UnreadableKeyRelation) {
+            return new SearchFreshness($issue);
+        }
+
+        return new UnreadableRelation($issue->owner(), $issue->relation(), $issue->reason(), sprintf('the [%s] search keys of the [%s] model', $issue->keys(), $issue->model()));
     }
 
     /** @return list<Perimeter> */

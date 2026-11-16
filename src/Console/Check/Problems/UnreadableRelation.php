@@ -9,6 +9,7 @@ final readonly class UnreadableRelation implements Problem
         private string $model,
         private string $relation,
         private string $reason,
+        private ?string $readBy = null,
     ) {}
 
     #[\Override]
@@ -26,6 +27,6 @@ final readonly class UnreadableRelation implements Problem
     #[\Override]
     public function message(): string
     {
-        return sprintf('The [%s] relation of the [%s] model throws when the package reads it without a database connection, so access:check cannot verify it: %s Fix the [%s::%s()] method.', $this->relation, $this->model, rtrim($this->reason, '.').'.', $this->model, $this->relation);
+        return sprintf('The [%s] relation of the [%s] model%s throws when the package reads it without a database connection, so access:check cannot verify it: %s Fix the [%s::%s()] method.', $this->relation, $this->model, $this->readBy === null ? '' : ", read by {$this->readBy},", rtrim($this->reason, '.').'.', $this->model, $this->relation);
     }
 }

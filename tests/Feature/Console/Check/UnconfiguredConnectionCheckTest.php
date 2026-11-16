@@ -13,6 +13,7 @@ use Lomkit\Access\Search\Freshness\Inspection\UnreadableKeyRelation;
 use Lomkit\Access\Search\Freshness\Inspection\UnwatchedKeyRelation;
 use Lomkit\Access\Tests\Fixtures\Search\MemoryEngine;
 use Lomkit\Access\Tests\Fixtures\Unconfigured\Broken\Controls\KioskControl;
+use Lomkit\Access\Tests\Fixtures\Unconfigured\Broken\Controls\StallControl;
 use Lomkit\Access\Tests\Fixtures\Unconfigured\BrokenPivots\Consulate;
 use Lomkit\Access\Tests\Fixtures\Unconfigured\Controls\CountryControl;
 use Lomkit\Access\Tests\Fixtures\Unconfigured\Controls\OfficeControl;
@@ -127,7 +128,7 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
         $this->assertSame(1, $code);
         $this->assertSame([
             ['kind' => 'search_freshness', 'subject' => Branch::class, 'message' => 'The [country] search keys of the ['.Branch::class.'] model read the [country] relation, but nothing reindexes the documents when ['.Country::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Country::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
-            ['kind' => 'unreadable_relation', 'subject' => Branch::class, 'message' => 'The [ministry] relation of the ['.Branch::class.'] model throws when the package reads it without a database connection, so access:check cannot verify it: The ministry relation is not wired yet. Fix the ['.Branch::class.'::ministry()] method.'],
+            ['kind' => 'unreadable_relation', 'subject' => Branch::class, 'message' => 'The [ministry] relation of the ['.Branch::class.'] model, read by the [ministry] search keys of the ['.Branch::class.'] model, throws when the package reads it without a database connection, so access:check cannot verify it: The ministry relation is not wired yet. Fix the ['.Branch::class.'::ministry()] method.'],
         ], $report['problems']);
     }
 
@@ -142,7 +143,7 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
     }
 
     #[Test]
-    public function it_reports_a_control_that_throws_while_the_cached_watched_models_are_compared(): void
+    public function it_reports_each_control_that_throws_while_the_cached_watched_models_are_compared(): void
     {
         Access::discoverControlsIn([$this->unconfigured('Broken/Controls')]);
         $cache = $this->app->make(DiscoveryCache::class);
@@ -150,15 +151,18 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
         $watched = WatchMap::fromCache([Country::class => [DeskControl::class]]);
         $this->assertNotNull($watched);
         $cache->writeWatched($watched);
-        $failure = ['kind' => 'control_failure', 'subject' => KioskControl::class, 'message' => 'The ['.KioskControl::class.'] control throws while it is built or verified: The country relation is not wired yet.'];
+        $failures = [
+            ['kind' => 'control_failure', 'subject' => KioskControl::class, 'message' => 'The ['.KioskControl::class.'] control throws while it is built or verified: The country relation is not wired yet.'],
+            ['kind' => 'control_failure', 'subject' => StallControl::class, 'message' => 'The ['.StallControl::class.'] control throws while it is built or verified: The country relation of the stall is not wired yet.'],
+        ];
 
         [$onlyCode, $only] = $this->checkJson(['--only' => [Office::class]]);
         [$allCode, $all] = $this->checkJson();
 
         $this->assertSame(1, $onlyCode);
-        $this->assertSame([$failure], $only['problems']);
+        $this->assertSame($failures, $only['problems']);
         $this->assertSame(1, $allCode);
-        $this->assertSame([$failure], $all['problems']);
+        $this->assertSame($failures, $all['problems']);
     }
 
     /**
