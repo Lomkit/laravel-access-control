@@ -105,13 +105,13 @@ class ControlMakeCommand extends GeneratorCommand
     /** @return list<string> */
     private function buildablePerimeters(): array
     {
-        $skipped = array_filter($this->perimeterClasses(), fn (string $class): bool => ! (new GeneratedPerimeter($class))->isBuildable());
+        $generated = new GeneratedPerimeters($this->perimeterClasses());
 
-        foreach ($skipped as $class) {
-            $this->components->warn((new GeneratedPerimeter($class))->skippedWarning());
+        foreach ($generated->warnings() as $warning) {
+            $this->components->warn($warning);
         }
 
-        return array_values(array_diff($this->perimeterClasses(), $skipped));
+        return $generated->buildable();
     }
 
     /** @return list<string> */

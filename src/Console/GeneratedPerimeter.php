@@ -15,12 +15,15 @@ final readonly class GeneratedPerimeter
         return ! is_subclass_of($this->class, Perimeter::class) || PerimeterConstructor::builds($this->class);
     }
 
-    public function skippedWarning(): string
+    public function skippedWarning(): ?string
     {
-        return sprintf(
-            'The constructor of the [%s] perimeter requires arguments or is not public, so the control does not list it. Add it to perimeters() by hand, through a named static constructor of the class.',
-            $this->class,
-        );
+        if (! is_subclass_of($this->class, Perimeter::class)) {
+            return null;
+        }
+
+        $refusal = PerimeterConstructor::refusal($this->class);
+
+        return $refusal === null ? null : $refusal->getMessage().' The control does not list it: add it to perimeters() by hand.';
     }
 
     public function code(): string

@@ -9,8 +9,10 @@ use Lomkit\Access\Exceptions\ImpurePerimetersException;
 use Lomkit\Access\Exceptions\UnbuildablePerimeterException;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
+use Lomkit\Access\Tests\Fixtures\Constructed\AbstractShelfPerimeter;
 use Lomkit\Access\Tests\Fixtures\Constructed\ConfiguredShelfArticleControl;
 use Lomkit\Access\Tests\Fixtures\Constructed\DefaultShelfPerimeter;
+use Lomkit\Access\Tests\Fixtures\Constructed\GuardedShelfPerimeter;
 use Lomkit\Access\Tests\Fixtures\Constructed\Shelf;
 use Lomkit\Access\Tests\Fixtures\Constructed\ShelfPerimeter;
 use Lomkit\Access\Tests\Fixtures\Constructed\ShelvedArticlesPerimeter;
@@ -160,7 +162,7 @@ class ConstructedPerimeterTest extends SearchTestCase
     public function it_refuses_new_on_a_class_whose_constructor_requires_arguments(): void
     {
         $this->expectException(UnbuildablePerimeterException::class);
-        $this->expectExceptionMessage(sprintf('The constructor of the [%1$s] perimeter requires arguments or is not public, so %1$s::new() cannot build it.', ShelfPerimeter::class));
+        $this->expectExceptionMessage(sprintf('The constructor of the [%1$s] perimeter requires the [shelf, writing] arguments, so %1$s::new() cannot build it.', ShelfPerimeter::class));
 
         ShelfPerimeter::new();
     }
@@ -169,9 +171,27 @@ class ConstructedPerimeterTest extends SearchTestCase
     public function it_refuses_new_on_a_class_whose_constructor_is_not_public(): void
     {
         $this->expectException(UnbuildablePerimeterException::class);
-        $this->expectExceptionMessage(sprintf('The constructor of the [%1$s] perimeter requires arguments or is not public, so %1$s::new() cannot build it.', ShelvedArticlesPerimeter::class));
+        $this->expectExceptionMessage(sprintf('The constructor of the [%1$s] perimeter is not public, so %1$s::new() cannot build it.', ShelvedArticlesPerimeter::class));
 
         ShelvedArticlesPerimeter::new();
+    }
+
+    #[Test]
+    public function it_refuses_new_on_a_class_whose_constructor_is_protected(): void
+    {
+        $this->expectException(UnbuildablePerimeterException::class);
+        $this->expectExceptionMessage(sprintf('The constructor of the [%1$s] perimeter is not public, so %1$s::new() cannot build it.', GuardedShelfPerimeter::class));
+
+        GuardedShelfPerimeter::new();
+    }
+
+    #[Test]
+    public function it_refuses_new_on_an_abstract_class(): void
+    {
+        $this->expectException(UnbuildablePerimeterException::class);
+        $this->expectExceptionMessage(sprintf('The [%1$s] perimeter is abstract, so %1$s::new() cannot build it.', AbstractShelfPerimeter::class));
+
+        AbstractShelfPerimeter::new();
     }
 
     #[Test]

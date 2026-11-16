@@ -1209,8 +1209,8 @@ OwnedByMyEntities::ofKind('invoice')
 ```
 
 - The named constructor starts the chain, and the fluent methods keep the state of the constructor: `allowed()`, `should()`, `query()`, `searchKeys()`, `reindexWhen()` and `unrestricted()` clone the perimeter and never write to its properties.
-- Never rebuild the perimeter after a fluent method: an instance method that returns `new self(...)` after `->allowed()` drops the callbacks, the search keys and `unrestricted()`. A `readonly` property cannot take a wither either, since PHP writes it in the constructor only: give each variant its own named constructor instead.
-- `X::new()` on a class whose constructor requires arguments or is not public throws `UnbuildablePerimeterException`, which names the class: build it with its named constructor. `make:control --perimeters` leaves such a class out of the generated control and warns: add it to `perimeters()` by hand.
+- Never rebuild the perimeter after a fluent method: an instance method that returns `new self(...)` after `->allowed()` drops the callbacks, the search keys and `unrestricted()`. A `readonly` property is written once, and a clone already carries it, so a wither cannot assign it after `clone` (on PHP 8.3 and 8.4): give each variant its own named constructor instead. Give the required state no default: a constructor whose arguments are all optional is built by `X::new()` with its defaults, so a default that means "every kind" comes back silently.
+- `X::new()` on an abstract class, or on a class whose constructor requires arguments or is not public, throws `UnbuildablePerimeterException`, which names the class and the cause (the required arguments, for instance): build it with its named constructor. `make:control --perimeters` leaves such a class out of the generated control and warns: add it to `perimeters()` by hand.
 - `Perimeter` no longer declares `@phpstan-consistent-constructor`, so PHPStan accepts a constructor with required arguments. A class of the application that builds itself with `new static`, such as an override of `new()` or a factory on a base perimeter class, now gets *Unsafe usage of new static()*: add `/** @phpstan-consistent-constructor */` to that class.
 
 The wither form, where no kind means every kind:
@@ -1374,15 +1374,16 @@ The check compares the values the callbacks capture this way:
 - scalars and arrays by value and type;
 - Eloquent models by class and key, so a user captured at build time is caught as soon as another user signs in;
 - enums by identity;
+- dates (`DateTimeInterface`, Carbon included) by their instant, so a date read from the clock while `perimeters()` builds is caught;
 - closures by the lines that declare them and, recursively, by the values they capture;
-- objects of a `readonly` class, such as `Ability`, property by property with these same rules: a closure they hold by its lines and its captures, a model by its key, a scalar by value and type, so `'1'` and `1` differ. An object whose class is not declared `readonly` is any other object, even when all its properties are `readonly`;
+- objects of a `readonly` class, such as `Ability`, property by property with these same rules, at any depth: a closure they hold by its lines and its captures, a model by its key, a scalar by value and type, so `'1'` and `1` differ. An object that refers to itself is compared once. An object whose class is not declared `readonly` is any other object, even when all its properties are `readonly`;
 - any other object by its class only: a service built in `perimeters()`, such as `$rules = new PostRules`, is pure and passes.
 
 The properties that a perimeter class declares, the `readonly` properties its constructor promotes as well as the state a wither sets, are compared with the same rules, so `OwnedByMyEntities::ofKind(config('documents.kind'))` and `OwnedByMyEntities::new()->ofKind(config('documents.kind'))` are caught when the configuration changes, as the same value captured by a closure is. A hook that changes a property of its perimeter, such as a cache of the readers it allowed, is caught too: the perimeters are shared by every request of the process, so a hook must never write to them. The properties of `Perimeter` and of `ThroughParent` are compared by the package on their own: the callbacks, the search keys, and the relation, inverse and delegation of a parent.
 
 The check only sees what changes between two builds of the same process. It cannot see:
 
-- the state inside a captured service or model: a service that reads the request or the tenant when it is built, or whose properties change later, compares equal as long as its class is the same; a model is compared by its key, not by its attributes;
+- the state inside a captured service or model: a service that reads the request or the tenant when it is built, or whose properties change later, compares equal as long as its class is the same; a model is compared by its key, not by its attributes; Inside a `readonly` object too, an object of another class, such as a collection, is compared by its class only;
 - a value that is the same in both builds, such as the tenant of a test that never switches tenant, or a row read from the database that does not change;
 - what the callbacks read when they run: that is not a purity problem, since the callbacks are where the reader, the request and the tenant belong.
 

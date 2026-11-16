@@ -54,9 +54,11 @@ class ControlMakeCommandTest extends PackageTestCase
             app_path('Access/Controls/CommentControl.php'),
             app_path('Access/Controls/AbilityControl.php'),
             app_path('Access/Controls/ForecastControl.php'),
+            app_path('Access/Controls/VaultControl.php'),
             app_path('Access/Perimeters/AuditPerimeter.php'),
             app_path('Access/Perimeters/MemoPerimeter.php'),
             app_path('Access/Perimeters/LedgerPerimeter.php'),
+            app_path('Access/Perimeters/VaultPerimeter.php'),
             app_path('Models/Review.php'),
             app_path('Models/Archive.php'),
             app_path('Models/Memo.php'),
@@ -319,5 +321,34 @@ class ControlMakeCommandTest extends PackageTestCase
         $this->assertStringNotContainsString('LedgerPerimeter', $source);
         $this->assertStringContainsString("return [\n            \\App\\Access\\Perimeters\\AuditPerimeter::new()\n", $source);
         $this->assertValidPhp(app_path('Access/Controls/LedgerControl.php'));
+    }
+
+    #[Test]
+    public function it_generates_a_valid_control_when_every_perimeter_is_left_out(): void
+    {
+        $this->writeModel('Review');
+        File::put(app_path('Access/Perimeters/VaultPerimeter.php'), <<<'PHP'
+            <?php
+
+            namespace App\Access\Perimeters;
+
+            use Lomkit\Access\Perimeters\Perimeter;
+
+            final class VaultPerimeter extends Perimeter
+            {
+                public function __construct(public readonly bool $writing) {}
+            }
+
+            PHP);
+        require_once app_path('Access/Perimeters/VaultPerimeter.php');
+
+        $this->artisan('make:control', ['name' => 'VaultControl', '--model' => 'Review', '--perimeters' => ['VaultPerimeter']])
+            ->expectsOutputToContain('The constructor of the [App\\Access\\Perimeters\\VaultPerimeter] perimeter')
+            ->assertOk();
+
+        $source = File::get(app_path('Access/Controls/VaultControl.php'));
+
+        $this->assertStringNotContainsString('VaultPerimeter', $source);
+        $this->assertValidPhp(app_path('Access/Controls/VaultControl.php'));
     }
 }
