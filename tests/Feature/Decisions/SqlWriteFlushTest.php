@@ -7,6 +7,7 @@ use Illuminate\Bus\BatchRepository;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Queue\Job;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -65,7 +66,7 @@ class SqlWriteFlushTest extends DecisionTestCase
             'an unprepared statement' => [fn (self $test) => DB::unprepared("update posts set title = 'Raw' where title = 'Roadmap'")],
             'a common table expression' => [fn (self $test) => DB::select('with listed as (select id from posts) select count(*) as total from listed')],
             'two statements on a framework table and a model table' => [fn (self $test) => DB::unprepared('delete from '.DB::getQueryGrammar()->wrapTable('cache').'; delete from '.DB::getQueryGrammar()->wrapTable('post_shares'))],
-            'a select followed by a write' => [fn (self $test) => DB::unprepared('select 1; delete from '.DB::getQueryGrammar()->wrapTable('post_shares'))],
+            'a select followed by a write' => [fn (self $test) => DB::connection()->getEventDispatcher()?->dispatch(new QueryExecuted('select 1; delete from '.DB::getQueryGrammar()->wrapTable('post_shares'), [], 0.0, DB::connection()))],
         ];
     }
 
