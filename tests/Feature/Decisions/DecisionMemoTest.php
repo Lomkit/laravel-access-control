@@ -104,6 +104,21 @@ class DecisionMemoTest extends DecisionTestCase
     }
 
     #[Test]
+    public function it_checks_in_sql_again_when_another_control_reaches_other_perimeters(): void
+    {
+        ConfiguredPostControl::bind(Levels::of($this->clientInSql(fn (User $user): bool => true), $this->ownInSql()));
+        $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
+
+        ConfiguredPostControl::bind(Levels::of($this->clientInSql(fn (User $user): bool => false), $this->ownInSql()));
+
+        $queries = $this->queriesWhile(function (): void {
+            $this->assertFalse($this->ada->can('update', $this->teamPost));
+        });
+
+        $this->assertCount(1, $queries);
+    }
+
+    #[Test]
     public function it_grants_through_a_memory_perimeter_with_the_memoized_answer_of_the_boundary(): void
     {
         ConfiguredPostControl::bindWithin(new WorkspaceBoundary, $this->ownInMemory(), $this->clientInSql());

@@ -21,9 +21,11 @@ final readonly class ReachKey
 
         return new self(serialize([
             $reader->getMorphClass(),
+            $reader->getConnectionName(),
             $readerKey,
             $context->decisionContext(),
             $control::class,
+            spl_object_id($control),
             $context->ability()->name(),
         ]));
     }

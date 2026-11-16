@@ -22,6 +22,7 @@ final readonly class DecisionKey
 
         return new self(serialize([
             $reader->getMorphClass(),
+            $reader->getConnectionName(),
             $readerKey,
             $context->decisionContext(),
             $model,

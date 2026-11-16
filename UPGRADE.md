@@ -945,9 +945,9 @@ Keep the brand out of the boundary: `Boundary::where()` holds one value per read
 
 #### Kept decisions
 
-The package keeps two things for the length of a request or a job:
+The package keeps two things for the length of a request, a queued job or a console command:
 
-- the perimeters a reader reaches, under the reader (its morph class and key), the decision context, the control and the ability: what every `allowed()` callback and `allows()` hook answered, what the boundary's `admits()` answered, the level reached in each group, and, for a `ThroughParent`, the perimeters the reader reaches on the parent, kept the same way under the parent's control;
+- the perimeters a reader reaches, under the reader (its morph class, connection and key), the decision context, the control instance and the ability: what every `allowed()` callback and `allows()` hook answered, what the boundary's `admits()` answered, the level reached in each group, and, for a `ThroughParent`, the perimeters the reader reaches on the parent, kept the same way under the parent's control;
 - the SQL check of each row, under the reader, the decision context, the model, the row key and the ability.
 
 A reader without a key, or not saved, is never kept: its perimeters are evaluated again on every decision. For the others, an `allowed()` that reads the database runs once per reader, ability and decision context in a request, not once per row: a page of 100 posts decided through `withAbilities()` costs the page query plus the queries of each `allowed()` once, and so does a page of 100 comments whose `ThroughParent` reaches the posts. The policy, `controlled()`, `controlledFor()`, the batches, the search filter and `applicablePerimeters()` read the same kept perimeters, so they always agree within a request. The in-memory checks (`should`, `includes()` and the in-memory form of the boundary) run on every decision, on the row as stored.
@@ -955,6 +955,8 @@ A reader without a key, or not saved, is never kept: its perimeters are evaluate
 Everything kept is forgotten at once, the perimeters and the SQL checks: when any Eloquent model is saved or deleted, when a transaction rolls back, once Laravel has handled a request (so two requests of one test share nothing), at the end of each job, and when the application calls `Access::forgetDecisions()`. Until then, what `allowed()` answered stands: a permission revoked by a write the package does not see is still granted for the rest of the request. Each kind is capped at 10,000 entries, and the oldest is dropped first.
 
 Call `Access::forgetDecisions()` after a write that Eloquent does not see and that changes a decision or a permission that `allowed()` reads: `attach()`, `detach()` and `sync()` on a relation (a role detached from the reader included), `DB::table()` and mass updates, `saveQuietly()` and writes inside `withoutEvents()`. A permission changed without any write, such as a `Gate::define()` in a test, needs it too. An attribute of the reader changed in memory, without saving it, does not change what was kept either.
+
+Everything `allowed()` reads besides the reader must be in the decision context: the current team of spatie/laravel-permission (`setPermissionsTeamId()`), a tenant or a guard set during the request. A value that changes without being in it reuses the answer given for the previous value until the next flush. A long-running console command keeps the kept decisions for its whole run, and never sees a permission revoked by another process: call `Access::forgetDecisions()` at the start of each unit of work, such as each tenant or each batch of users. A job run with the `sync` connection or `dispatchSync()` shares the kept decisions of the request that runs it, while a queue worker starts each job empty.
 
 #### Batched decisions
 
@@ -1689,6 +1691,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | A `should` callback that repeats the `query()` of its perimeter | Removed: the row is checked in SQL through the `query()` |
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |
 | A brand or tenant read inside the callbacks, with decisions cached by hand | `Access::decisionContextUsing(fn () => ['brand' => ...])`, read in hooks with `$context->decisionContext()` |
+| An `allowed()` that reads the current team (spatie `setPermissionsTeamId()`) or tenant | Add it to `Access::decisionContextUsing()`: the answer of `allowed()` is kept per reader, ability and decision context for the request |
 | `->addSelect(['can_update' => ...])` or a helper that collects the editable keys | `->withAbilities(['update'])`, then `can()`; `Access::preload()` or `reachableKeys()` for loaded rows |
 | A home-made editable-posts helper that pages or counts the rows a user may update | `Post::controlled('update')->paginate()`, `Post::controlledFor($user, 'update')->count()` |
 | `perimeterQuery()` on a rest-api resource that calls `controlled()` or `controlledFor()` | Removed: `AccessControlExtension` restricts the rows and provides the perimeter to `rest:check` |

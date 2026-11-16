@@ -14,6 +14,7 @@ use Lomkit\Access\Decisions\ReachKey;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\ReachedPerimeters;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
+use Lomkit\Access\Tests\Fixtures\Blog\Editor;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Blog\WorkspaceBoundary;
@@ -37,6 +38,18 @@ class KeptReachTest extends DecisionTestCase
                 $this->queries++;
             }
         });
+    }
+
+    #[Test]
+    public function it_never_shares_the_perimeters_reached_between_readers(): void
+    {
+        ConfiguredPostControl::bind($this->ownInSql(fn (User $user): bool => $user::class === User::class && $user->is($this->ada)));
+        $editor = (new Editor)->newFromBuilder($this->ada->getAttributes());
+
+        $this->assertTrue($this->ada->can('update', $this->adaPost));
+        $this->assertSame('no_perimeter', $this->inspect($this->grace, 'update', $this->adaPost)->code());
+        $this->assertSame('no_perimeter', $this->inspect($editor, 'update', $this->adaPost)->code());
+        $this->assertTrue($this->ada->can('update', $this->adaPost));
     }
 
     #[Test]
