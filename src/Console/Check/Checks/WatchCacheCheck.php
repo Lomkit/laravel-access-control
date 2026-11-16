@@ -4,6 +4,7 @@ namespace Lomkit\Access\Console\Check\Checks;
 
 use Illuminate\Contracts\Container\Container;
 use Lomkit\Access\Console\Check\Findings;
+use Lomkit\Access\Console\Check\Problems\ControlFailure;
 use Lomkit\Access\Console\Check\Problems\StaleWatchCache;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Discovery\ControlDiscovery;
@@ -40,7 +41,7 @@ final readonly class WatchCacheCheck
         }
 
         try {
-            $fresh = WatchMap::from($this->discovery->map(), $this->build(...));
+            $fresh = WatchMap::from($this->discovery->map(), fn (string $control): Control => $this->build($findings, $control));
         } catch (Throwable) {
             return;
         }
@@ -51,12 +52,20 @@ final readonly class WatchCacheCheck
     }
 
     /** @param  class-string<Control>  $control */
-    private function build(string $control): Control
+    private function build(Findings $findings, string $control): Control
     {
-        $instance = $this->container->make($control);
+        try {
+            $instance = $this->container->make($control);
 
-        if (! $instance instanceof $control) {
-            throw InvalidControlException::resolvedAs($control, $instance);
+            if (! $instance instanceof $control) {
+                throw InvalidControlException::resolvedAs($control, $instance);
+            }
+
+            $instance->searchRules();
+        } catch (Throwable $exception) {
+            $findings->problem(new ControlFailure($control, $exception->getMessage()));
+
+            throw $exception;
         }
 
         return $instance;

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Lomkit\Access\Perimeters\ThroughParent;
+use Lomkit\Access\Relations\RelationInspector;
 
 final readonly class GeneratedParent
 {
@@ -24,9 +25,9 @@ final readonly class GeneratedParent
             return false;
         }
 
-        $relation = $instance->{$this->relation}();
+        $shape = RelationInspector::shape($instance, $this->relation);
 
-        return $relation instanceof BelongsTo && ! $relation instanceof MorphTo;
+        return $shape !== null && $shape->is(BelongsTo::class) && ! $shape->is(MorphTo::class);
     }
 
     public function relation(): string

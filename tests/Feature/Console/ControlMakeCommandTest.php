@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Feature\Console;
 
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
@@ -12,6 +13,8 @@ use Lomkit\Access\Tests\Fixtures\Blog\Comment;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
+use Lomkit\Access\Tests\Fixtures\Unconfigured\Country;
+use Lomkit\Access\Tests\Fixtures\Unconfigured\Office;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -55,6 +58,7 @@ class ControlMakeCommandTest extends PackageTestCase
             app_path('Access/Controls/AbilityControl.php'),
             app_path('Access/Controls/ForecastControl.php'),
             app_path('Access/Controls/VaultControl.php'),
+            app_path('Access/Controls/OfficeControl.php'),
             app_path('Access/Perimeters/AuditPerimeter.php'),
             app_path('Access/Perimeters/MemoPerimeter.php'),
             app_path('Access/Perimeters/LedgerPerimeter.php'),
@@ -233,6 +237,18 @@ class ControlMakeCommandTest extends PackageTestCase
             ->expectsOutputToContain(sprintf('The [comments] relation is not a belongsTo of the [%s] model.', Post::class))
             ->assertFailed();
         $this->assertFileDoesNotExist(app_path('Access/Controls/CommentControl.php'));
+    }
+
+    #[Test]
+    public function it_reads_the_parent_relation_of_a_model_whose_connection_is_not_configured(): void
+    {
+        $this->artisan('make:control', ['name' => 'OfficeControl', '--model' => Office::class, '--parent' => ['country']])->assertOk();
+        $this->artisan('make:control', ['name' => 'OfficeControl', '--model' => Country::class, '--parent' => ['offices']])
+            ->expectsOutputToContain(sprintf('The [offices] relation is not a belongsTo of the [%s] model.', Country::class))
+            ->assertFailed();
+
+        $this->assertStringContainsString("\\Lomkit\\Access\\Perimeters\\ThroughParent::belongsTo('country'),", File::get(app_path('Access/Controls/OfficeControl.php')));
+        $this->assertArrayNotHasKey('unconfigured', DB::getConnections());
     }
 
     #[Test]

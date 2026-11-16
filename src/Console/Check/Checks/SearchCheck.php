@@ -8,6 +8,7 @@ use Lomkit\Access\Console\Check\Findings;
 use Lomkit\Access\Console\Check\Problems\PerimeterWithoutSearchKeys;
 use Lomkit\Access\Console\Check\Problems\PlainSearchable;
 use Lomkit\Access\Console\Check\Problems\SearchFreshness;
+use Lomkit\Access\Console\Check\Problems\UnreadableRelation;
 use Lomkit\Access\Console\Check\Problems\UnsearchableBoundary;
 use Lomkit\Access\Console\Check\Problems\UnsupportedSearchEngine;
 use Lomkit\Access\Controls\Control;
@@ -17,6 +18,7 @@ use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessInspector;
+use Lomkit\Access\Search\Freshness\Inspection\UnreadableKeyRelation;
 use Lomkit\Access\Search\SearchEngineKind;
 use Lomkit\Access\Search\UsesControlledSearchable;
 use Throwable;
@@ -66,7 +68,7 @@ final class SearchCheck
         }
 
         foreach (FreshnessInspector::inspect($model)->issues() as $issue) {
-            $findings->problem(new SearchFreshness($issue));
+            $findings->problem($issue instanceof UnreadableKeyRelation ? new UnreadableRelation($issue->owner(), $issue->relation(), $issue->reason()) : new SearchFreshness($issue));
         }
     }
 

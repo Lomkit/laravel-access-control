@@ -20,4 +20,5 @@ enum ProblemKind: string
     case UnsupportedSearchEngine = 'unsupported_search_engine';
     case PlainSearchable = 'plain_searchable';
     case PivotWithoutUsing = 'pivot_without_using';
+    case UnreadableRelation = 'unreadable_relation';
 }

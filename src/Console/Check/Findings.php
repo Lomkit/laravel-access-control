@@ -16,6 +16,12 @@ final class Findings
 
     public function problem(Problem $problem): void
     {
+        foreach ($this->problems as $found) {
+            if ($found->kind() === $problem->kind() && $found->subject() === $problem->subject() && $found->message() === $problem->message()) {
+                return;
+            }
+        }
+
         $this->problems[] = $problem;
     }
 
