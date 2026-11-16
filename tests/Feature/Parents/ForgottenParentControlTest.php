@@ -4,6 +4,8 @@ namespace Lomkit\Access\Tests\Feature\Parents;
 
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
@@ -11,6 +13,8 @@ use Lomkit\Access\Exceptions\MissingParentControlException;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Tests\Fixtures\Blog\Comment;
 use Lomkit\Access\Tests\Fixtures\Blog\OwnPerimeter;
+use Lomkit\Access\Tests\Fixtures\Blog\Post;
+use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredCommentControl;
 use Lomkit\Access\Tests\Fixtures\ConfiguredPostControl;
@@ -23,8 +27,13 @@ class ForgottenParentControlTest extends ParentTestCase
     {
         parent::setUp();
 
-        $this->discoverControls(['Controls']);
         $this->grant(['view own posts' => ['Ada'], 'view client projects' => ['Ada']]);
+    }
+
+    #[\Override]
+    protected function controlDirectories(): array
+    {
+        return ['Controls'];
     }
 
     protected function assertRefusesLoudly(Closure $path): void
@@ -36,6 +45,29 @@ class ForgottenParentControlTest extends ParentTestCase
         } catch (MissingParentControlException $exception) {
             $this->assertStringContainsString('so no child row would ever be granted', $exception->getMessage());
         }
+    }
+
+    #[Test]
+    public function it_throws_without_a_query_when_the_parent_has_no_control(): void
+    {
+        ConfiguredPostControl::bind(ThroughParent::belongsTo('project'));
+        $queries = [];
+        DB::listen(function (QueryExecuted $query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+
+        try {
+            Post::controlledFor($this->ada)->get();
+
+            $this->fail('A child whose parent has no control was listed.');
+        } catch (MissingParentControlException $exception) {
+            $this->assertStringContainsString(
+                sprintf('The ThroughParent perimeter of the [%s] control inherits the access of the [%s] model through the [project] relation, but no control is registered for that model', ConfiguredPostControl::class, Project::class),
+                $exception->getMessage(),
+            );
+        }
+
+        $this->assertSame([], $queries);
     }
 
     #[Test]

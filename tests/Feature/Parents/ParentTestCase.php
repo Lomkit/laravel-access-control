@@ -45,7 +45,7 @@ abstract class ParentTestCase extends AccessTestCase
     {
         parent::setUp();
 
-        $this->discoverControls(['Controls', 'Projects']);
+        $this->discoverControls($this->controlDirectories());
         Access::registerPolicies();
 
         $acme = Client::factory()->createOne(['name' => 'Acme']);
@@ -68,6 +68,12 @@ abstract class ParentTestCase extends AccessTestCase
         $this->comment($this->elsewhere, $this->grace, 'Wrong workspace', 2);
         $this->comment($this->pricing, $this->ada, 'Too expensive', 1);
         $this->comment($this->pricing, $this->linus, 'Agreed', 2);
+    }
+
+    /** @return list<string> */
+    protected function controlDirectories(): array
+    {
+        return ['Controls', 'Projects'];
     }
 
     /** @param  list<string>  $directories */
