@@ -268,16 +268,21 @@ class DecisionMemoTest extends DecisionTestCase
     }
 
     #[Test]
-    public function it_keeps_the_decisions_through_writes_that_send_no_eloquent_event(): void
+    public function it_forgets_every_decision_through_writes_that_send_no_eloquent_event(): void
     {
         ConfiguredPostControl::bind($this->ownInSql());
-        $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
+        $writes = [
+            fn () => $this->teamPost->forceFill(['title' => 'Quiet'])->saveQuietly(),
+            fn () => Client::withoutEvents(fn () => Client::query()->firstOrFail()->update(['name' => 'Silent'])),
+            fn () => DB::table('posts')->update(['title' => 'Mass update']),
+        ];
 
-        $this->teamPost->forceFill(['title' => 'Quiet'])->saveQuietly();
-        Client::withoutEvents(fn () => Client::query()->firstOrFail()->update(['name' => 'Silent']));
-        DB::table('posts')->update(['title' => 'Mass update']);
+        foreach ($writes as $write) {
+            $this->record($this->ada, 'update', $this->teamPost, Verdict::Granted);
+            $write();
 
-        $this->assertSame(1, $this->memo()->count());
+            $this->assertSame(0, $this->memo()->count());
+        }
     }
 
     #[Test]

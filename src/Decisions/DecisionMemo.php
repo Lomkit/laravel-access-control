@@ -49,6 +49,11 @@ final class DecisionMemo
         return $this->reaches->count();
     }
 
+    public function isEmpty(): bool
+    {
+        return $this->verdicts->count() === 0 && $this->reaches->count() === 0;
+    }
+
     public function forget(): void
     {
         $this->verdicts->clear();
