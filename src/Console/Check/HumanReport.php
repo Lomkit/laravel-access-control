@@ -4,7 +4,6 @@ namespace Lomkit\Access\Console\Check;
 
 use Illuminate\Console\View\Components\Factory;
 use Illuminate\Support\Str;
-use Lomkit\Access\Console\Check\Notes\Note;
 use Lomkit\Access\Console\Check\Problems\Problem;
 
 /** @internal */
@@ -25,6 +24,7 @@ final readonly class HumanReport
 
             $components->twoColumnDetail('  boundary', $control->boundarySummary());
             $components->twoColumnDetail('  search', $control->searchSummary());
+            $components->twoColumnDetail('  policy', $control->policy->summary());
         }
 
         $this->renderProblems($components);
@@ -37,7 +37,7 @@ final readonly class HumanReport
 
         $components->twoColumnDetail('controls', count($this->report->controls).' built from '.$this->listed($discovery->paths));
         $components->twoColumnDetail('cache', $discovery->cached ? 'access:cache is in use' : 'not cached');
-        $components->twoColumnDetail('models', $this->listed($discovery->models));
+        $components->twoColumnDetail('models', "{$discovery->scanned} scanned in {$this->listed($discovery->models)}");
         $components->twoColumnDetail('scout driver', $discovery->driver === null ? 'Scout is not installed' : "{$discovery->driver}, from the config of this environment");
         $components->twoColumnDetail('pivots', $this->report->relations.' '.Str::plural('BelongsToMany relation', $this->report->relations).' with a declared return type scanned');
     }
@@ -59,7 +59,7 @@ final readonly class HumanReport
         $components->twoColumnDetail('notes', $this->report->notes === [] ? 'none' : (string) count($this->report->notes));
 
         if ($this->report->notes !== []) {
-            $components->bulletList(array_map(fn (Note $note): string => $note->message(), $this->report->notes));
+            $components->bulletList(NoteLines::of($this->report->notes));
         }
     }
 

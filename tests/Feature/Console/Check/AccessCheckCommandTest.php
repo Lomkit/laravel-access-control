@@ -12,6 +12,7 @@ use Lomkit\Access\Boundaries\ColumnBoundary;
 use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Exceptions\DuplicateControlException;
 use Lomkit\Access\Perimeters\ThroughParent;
+use Lomkit\Access\Policies\AutomaticPolicy;
 use Lomkit\Access\Registry\ControlMap;
 use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Registry\WatchMap;
@@ -86,7 +87,7 @@ class AccessCheckCommandTest extends CheckTestCase
         $this->assertSame(['passed', 'discovery', 'controls', 'pivots', 'problems', 'notes'], array_keys($report));
         $this->assertTrue($report['passed']);
         $this->assertSame(
-            ['paths' => ['app/Access/Controls', $this->fixture('Clean/Controls')], 'cached' => false, 'models' => ['app/Models'], 'scout_driver' => trait_exists(Searchable::class) ? 'collection' : null],
+            ['paths' => ['app/Access/Controls', $this->fixture('Clean/Controls')], 'cached' => false, 'models' => ['app/Models'], 'scanned' => 0, 'scout_driver' => trait_exists(Searchable::class) ? 'collection' : null],
             $report['discovery'],
         );
         $this->assertSame([
@@ -100,6 +101,7 @@ class AccessCheckCommandTest extends CheckTestCase
                 ],
                 'boundary' => ['boundary' => ColumnBoundary::class, 'mode' => 'memory', 'searchable' => true],
                 'search' => ['searchable' => false, 'engine' => null],
+                'policy' => ['policy' => AutomaticPolicy::class, 'form' => 'automatic'],
             ],
             [
                 'control' => TicketReplyControl::class,
@@ -109,6 +111,7 @@ class AccessCheckCommandTest extends CheckTestCase
                 ],
                 'boundary' => null,
                 'search' => ['searchable' => false, 'engine' => null],
+                'policy' => ['policy' => AutomaticPolicy::class, 'form' => 'automatic'],
             ],
         ], $report['controls']);
         $this->assertSame([], $report['problems']);

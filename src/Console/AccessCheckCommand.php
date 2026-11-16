@@ -56,14 +56,14 @@ class AccessCheckCommand extends Command
         }
 
         $controls = $this->laravel->make(ControlCheck::class)->run($findings, $selected);
-        $this->laravel->make(PolicyCheck::class)->run($findings, $controls);
+        $policies = $this->laravel->make(PolicyCheck::class)->run($findings, $controls);
         (new MemorySpreadCheck)->run($findings, $controls);
         (new DraftCheck)->run($findings, $controls);
         $relations = $this->checkSearch($findings, $controls, $scanned);
 
         $report = new CheckReport(
-            DiscoveryInventory::of($this->laravel, $discovery, $cache, $paths, $this->scoutDriver()),
-            array_map(fn (Control $control): ControlInventory => ControlInventory::of($control, $this->engineOf($control)), $controls),
+            DiscoveryInventory::of($this->laravel, $discovery, $cache, $paths, count($scanned), $this->scoutDriver()),
+            array_map(fn (Control $control): ControlInventory => ControlInventory::of($control, $this->engineOf($control), $policies[$control::class]), $controls),
             $relations,
             $findings->problems(),
             $findings->notes(),

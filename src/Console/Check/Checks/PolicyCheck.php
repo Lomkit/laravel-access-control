@@ -4,6 +4,7 @@ namespace Lomkit\Access\Console\Check\Checks;
 
 use Illuminate\Contracts\Auth\Access\Gate;
 use Lomkit\Access\Console\Check\Findings;
+use Lomkit\Access\Console\Check\Inventory\PolicyInventory;
 use Lomkit\Access\Console\Check\Notes\ModelWithoutPolicy;
 use Lomkit\Access\Console\Check\Notes\PolicyOutsideControl;
 use Lomkit\Access\Console\Check\Problems\PolicyForAnotherControl;
@@ -24,9 +25,14 @@ final readonly class PolicyCheck
 
     public function __construct(private Gate $gate) {}
 
-    /** @param  list<Control>  $controls */
-    public function run(Findings $findings, array $controls): void
+    /**
+     * @param  list<Control>  $controls
+     * @return array<class-string<Control>, PolicyInventory>
+     */
+    public function run(Findings $findings, array $controls): array
     {
+        $policies = [];
+
         foreach ($controls as $control) {
             $model = $control->getModel();
 
@@ -34,9 +40,12 @@ final readonly class PolicyCheck
                 $policy = $this->gate->getPolicyFor($model);
             } catch (Throwable $exception) {
                 $findings->problem(new UnresolvablePolicy($model, $exception->getMessage()));
+                $policies[$control::class] = PolicyInventory::unresolvable();
 
                 continue;
             }
+
+            $policies[$control::class] = PolicyInventory::resolved($policy);
 
             if (! is_object($policy)) {
                 $findings->note(new ModelWithoutPolicy($model));
@@ -46,6 +55,8 @@ final readonly class PolicyCheck
                 $this->checkNamedControl($findings, $policy, $control);
             }
         }
+
+        return $policies;
     }
 
     private function checkNamedControl(Findings $findings, ControlledPolicy $policy, Control $control): void

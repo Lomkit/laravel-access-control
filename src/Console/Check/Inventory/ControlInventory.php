@@ -20,9 +20,10 @@ final readonly class ControlInventory
         public bool $boundarySearchable,
         public bool $searchable,
         public ?string $engine,
+        public PolicyInventory $policy,
     ) {}
 
-    public static function of(Control $control, ?string $engine): self
+    public static function of(Control $control, ?string $engine, PolicyInventory $policy): self
     {
         $declaration = $control->declaration();
         $boundary = $declaration->boundary();
@@ -37,6 +38,7 @@ final readonly class ControlInventory
             $declaration->search()->isSearchable(),
             UsesControlledSearchable::check($control->getModel()),
             $engine,
+            $policy,
         );
     }
 
@@ -89,6 +91,7 @@ final readonly class ControlInventory
             'perimeters' => array_map(fn (PerimeterInventory $perimeter): array => $perimeter->toArray(), $this->perimeters),
             'boundary' => $this->boundary === null ? null : ['boundary' => $this->boundary, 'mode' => $this->boundaryMode?->value, 'searchable' => $this->boundarySearchable],
             'search' => ['searchable' => $this->searchable, 'engine' => $this->engine],
+            'policy' => $this->policy->toArray(),
         ];
     }
 }
