@@ -356,7 +356,7 @@ Compare the abilities one by one: an ability missing from `delegates()` is refus
 
 **Drafts.** A draft is not in the database, so `create` with a draft loads its parent by the foreign key (one query) and asks the control of the parent to decide on that stored parent for the mapped ability. A draft without a parent key, or whose parent does not exist, is refused. A relation loaded on the draft is ignored: only the foreign key counts. A draft of a business ability, such as `record`, is judged the same way, but only when `delegates()` lists that ability (`->delegates(['view', 'record' => 'update'])`): otherwise the perimeter does not apply.
 
-**Decisions without a row.** `viewAny`, `create` without a draft and a business ability without a row have no row to check: the control grants them as soon as the reader reaches at least one perimeter. Without a row, the child through the parent is the parent for the mapped ability, AND the child's own `allowed()`. The `ThroughParent` is reached when it delegates the ability, its `allowed()` accepts, if it declares one, and the control of the parent reaches at least one perimeter for the mapped ability, the parent's boundary `admits()` included. The parent's policy is never called. For a reader who holds the permission of the child, reaches nothing on the parent, and reaches no other perimeter of the child:
+**Decisions without a row.** `viewAny`, `create` without a draft and a business ability without a row have no row to check: the control grants them as soon as the reader reaches at least one perimeter, and a `ThroughParent` counts only under the conditions above. Without a row, the child through the parent is therefore the parent for the mapped ability, AND the child's own `allowed()`; the parent's policy is never called. For a reader who holds the permission of the child, reaches nothing on the parent, and reaches no other perimeter of the child:
 
 | Decision | Answer |
 | --- | --- |
@@ -374,7 +374,7 @@ It is on purpose:
 - **Levels.** A group keeps the first level whose `allowed` accepts. A `ThroughParent` reached without access to the parent would, as the top level, hide the levels below it, and the reader's own rows would vanish.
 - **No `allowed()` of its own.** A `ThroughParent` without `allowed()` would be reached by every reader, so `viewAny` and `create` would answer yes for everyone.
 - **`create` without a draft means "somewhere".** A yes with no reachable parent would make laravel-rest-api's `authorized` flags and create buttons lie, and the creation would end in `outside_rows` anyway.
-- **The lists agree.** With nothing reached, `controlled()` is `0=1`: a `viewAny` that answered yes would promise a list that is always empty.
+- **An empty list means no row yet.** A reader who reaches the parent gets 200 and an empty list while the parent has no row, and sees the rows as soon as they exist. With nothing reached, `controlled()` is `0=1` whatever the rows: a 200 would present a list the reader can never fill as one that is only empty for now.
 
 **Validation.** The control validates its `ThroughParent` perimeters when it builds its perimeters, at its first use, or when the registry resolves it in debug mode and in tests, before any query:
 

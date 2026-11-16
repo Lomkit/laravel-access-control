@@ -105,6 +105,21 @@ class ThroughParentRowlessTest extends ParentTestCase
     }
 
     #[Test]
+    public function it_refuses_view_any_with_no_perimeter_when_the_boundary_of_the_parent_does_not_admit_the_reader(): void
+    {
+        $this->grant(['view own posts' => ['Ada', 'Grace']]);
+
+        $this->assertSame('granted', $this->code($this->grace, 'viewAny', Comment::class));
+
+        $this->grace->forceFill(['current_workspace_id' => null])->save();
+
+        $this->assertSame('no_perimeter', $this->code($this->grace, 'viewAny', Comment::class));
+        $this->assertSame('no_perimeter', $this->code($this->grace, 'create', Comment::class));
+        $this->assertSame([], $this->visibleComments($this->grace));
+        $this->assertSame('granted', $this->code($this->ada, 'viewAny', Comment::class));
+    }
+
+    #[Test]
     public function it_keeps_the_own_rows_of_a_lower_level_without_access_to_the_parent(): void
     {
         ConfiguredCommentControl::bind(Levels::of($this->throughPost(), $this->ownComments()));
