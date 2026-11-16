@@ -60,7 +60,7 @@ trait ControlsQueries
     /** @param  Builder<covariant Model>  $query */
     private function constrainControlled(Builder $query, AccessContext $context): void
     {
-        $perimeters = $this->declaration()->reachedBy($context);
+        $perimeters = $this->reached($context);
 
         if ($perimeters->isEmpty()) {
             $query->whereRaw('0=1');

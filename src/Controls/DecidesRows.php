@@ -42,7 +42,7 @@ trait DecidesRows
         }
 
         $context = AccessContext::of($reader, $ability);
-        $perimeters = $this->declaration()->reachedBy($context);
+        $perimeters = $this->reached($context);
 
         if ($perimeters->isEmpty()) {
             return Verdict::NoPerimeter;
@@ -72,7 +72,7 @@ trait DecidesRows
 
         $context = AccessContext::of($reader, Ability::view());
 
-        if (! $this->declaration()->boundary()->applyAdmits($context)) {
+        if (! $this->reached($context)->admitted()) {
             return true;
         }
 

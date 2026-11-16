@@ -19,7 +19,7 @@ final readonly class ControlDeclaration
     public function reachedBy(AccessContext $context): ReachedPerimeters
     {
         if (! $this->boundary->applyAdmits($context)) {
-            return ReachedPerimeters::none();
+            return ReachedPerimeters::outsideBoundary();
         }
 
         return $this->perimeters->reachedBy($context);

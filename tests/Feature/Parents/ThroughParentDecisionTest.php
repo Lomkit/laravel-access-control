@@ -75,6 +75,7 @@ class ThroughParentDecisionTest extends ParentTestCase
         $this->assertSame('granted', $this->code($this->ada, 'view', $comment));
 
         $this->grant(['view client posts' => []]);
+        Access::forgetDecisions();
 
         $this->assertSame('outside_rows', $this->code($this->ada, 'view', $comment));
     }
@@ -88,6 +89,7 @@ class ThroughParentDecisionTest extends ParentTestCase
         $this->assertSame('outside_rows', $this->code($this->ada, 'view', $comment));
 
         $this->grant(['view client posts' => ['Ada']]);
+        Access::forgetDecisions();
 
         $this->assertSame('granted', $this->code($this->ada, 'view', $comment));
     }

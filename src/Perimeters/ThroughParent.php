@@ -126,7 +126,7 @@ final class ThroughParent extends Perimeter
             return '';
         }
 
-        return $parent->ability()->name().':'.$this->link()->control()->declaration()->reachedBy($parent)->fingerprint($parent);
+        return $parent->ability()->name().':'.$this->link()->control()->reached($parent)->fingerprint($parent);
     }
 
     /** @internal */
@@ -156,7 +156,7 @@ final class ThroughParent extends Perimeter
     {
         $parent = $this->parentContext($context);
 
-        return $parent !== null && ! $this->link()->control()->declaration()->reachedBy($parent)->isEmpty();
+        return $parent !== null && ! $this->link()->control()->reached($parent)->isEmpty();
     }
 
     /** @param  Builder<covariant Model>  $query */

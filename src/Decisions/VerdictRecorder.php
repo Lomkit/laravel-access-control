@@ -19,7 +19,7 @@ final readonly class VerdictRecorder
     public static function for(Control $control, Model $reader, Ability $ability, DecisionMemo $memo): self
     {
         $context = AccessContext::of($reader, $ability);
-        $perimeters = $control->declaration()->reachedBy($context);
+        $perimeters = $control->reached($context);
         $check = $perimeters->isEmpty() ? null : SqlCheck::for($control, $perimeters, $context);
 
         return new self($memo, $context, $check?->needsSql() === true ? $check : null);

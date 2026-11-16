@@ -103,7 +103,7 @@ class AllowedAbilityParameterTest extends PackageTestCase
         $this->assertFalse($this->ada->can('update', $this->releaseNotes));
         $this->assertTrue($this->ada->can('approve', $this->releaseNotes));
         $this->assertSame(['Release notes'], Post::controlledFor($this->ada)->pluck('title')->all());
-        $this->assertSame(['view', 'view', 'view', 'update', 'approve', 'view'], $received);
+        $this->assertSame(['view', 'update', 'approve'], $received);
     }
 
     #[Test]

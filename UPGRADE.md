@@ -359,7 +359,7 @@ public function test_its_decisions_agree(): void
 
 The abilities default to `view`, `update` and `delete`; pass others as the fourth argument, such as `['view', 'update', 'approve']`. A failure names the reader, then each row key and ability that disagree, with the answer of each path: `granted`, a refusal code, or `denied without a code` when no policy decided. The usual cause is a `should` callback or an `includes()` hook that describes other rows than its `query()`. A policy method that adds its own rule to an ability, such as an `update()` override that refuses some rows, makes the assertion fail for that ability on purpose: the Gate grants it on fewer rows than `controlled('update')` lists, so move the rule into the control. `create` is compared row by row only, since it is judged on drafts, and `viewAny` too, since it decides without a row. The rows must be saved rows of the control's model, since a draft is judged only in memory; it proves the agreement on the rows of the test only. The kept decisions are flushed before each path and after the last one.
 
-The tests need no reset trait for the kept decisions: they live in a scoped instance of the container, so each test starts with none, and every Eloquent write flushes them. After a write Eloquent does not see, such as `attach()`, call `Access::forgetDecisions()` before the next check.
+The tests need no reset trait for the kept decisions: they live in a scoped instance of the container, so each test starts with none, and every Eloquent write flushes them. After a write Eloquent does not see, such as `attach()`, or a permission changed in memory, such as a `Gate::define()` between two checks, call `Access::forgetDecisions()` before the next check.
 
 ### Search
 
@@ -945,9 +945,16 @@ Keep the brand out of the boundary: `Boundary::where()` holds one value per read
 
 #### Kept decisions
 
-The package keeps decisions for the length of a request or a job, under the reader (its morph class and key), the decision context, the model, the row key and the ability; a reader without a key, or not saved, is never kept. The perimeters that apply and the in-memory checks are always evaluated again; only the SQL check of a row can be answered from what was kept. Everything kept is forgotten when any Eloquent model is saved or deleted, when a transaction rolls back, at the end of each request or job, and when the application calls `Access::forgetDecisions()`. The number of kept decisions is capped, and the oldest is dropped first.
+The package keeps two things for the length of a request or a job:
 
-Call `Access::forgetDecisions()` after a write that Eloquent does not see and that changes a decision: `attach()`, `detach()` and `sync()` on a relation, `DB::table()` and mass updates, `saveQuietly()` and writes inside `withoutEvents()`. An attribute of the reader changed in memory, without saving it, does not change what was kept either.
+- the perimeters a reader reaches, under the reader (its morph class and key), the decision context, the control and the ability: what every `allowed()` callback and `allows()` hook answered, what the boundary's `admits()` answered, the level reached in each group, and, for a `ThroughParent`, the perimeters the reader reaches on the parent, kept the same way under the parent's control;
+- the SQL check of each row, under the reader, the decision context, the model, the row key and the ability.
+
+A reader without a key, or not saved, is never kept: its perimeters are evaluated again on every decision. For the others, an `allowed()` that reads the database runs once per reader, ability and decision context in a request, not once per row: a page of 100 posts decided through `withAbilities()` costs the page query plus the queries of each `allowed()` once, and so does a page of 100 comments whose `ThroughParent` reaches the posts. The policy, `controlled()`, `controlledFor()`, the batches, the search filter and `applicablePerimeters()` read the same kept perimeters, so they always agree within a request. The in-memory checks (`should`, `includes()` and the in-memory form of the boundary) run on every decision, on the row as stored.
+
+Everything kept is forgotten at once, the perimeters and the SQL checks: when any Eloquent model is saved or deleted, when a transaction rolls back, once Laravel has handled a request (so two requests of one test share nothing), at the end of each job, and when the application calls `Access::forgetDecisions()`. Until then, what `allowed()` answered stands: a permission revoked by a write the package does not see is still granted for the rest of the request. Each kind is capped at 10,000 entries, and the oldest is dropped first.
+
+Call `Access::forgetDecisions()` after a write that Eloquent does not see and that changes a decision or a permission that `allowed()` reads: `attach()`, `detach()` and `sync()` on a relation (a role detached from the reader included), `DB::table()` and mass updates, `saveQuietly()` and writes inside `withoutEvents()`. A permission changed without any write, such as a `Gate::define()` in a test, needs it too. An attribute of the reader changed in memory, without saving it, does not change what was kept either.
 
 #### Batched decisions
 
@@ -992,7 +999,7 @@ $editable = Post::controlledFor($user, 'update')
     ->paginate();
 ```
 
-The batches hold only what the SQL decides. The in-memory checks still run on every decision, on the row as stored: the perimeters that apply, the in-memory form of the boundary, and the perimeters with a `should` callback or an `includes()` hook. A perimeter checked in memory can grant a row that the batch answered `outside_rows`. A batched answer is therefore always the answer of the row-by-row decision. With a boundary that has no in-memory form, `withAbilities(['view', ...])` or a preload of `view` also gives the `not_found` answers of the other abilities without a query.
+The batches hold only what the SQL decides, under the perimeters kept for the reader (see [Kept decisions](#kept-decisions)). The in-memory checks still run on every decision, on the row as stored: the in-memory form of the boundary, and the perimeters with a `should` callback or an `includes()` hook. A perimeter checked in memory can grant a row that the batch answered `outside_rows`. A batched answer is therefore always the answer of the row-by-row decision. With a boundary that has no in-memory form, `withAbilities(['view', ...])` or a preload of `view` also gives the `not_found` answers of the other abilities without a query.
 
 A batch is only worth its query while nothing flushes the kept decisions: an Eloquent write for each row while the page renders, such as an access log saved through a model, forgets them, and the next checks query again. Write such logs after the rendering, or through `DB::table()`.
 
@@ -1430,7 +1437,7 @@ The callbacks are private properties of `Perimeter`. A subclass that assigned `$
 
 A control builds its perimeters once and keeps them for the whole process: a request, but also a queue worker or an Octane worker that serves many requests. `perimeters()` must therefore return the same perimeters every time it runs. In debug mode and in tests, each time the registry hands out a control, it builds `perimeters()` again and compares the result with the perimeters it keeps: the same classes in the same order, the same callbacks declared from the same lines, and the same values captured by the callbacks. A difference throws `ImpurePerimetersException`, which names the control. The same goes for `boundary()`: the boundary is built once with the perimeters, and the check compares its class, its columns and the values its closure captures. The check does not run when debug mode is off outside tests.
 
-Move what `perimeters()` read when it built the perimeters into the callbacks, which run for each decision with the reader:
+Move what `perimeters()` read when it built the perimeters into the callbacks, which run with the reader:
 
 ```php
 // Before: the client of the first user is captured for the whole worker
@@ -1468,7 +1475,7 @@ The check compares the values the callbacks capture this way:
 - objects of a `readonly` class, such as `Ability`, property by property with these same rules, at any depth: a closure they hold by its lines and its captures, a model by its key, a scalar by value and type, so `'1'` and `1` differ. An object that refers to itself is compared once. An object whose class is not declared `readonly` is any other object, even when all its properties are `readonly`;
 - any other object by its class only: a service built in `perimeters()`, such as `$rules = new PostRules`, is pure and passes.
 
-The properties that a perimeter class declares, the `readonly` properties its constructor promotes as well as the state a wither sets, are compared with the same rules, so `OwnedByMyEntities::ofKind(config('documents.kind'))` and `OwnedByMyEntities::new()->ofKind(config('documents.kind'))` are caught when the configuration changes, as the same value captured by a closure is. A hook that changes a property of its perimeter, such as a cache of the readers it allowed, is caught too: the perimeters are shared by every request of the process, so a hook must never write to them. The properties of `Perimeter` and of `ThroughParent` are compared by the package on their own: the callbacks, the search keys, and the relation, inverse and delegation of a parent.
+The properties that a perimeter class declares, the `readonly` properties its constructor promotes as well as the state a wither sets, are compared with the same rules, so `OwnedByMyEntities::ofKind(config('documents.kind'))` and `OwnedByMyEntities::new()->ofKind(config('documents.kind'))` are caught when the configuration changes, as the same value captured by a closure is. A hook that changes a property of its perimeter, such as a cache of the readers it allowed, is caught too: the perimeters are shared by every request of the process, so a hook must never write to them. No such cache is needed: the package keeps what `allowed()` and `allows()` answer for each reader, ability and decision context until the next flush (see [Kept decisions](#kept-decisions)). The properties of `Perimeter` and of `ThroughParent` are compared by the package on their own: the callbacks, the search keys, and the relation, inverse and delegation of a parent.
 
 The check only sees what changes between two builds of the same process. It cannot see:
 
