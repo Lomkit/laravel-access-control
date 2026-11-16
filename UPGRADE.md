@@ -993,7 +993,7 @@ public function approve(User $user, Post $post): Response
 }
 ```
 
-The Gate calls the policy method named after the ability, so `ControlledPolicy` reserves no ability name. Its public methods are the seven standard abilities, and its only other members are the protected `decideByControl()` and `declaredControl()`. A policy can declare any business ability, `decide` included.
+The Gate calls the policy method named after the ability. The public methods of `ControlledPolicy` are the seven standard abilities, and a policy inherits only two other methods, the protected `decideByControl()` and `declaredControl()`: these two names, and `decide-by-control` and `declared-control`, are the only abilities a policy cannot declare. Any other business ability, `decide` included, can be declared. Keep `declaredControl()` protected. The 0.x `getControl()` helper is removed: call `decideByControl()`, or override `declaredControl()` to pick the control.
 
 ### Abilities
 
@@ -1538,6 +1538,8 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `$this->authorize('create', Post::class)` before `Post::create($data)` | `$this->authorize('create', [Post::class, new Post($data)])` |
 | `$control->applies($user, $ability, new Post)` | `$control->applies($user, $ability)`, or `Draft::of($post)` for a creation |
 | `$control->applies($user, $control->abilityFor('approve'), $post)` in a policy | `$this->decideByControl(__FUNCTION__, $user, $post)` |
+| `$this->getControl()->applies($user, 'approve', $post)` in a policy | `$this->decideByControl(__FUNCTION__, $user, $post)` |
+| `getControl()` overridden on a policy | `protected function declaredControl(): ?Control` (`getControl()` is removed; an override is no longer called) |
 | `$post->fill($data)` then `authorize('update', $post)` to check the new values | Decided on the stored row: check the new values through a draft |
 | A `should` callback that repeats the `query()` of its perimeter | Removed: the row is checked in SQL through the `query()` |
 | `MissingPerimeterCallbackException` for a saved row on a perimeter without `should` | The row is checked in SQL; keep `should` for drafts |

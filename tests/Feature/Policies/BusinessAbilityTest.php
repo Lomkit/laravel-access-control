@@ -67,6 +67,16 @@ class BusinessAbilityTest extends PackageTestCase
     }
 
     #[Test]
+    public function it_never_lets_the_gate_call_the_helpers_of_the_policy(): void
+    {
+        Gate::define('decideByControl client posts', fn (User $user): bool => true);
+        Gate::define('declaredControl client posts', fn (User $user): bool => true);
+
+        $this->assertTrue(Gate::forUser($this->ada)->denies('decideByControl', $this->releaseNotes));
+        $this->assertTrue(Gate::forUser($this->ada)->denies('declaredControl', $this->releaseNotes));
+    }
+
+    #[Test]
     public function it_decides_a_business_ability_without_a_row_through_the_helper(): void
     {
         $this->assertSame('no_perimeter', Gate::forUser($this->ada)->inspect('export', Post::class)->code());
