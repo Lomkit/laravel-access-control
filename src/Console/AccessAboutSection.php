@@ -67,7 +67,7 @@ final readonly class AccessAboutSection
 
     private function paths(): string
     {
-        $inventory = DiscoveryInventory::of($this->app, $this->discovery, $this->cache, [], null);
+        $inventory = DiscoveryInventory::of($this->app, $this->discovery, $this->cache, [], 0, null);
 
         return implode(', ', $inventory->paths);
     }

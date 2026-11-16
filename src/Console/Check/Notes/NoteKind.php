@@ -10,4 +10,14 @@ enum NoteKind: string
     case ModelWithoutPolicy = 'model_without_policy';
     case UngrantableDrafts = 'ungrantable_drafts';
     case BoundaryRefusingDrafts = 'boundary_refusing_drafts';
+
+    public function subjectName(): string
+    {
+        return match ($this) {
+            self::InheritedMemoryPerimeters => 'base control',
+            self::PolicyOutsideControl => 'policy',
+            self::ModelWithoutPolicy => 'model',
+            self::UngrantableDrafts, self::BoundaryRefusingDrafts => 'control',
+        };
+    }
 }

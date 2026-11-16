@@ -5,6 +5,7 @@ namespace Lomkit\Access\Console;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use Laravel\Scout\Searchable;
@@ -23,6 +24,7 @@ use Lomkit\Access\Console\Check\Findings;
 use Lomkit\Access\Console\Check\HumanReport;
 use Lomkit\Access\Console\Check\Inventory\ControlInventory;
 use Lomkit\Access\Console\Check\Inventory\DiscoveryInventory;
+use Lomkit\Access\Console\Check\Inventory\PolicyInventory;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Discovery\ControlDiscovery;
 use Lomkit\Access\Discovery\DiscoveryCache;
@@ -39,7 +41,7 @@ use Throwable;
 #[Description('Check the access controls, their policies and their searches, and list their perimeters')]
 class AccessCheckCommand extends Command
 {
-    public function handle(ControlDiscovery $discovery, DiscoveryCache $cache): int
+    public function handle(ControlDiscovery $discovery, DiscoveryCache $cache, Gate $gate): int
     {
         $findings = new Findings;
         $paths = $this->modelPaths();
@@ -62,8 +64,8 @@ class AccessCheckCommand extends Command
         $relations = $this->checkSearch($findings, $controls, $scanned);
 
         $report = new CheckReport(
-            DiscoveryInventory::of($this->laravel, $discovery, $cache, $paths, $this->scoutDriver()),
-            array_map(fn (Control $control): ControlInventory => ControlInventory::of($control, $this->engineOf($control)), $controls),
+            DiscoveryInventory::of($this->laravel, $discovery, $cache, $paths, count($scanned), $this->scoutDriver()),
+            array_map(fn (Control $control): ControlInventory => ControlInventory::of($control, $this->engineOf($control), PolicyInventory::of($gate, $control->getModel())), $controls),
             $relations,
             $findings->problems(),
             $findings->notes(),
