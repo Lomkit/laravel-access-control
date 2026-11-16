@@ -31,6 +31,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[Group('scout')]
 class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
 {
+    private const string TASKS_BOOTING_THE_TESTBENCH_SKELETON = 'config,routes';
+
     #[\Override]
     protected function fixtures(): array
     {
@@ -78,7 +80,8 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
         $this->assertSame([Country::class => [DeskControl::class]], require $this->app->bootstrapPath('cache/access-reindex.php'));
 
         try {
-            $this->assertSame(0, Artisan::call('optimize'));
+            $this->assertSame(0, Artisan::call('optimize', ['--except' => self::TASKS_BOOTING_THE_TESTBENCH_SKELETON]));
+            $this->assertMatchesRegularExpression('/access \.+ .*DONE/', Artisan::output());
         } finally {
             Artisan::call('optimize:clear');
         }

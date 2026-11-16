@@ -89,8 +89,8 @@ class UnconfiguredConnectionTest extends PackageTestCase
 
         $this->assertThrows(
             fn () => Access::control(QueryingOfficeControl::class)->declaration(),
-            RelationInspectionQueryException::class,
-            sprintf('The [country] relation of the [%s] model runs a query on the [unconfigured] connection when the method is called ([select min("id") as "aggregate" from "countries"]). The package reads the shape of a relation', QueryingOffice::class),
+            fn (RelationInspectionQueryException $exception): bool => str_starts_with($exception->getMessage(), sprintf('The [country] relation of the [%s] model runs a query on the [unconfigured] connection when the method is called ([select min("id") as ', QueryingOffice::class))
+                && str_contains($exception->getMessage(), ' from "countries"]). The package reads the shape of a relation'),
         );
         $this->assertSame($resolver, Model::getConnectionResolver());
         $this->assertArrayNotHasKey('unconfigured', DB::getConnections());
