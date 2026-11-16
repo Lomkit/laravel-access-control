@@ -823,7 +823,19 @@ $this->authorize('create', [Post::class, $draft]);
 $draft->save();
 ```
 
-A draft is not in the database, so only the in-memory checks judge it: the `should` callback or the `includes()` hook of a perimeter, an unrestricted perimeter, and the in-memory form of the boundary (`Boundary::where()`, or the `includes()` hook of a boundary class). A perimeter without an in-memory form cannot grant a draft, and a boundary without one refuses it. `Perimeter::checksInMemory()` and `Boundary::checksInMemory()` tell which ones can. Add a `should` callback to the perimeters through which the readers create rows. laravel-rest-api already passes the draft to `create`, so its applications judge every creation on its draft once they upgrade.
+A draft is not in the database, so only the in-memory checks judge it: the `should` callback or the `includes()` hook of a perimeter, an unrestricted perimeter, and the in-memory form of the boundary (`Boundary::where()`, or the `includes()` hook of a boundary class). A perimeter without an in-memory form cannot grant a draft, and a boundary without one refuses it. `Perimeter::checksInMemory()` and `Boundary::checksInMemory()` tell which ones can, and `php artisan access:check` notes a control that no perimeter lets grant a draft (`ungrantable_drafts`) and a boundary that refuses every draft (`boundary_refusing_drafts`). Add a `should` callback to the perimeters through which the readers create rows.
+
+A policy whose `create()` ignores the draft means "allowed to create anywhere" again: a reader of the "own posts" level could create a post in the client of someone else, as long as the validation lets the `client_id` through. Keep the draft in the decision.
+
+#### Creating through laravel-rest-api
+
+laravel-rest-api always passes the draft: it checks `create` on the class, then on the draft of each row it creates. Its applications therefore judge every creation on its draft once they upgrade, and a creation that no perimeter can judge is refused with `outside_rows`, the code of a draft outside the perimeters, so the refusal reads like a missing permission.
+
+- The perimeters that can grant a draft are the ones with a `should()` callback or an `includes()` hook, an unrestricted perimeter, and a `ThroughParent` that delegates `create` (`->delegates(['view', 'create' => 'update'])`), which loads the parent through the foreign key of the draft, one query per created row, and asks the control of the parent.
+- A perimeter checked in SQL never grants a draft. Give it a `should()` callback that reads the foreign keys of the draft, such as `fn (User $user, Post $post): bool => $post->author_id === $user->id`. A rule two relations away may load the relation on the draft, one query per created row, the same count in tests and in production.
+- A boundary without an in-memory form refuses every creation: declare it with `Boundary::where()`, or override `includes()` on the boundary class.
+
+`php artisan access:check` lists these controls and boundaries in its notes.
 
 A policy that overrides `create(Model $user)` must accept the draft, or PHP throws a fatal error:
 
@@ -1518,6 +1530,8 @@ Notes:
 | `inherited_memory_perimeters` | Two discovered controls or more inherit `perimeters()` from a base class whose perimeters have a `should()` callback, so they all check them in memory. |
 | `policy_outside_control` | The policy of a controlled model does not extend `ControlledPolicy`. |
 | `model_without_policy` | No policy is registered for a controlled model (`Access::registerPolicies()` registers one). |
+| `ungrantable_drafts` | No perimeter of a control can grant a draft: none has a `should()` callback or an `includes()` hook, none is unrestricted, and no `ThroughParent` delegates `create`. Every creation judged on its draft is refused with `outside_rows` (see [Drafts](#drafts)). |
+| `boundary_refusing_drafts` | The boundary of a control has no in-memory form, so it refuses every draft with `outside_boundary`. |
 
 Options:
 
