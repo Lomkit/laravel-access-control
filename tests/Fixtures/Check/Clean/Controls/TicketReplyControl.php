@@ -14,7 +14,7 @@ class TicketReplyControl extends Control
     protected function perimeters(): array
     {
         return [
-            ThroughParent::belongsTo('ticket', inverse: 'replies')->delegates(['view', 'update']),
+            ThroughParent::belongsTo('ticket', inverse: 'replies')->delegates(['view', 'update', 'create' => 'update']),
         ];
     }
 }

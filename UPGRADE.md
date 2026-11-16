@@ -38,11 +38,19 @@ Relations, `whereHas()` subqueries, eager loads, lazy loads and route model bind
 
 `uncontrolled()` keeps working and still states that a query reads every row on purpose. The calls you added only to opt out of the key can stay or go: they no longer change the results.
 
-Every model that uses `HasControl` still registers `HasControlScope` as a global scope, but the scope no longer adds any constraint. `withoutGlobalScope(HasControlScope::class)` keeps working, and `controlled()`, `controlledFor()` and `uncontrolled()` remove the scope from their query.
-
 ### The control scope
 
-`HasControlScope::resolveUser()` and `HasControlScope::retrievingUser()` are removed. Controlled queries and controlled searches read the user with `Auth::user()` when they run. Replace `HasControlScope::resolveUser()` with `Auth::user()`, and remove the calls to `HasControlScope::retrievingUser()`:
+`HasControlScope` is removed. A model that uses `HasControl` registers no global scope anymore, and `controlled()`, `controlledFor()` and `uncontrolled()` remove no scope from their query. Remove `withoutGlobalScope(HasControlScope::class)` from your queries, which read every row without it, or write `uncontrolled()` to state it on purpose, and remove the imports of the class:
+
+```php
+// Before
+$posts = Post::withoutGlobalScope(HasControlScope::class)->get();
+
+// After
+$posts = Post::uncontrolled()->get();
+```
+
+`HasControlScope::resolveUser()` and `HasControlScope::retrievingUser()` go with the class. Controlled queries and controlled searches read the user with `Auth::user()` when they run. Replace `HasControlScope::resolveUser()` with `Auth::user()`, and remove the calls to `HasControlScope::retrievingUser()`:
 
 ```php
 // Before
@@ -54,7 +62,7 @@ $user = Auth::user();
 
 A controlled query no longer skips its control while the guard retrieves the user, where it used to read every row. Do not run a controlled query from an event of your user model that the guard fires while it retrieves the user, such as `retrieved`: the query asks the guard for the user again.
 
-`controlled()` and `uncontrolled()` are now local scopes of the `HasControl` trait, declared with Laravel's `#[Scope]` attribute, instead of builder macros registered by `HasControlScope::extend()`. `HasControlScope` is final and keeps only `apply()`. Remove the code that extends `HasControlScope` or calls its `extend()` method, and rename any `controlled`, `controlledFor` or `uncontrolled` method that a controlled model declares itself.
+`controlled()` and `uncontrolled()` are now local scopes of the `HasControl` trait, declared with Laravel's `#[Scope]` attribute, instead of builder macros registered by `HasControlScope::extend()`. Remove the code that extends `HasControlScope` or calls its `extend()` method, and rename any `controlled`, `controlledFor` or `uncontrolled` method that a controlled model declares itself.
 
 ### Named readers
 
@@ -815,7 +823,9 @@ $this->authorize('create', [Post::class, $draft]);
 $draft->save();
 ```
 
-A draft is not in the database, so only the in-memory checks judge it: the `should` callback or the `includes()` hook of a perimeter, an unrestricted perimeter, and the in-memory form of the boundary (`Boundary::where()`, or the `includes()` hook of a boundary class). A perimeter without an in-memory form cannot grant a draft, and a boundary without one refuses it. `Perimeter::checksInMemory()` and `Boundary::checksInMemory()` tell which ones can. Add a `should` callback to the perimeters through which the readers create rows. laravel-rest-api already passes the draft to `create`, so its applications judge every creation on its draft once they upgrade.
+A draft is not in the database, so only the in-memory checks judge it: the `should` callback or the `includes()` hook of a perimeter, an unrestricted perimeter, and the in-memory form of the boundary (`Boundary::where()`, or the `includes()` hook of a boundary class). A perimeter without an in-memory form cannot grant a draft, and a boundary without one refuses it. `Perimeter::checksInMemory()` and `Boundary::checksInMemory()` tell which ones can, and `php artisan access:check` notes a control that no perimeter lets grant a draft (`ungrantable_drafts`) and a boundary that refuses every draft (`boundary_refusing_drafts`). Add a `should` callback to the perimeters through which the readers create rows.
+
+A policy whose `create()` ignores the draft means "allowed to create anywhere" again: a reader who may only create their own posts could create one for another author or another client, as long as the validation lets `author_id` or `client_id` through. Keep the draft in the decision.
 
 A policy that overrides `create(Model $user)` must accept the draft, or PHP throws a fatal error:
 
@@ -826,6 +836,16 @@ public function create(Model $user): bool|Response
 // After
 public function create(Model $user, ?Model $draft = null): Response
 ```
+
+#### Creating through laravel-rest-api
+
+laravel-rest-api always passes the draft: it checks `create` on the class, then on the draft of each row it creates. Its applications therefore judge every creation on its draft once they upgrade, and a creation that no perimeter can judge is refused with `outside_rows`, the code of a draft outside the perimeters, so the refusal reads like a missing permission.
+
+- The perimeters that can grant a draft are the ones with a `should()` callback or an `includes()` hook, an unrestricted perimeter, and a `ThroughParent` that delegates `create` (`->delegates(['view', 'create' => 'update'])`), which loads the parent through the foreign key of the draft, one query per created row, then asks the control of the parent to decide it.
+- A perimeter checked in SQL never grants a draft. Give it a `should()` callback that reads the foreign keys of the draft, such as `fn (User $user, Post $post): bool => $post->author_id === $user->id`. The `should()` callback then decides the saved rows too, in memory: it must say exactly what `query()` says; check it with `assertControlAgrees()`. A rule two relations away may load the relation on the draft, one query per created row, the same count in tests and in production.
+- A boundary without an in-memory form refuses every creation: declare it with `Boundary::where()`, or override `includes()` on the boundary class.
+
+`php artisan access:check` lists these controls and boundaries in its notes.
 
 #### Unsaved models
 
@@ -892,6 +912,36 @@ public function boot(): void
 ```
 
 The resolver returns an array of strings, ints, booleans or nulls keyed by name; anything else, such as a model or a float, throws `InvalidDecisionContextException`. It runs each time the package builds an `AccessContext`, and the hooks of a perimeter class read it with `$context->decisionContext()`, sorted by key. Without a resolver, the context is `[]`. The package files the decisions it keeps for a request under this context, so a decision made for one brand is never reused for another.
+
+#### Several brands in one list
+
+A decision runs under one decision context: the one the resolver returns when the package builds it. Switching the context between two decisions is supported, since each decision reads the resolver again. Combining in one query branches built under different contexts is not: `controlledFor()` called once per brand, with the resolver switched in between and the calls joined by `orWhere()`, only lists the rows. Everything else runs under the context in force when it runs, not under the brand of each row: `withAbilities()`, the policy, the kept decisions, `Access::preload()` and the row checks of laravel-rest-api, whose kept decisions are filed under the same context. A post of brand B listed through the rights of brand B would be decided for `update` with the rights of brand A, granted or refused, and that decision kept under brand A, in laravel-rest-api's authorization cache too, and a branch that forgets its brand condition would list the posts of another brand with the rights of the first.
+
+When one list spans several brands, the brand is a value of the row, not of the request. Write perimeters that read the brand of the row and filter by the brands where the reader holds the right; `brandsWhere()` stands for a method of your application that returns them:
+
+```php
+protected function perimeters(): array
+{
+    return [
+        BrandPerimeter::new()
+            ->allowed(fn (User $user, Ability $ability): bool => $user->brandsWhere("{$ability} brand posts") !== [])
+            ->should(fn (User $user, Post $post, Ability $ability): bool => in_array($post->brand_id, $user->brandsWhere("{$ability} brand posts"), true))
+            ->query(function (Builder $query, User $user, Ability $ability): void {
+                $query->whereIn('brand_id', $user->brandsWhere("{$ability} brand posts"));
+            }),
+        OwnPerimeter::new()
+            ->allowed(fn (User $user, Ability $ability): bool => $user->brandsWhere("{$ability} own posts") !== [])
+            ->should(fn (User $user, Post $post, Ability $ability): bool => $post->author_id === $user->id && in_array($post->brand_id, $user->brandsWhere("{$ability} own posts"), true))
+            ->query(function (Builder $query, User $user, Ability $ability): void {
+                $query->whereBelongsTo($user, 'author')->whereIn('brand_id', $user->brandsWhere("{$ability} own posts"));
+            }),
+    ];
+}
+```
+
+`Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one. Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
+
+Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands of the reader.
 
 #### Kept decisions
 
@@ -1169,6 +1219,45 @@ protected function scope(Builder $query, AccessContext $context): void
 
 A hook receives the reader as `Model`, the type of every reader: a perimeter class cannot narrow it to `User` in its signature, so it checks the reader with `instanceof`, as above. The perimeter controls the rows of one model, so `$row` and `$query` are rows of that model.
 
+For PHPStan, the `scope()` hook of a perimeter class and of a boundary class receives a `Builder<covariant Model>`, the type that Laravel gives `Scope::apply()`: one class may serve several models. Laravel declares the model of `Builder` invariant, so PHPStan refuses to pass this builder to a helper typed `Builder<Post>`, `Builder<Model>` or `@template TModel of Model` with `Builder<TModel>`. Type the helpers that only add conditions `Builder<covariant Model>`, such as this method of an application class `PostRows`:
+
+```php
+/** @param  Builder<covariant Model>  $query */
+public static function visible(Builder $query): void
+{
+    $query->whereNull('archived_at');
+}
+```
+
+A helper that needs the local scopes of `Post` receives a builder narrowed by `PostRows::of()`, a check that throws when the builder reads another model; `RowsOfAnotherModelException` stands for an exception of your application:
+
+```php
+/**
+ * @template TModel of Model
+ *
+ * @param  class-string<TModel>  $model
+ * @param  Builder<covariant Model>  $query
+ * @return Builder<TModel>
+ */
+public static function of(string $model, Builder $query): Builder
+{
+    if (! $query->getModel() instanceof $model) {
+        throw RowsOfAnotherModelException::for($model, $query->getModel());
+    }
+
+    /** @var Builder<TModel> $query */
+    return $query;
+}
+
+protected function scope(Builder $query, AccessContext $context): void
+{
+    PostRows::visible($query);
+    PostRows::of(Post::class, $query)->published();
+}
+```
+
+A `query()` callback declared in the control is not typed by the package: PHPStan reads the `Builder` of its parameter without a model, and accepts it in a helper typed `Builder<Post>`.
+
 `unrestricted()` throws `UnrestrictedPerimeterCallbackException` on a perimeter class that overrides `includes()` or `scope()`: an unrestricted perimeter never runs them.
 
 A perimeter class that must be narrowed for one use, such as the entities of the reader but only the invoices, keeps the variant as state of the class, which every hook reads. Declaring `query()` on a class that overrides `scope()` throws `OverriddenPerimeterHookException`, and a second `query()` throws `DuplicatePerimeterCallbackException`: neither narrows a class. The nature of the state picks the form:
@@ -1443,6 +1532,8 @@ Notes:
 | `inherited_memory_perimeters` | Two discovered controls or more inherit `perimeters()` from a base class whose perimeters have a `should()` callback, so they all check them in memory. |
 | `policy_outside_control` | The policy of a controlled model does not extend `ControlledPolicy`. |
 | `model_without_policy` | No policy is registered for a controlled model (`Access::registerPolicies()` registers one). |
+| `ungrantable_drafts` | No perimeter of a control can grant a draft: none has a `should()` callback or an `includes()` hook, none is unrestricted, and no `ThroughParent` delegates `create`. Every creation judged on its draft is refused with `outside_rows` (see [Drafts](#drafts)). |
+| `boundary_refusing_drafts` | The boundary of a control has no in-memory form, so it refuses every draft with `outside_boundary`. |
 
 Options:
 
@@ -1526,7 +1617,7 @@ To turn the extension off, list it in `disabled_extensions` of `config/rest.php`
 ],
 ```
 
-To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name.
+To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name. Its `restrict()` may call `controlledFor()` on the query of the context and narrow it with conditions of its own: these scopes add only where clauses and remove no global scope, as rest-api requires of a restriction. The restriction must list exactly the rows the `view` policy grants: an `orWhere()` with another `controlledFor()` branch, of another ability or built under another decision context, lists rows that the policy and the row checks refuse (see [Several brands in one list](#several-brands-in-one-list)).
 
 ### Removed helpers
 
@@ -1548,6 +1639,7 @@ To replace it, extend it, list the subclass in `extensions` and `AccessControlEx
 | `$control->queried($query, $user)` (removed) | `$query->controlledFor($user)` |
 | `HasControlScope::resolveUser()` | `Auth::user()` |
 | `HasControlScope::retrievingUser()` | Removed, no replacement |
+| `withoutGlobalScope(HasControlScope::class)` | Nothing: `HasControlScope` is removed and the query reads every row; `uncontrolled()` to state it on purpose |
 | `->query(fn ($query) => $query)`, `->should(fn () => true)` on a global perimeter | `->unrestricted()` |
 | `->query(fn ($query) => Model::query()->where(...))` | `->query(function ($query): void { $query->where(...); })` |
 | `->query(A)->query(B)`, or `allowed()`, `should()` or `searchKeys()` declared twice | One callback with both conditions: a second declaration throws `DuplicatePerimeterCallbackException` |

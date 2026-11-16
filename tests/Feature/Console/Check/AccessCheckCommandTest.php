@@ -87,7 +87,7 @@ class AccessCheckCommandTest extends CheckTestCase
                 'control' => TicketReplyControl::class,
                 'model' => TicketReply::class,
                 'perimeters' => [
-                    ['position' => '#1', 'perimeter' => ThroughParent::class, 'mode' => 'sql', 'unrestricted' => false, 'search_keys' => null, 'parent' => ['relation' => 'ticket', 'delegates' => ['update' => 'update', 'view' => 'view']]],
+                    ['position' => '#1', 'perimeter' => ThroughParent::class, 'mode' => 'sql', 'unrestricted' => false, 'search_keys' => null, 'parent' => ['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view']]],
                 ],
                 'boundary' => null,
                 'search' => ['searchable' => false, 'engine' => null],

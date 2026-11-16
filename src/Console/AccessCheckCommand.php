@@ -11,6 +11,7 @@ use Laravel\Scout\Searchable;
 use Lomkit\Access\Console\Check\CheckReport;
 use Lomkit\Access\Console\Check\Checks\ControlCheck;
 use Lomkit\Access\Console\Check\Checks\DiscoveryCheck;
+use Lomkit\Access\Console\Check\Checks\DraftCheck;
 use Lomkit\Access\Console\Check\Checks\MemorySpreadCheck;
 use Lomkit\Access\Console\Check\Checks\ModelEngine;
 use Lomkit\Access\Console\Check\Checks\ModelScan;
@@ -57,6 +58,7 @@ class AccessCheckCommand extends Command
         $controls = $this->laravel->make(ControlCheck::class)->run($findings, $selected);
         $this->laravel->make(PolicyCheck::class)->run($findings, $controls);
         (new MemorySpreadCheck)->run($findings, $controls);
+        (new DraftCheck)->run($findings, $controls);
         $relations = $this->checkSearch($findings, $controls, $scanned);
 
         $report = new CheckReport(

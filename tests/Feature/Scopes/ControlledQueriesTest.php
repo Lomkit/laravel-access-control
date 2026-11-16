@@ -4,7 +4,6 @@ namespace Lomkit\Access\Tests\Feature\Scopes;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Gate;
-use Lomkit\Access\Controls\HasControlScope;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
@@ -110,20 +109,19 @@ class ControlledQueriesTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_keeps_the_control_scope_registered_without_filtering(): void
+    public function it_registers_no_global_scope_on_a_controlled_model(): void
     {
-        $this->assertArrayHasKey(HasControlScope::class, (new Post)->getGlobalScopes());
-        $this->assertSame([], Post::query()->removedScopes());
+        $this->assertSame([], (new Post)->getGlobalScopes());
     }
 
     #[Test]
-    public function it_removes_the_control_scope_from_the_queries_that_declare_their_control(): void
+    public function it_removes_no_global_scope_from_the_queries_that_declare_their_control(): void
     {
         $this->actingAs($this->ada);
 
-        $this->assertSame([HasControlScope::class], Post::controlled()->removedScopes());
-        $this->assertSame([HasControlScope::class], Post::controlledFor($this->grace)->removedScopes());
-        $this->assertSame([HasControlScope::class], Post::uncontrolled()->removedScopes());
+        $this->assertSame([], Post::controlled()->removedScopes());
+        $this->assertSame([], Post::controlledFor($this->grace)->removedScopes());
+        $this->assertSame([], Post::uncontrolled()->removedScopes());
     }
 
     #[Test]
@@ -133,14 +131,6 @@ class ControlledQueriesTest extends PackageTestCase
 
         $this->assertSame(4, Post::uncontrolled()->count());
         $this->assertSame('select * from posts', $this->sql(Post::uncontrolled()));
-    }
-
-    #[Test]
-    public function it_reads_every_post_without_the_control_scope(): void
-    {
-        $this->actingAs($this->ada);
-
-        $this->assertSame(4, Post::withoutGlobalScope(HasControlScope::class)->count());
     }
 
     #[Test]
