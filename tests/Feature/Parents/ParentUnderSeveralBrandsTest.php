@@ -31,7 +31,7 @@ class ParentUnderSeveralBrandsTest extends ParentTestCase
     }
 
     #[Test]
-    public function it_decides_the_parent_under_the_brands_of_the_request_not_under_the_brand_of_the_child(): void
+    public function it_decides_a_parent_that_reads_the_brands_of_the_request_under_all_of_them(): void
     {
         $this->assertSame(
             ['Ship it', 'Typo in the title', 'Add search', 'Old news', 'Wrong workspace', 'Too expensive', 'Agreed'],
@@ -53,5 +53,29 @@ class ParentUnderSeveralBrandsTest extends ParentTestCase
 
         $this->assertSame(['Wrong workspace'], $this->visibleComments($this->ada));
         $this->assertFalse(Gate::forUser($this->ada)->allows('view', $this->commentNamed('Agreed')));
+    }
+
+    #[Test]
+    public function it_decides_the_child_again_under_the_context_in_force_after_a_switch_without_forgetting(): void
+    {
+        $agreed = $this->commentNamed('Agreed');
+        Access::preload($this->ada, 'view', [$agreed]);
+        $this->assertTrue(Gate::forUser($this->ada)->allows('view', $agreed));
+
+        $this->brands = '2';
+
+        $this->assertFalse(Gate::forUser($this->ada)->allows('view', $agreed));
+        $this->assertSame(['Wrong workspace'], Comment::controlledFor($this->ada)
+            ->withAbilities(['view'])
+            ->orderBy('id')
+            ->pluck('body')
+            ->all());
+        Access::preload($this->ada, 'view', [$agreed]);
+        $this->assertFalse(Gate::forUser($this->ada)->allows('view', $agreed));
+        $this->assertControlAgrees(CommentControl::class, $this->ada, Comment::query()->orderBy('id')->get(), ['view']);
+
+        $this->brands = '1,2';
+
+        $this->assertTrue(Gate::forUser($this->ada)->allows('view', $agreed));
     }
 }
