@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Testing;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Ability;
@@ -14,20 +15,21 @@ final readonly class RowContextAgreement
 {
     /**
      * @param  list<Model>  $rows
+     * @param  Closure(int|string, Closure(): void): mixed  $alone
      * @param  list<string>  $abilities
      */
     public function __construct(
         private Control $control,
         private string $column,
         private array $rows,
+        private Closure $alone,
         private array $abilities,
     ) {}
 
     /** @return array{compared: int, disagreements: list<string>} */
     public function disagreementsFor(Model $reader): array
     {
-        $switch = RowContextSwitch::current();
-        $values = $switch->values();
+        $values = RowContextSwitch::current()->values();
         $compared = 0;
         $disagreements = [];
 
@@ -40,16 +42,30 @@ final readonly class RowContextAgreement
 
             $compared++;
             $request = $this->answers($reader, $row);
-            $switched = $switch->within($values, $value, fn (): array => $this->answers($reader, $row));
+            $alone = $this->answersAlone($reader, $row, $value);
 
             foreach ($request as $path => $answer) {
-                if ($switched[$path] !== $answer) {
-                    $disagreements[] = sprintf('row [%s], %s: [%s] under the request, [%s] within [%s] alone', self::key($row), $path, $answer, $switched[$path], $value);
+                $reference = $alone[$path] ?? 'not decided: the alone closure did not call its callback';
+
+                if ($reference !== $answer) {
+                    $disagreements[] = sprintf('row [%s], %s: [%s] under the request, [%s] in a request of [%s] alone', self::key($row), $path, $answer, $reference, $value);
                 }
             }
         }
 
         return ['compared' => $compared, 'disagreements' => $disagreements];
+    }
+
+    /** @return array<string, string> */
+    private function answersAlone(Model $reader, Model $row, int|string $value): array
+    {
+        $answers = new AloneAnswers;
+
+        ($this->alone)($value, function () use ($answers, $reader, $row): void {
+            $answers->keep($this->answers($reader, $row));
+        });
+
+        return $answers->all();
     }
 
     /** @return array<string, string> */

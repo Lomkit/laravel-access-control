@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Testing;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
@@ -97,9 +98,10 @@ trait InteractsWithAccess
     /**
      * @param  class-string<Control>  $control
      * @param  iterable<Model>  $rows
+     * @param  Closure(int|string, Closure(): void): mixed  $alone
      * @param  list<string>  $abilities
      */
-    public function assertRowContextAgrees(string $control, Model $reader, iterable $rows, array $abilities = ['view', 'update', 'delete']): void
+    public function assertRowContextAgrees(string $control, Model $reader, iterable $rows, Closure $alone, array $abilities = ['view', 'update', 'delete']): void
     {
         $instance = Access::control($control);
         $columns = array_values(array_unique(array_filter(array_map(fn (ThroughParent $parent): ?string => $parent->rowContextColumn(), $instance->declaration()->perimeters()->parents()))));
@@ -115,12 +117,12 @@ trait InteractsWithAccess
             $saved[] = $row;
         }
 
-        $result = (new RowContextAgreement($instance, $columns[0], $saved, $abilities))->disagreementsFor($reader);
+        $result = (new RowContextAgreement($instance, $columns[0], $saved, $alone, $abilities))->disagreementsFor($reader);
         $key = $reader->getKey();
 
-        Assert::assertGreaterThan(0, $result['compared'], sprintf('assertRowContextAgrees() received no saved [%s] row whose [%s] is one of the values of the request: it compares the rows of the values it can switch to.', $model, $columns[0]));
+        Assert::assertGreaterThan(0, $result['compared'], sprintf('assertRowContextAgrees() received no saved [%s] row whose [%s] is one of the values of the request: it compares only the rows of the values of the request.', $model, $columns[0]));
         Assert::assertSame([], $result['disagreements'], sprintf(
-            "The decisions of the [%s] control under the request disagree with the decisions within the value of each row, for the [%s] reader with key [%s]:\n- %s\nThe within closure of Access::rowContextUsing() must switch every state the perimeters and the boundaries read (the brands, the permission team, the tenant), and the values closure must return that value alone while it runs. A perimeter or a boundary of the child that reads the request instead of the row disagrees too.",
+            "The decisions of the [%s] control under the request disagree, for the [%s] reader with key [%s], with the decisions in a request of the value of each row alone, as the alone closure sets it up:\n- %s\nThe usual causes are a within closure of Access::rowContextUsing() that does not switch a state the parent reads (the brands, the permission team, the tenant), and a perimeter or the boundary of the child that reads the values of the request instead of the value of the row.",
             $control,
             $reader::class,
             is_int($key) || is_string($key) ? $key : get_debug_type($key),
