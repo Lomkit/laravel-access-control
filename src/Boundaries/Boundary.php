@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Exceptions\InvalidSearchKeyReaderException;
 use Lomkit\Access\Exceptions\JoinInPerimeterException;
 use Lomkit\Access\Search\SearchKeys;
 use ReflectionMethod;
@@ -66,10 +67,14 @@ abstract class Boundary
         return $query->exists();
     }
 
-    /** @internal */
+    /**
+     * @internal
+     *
+     * @throws InvalidSearchKeyReaderException If the reader closure of the search keys takes a parameter that the package cannot fill.
+     */
     final public function applySearchKeys(): ?SearchKeys
     {
-        return $this->searchKeys();
+        return $this->searchKeys()?->checkedFor($this);
     }
 
     final public function checksInMemory(): bool
