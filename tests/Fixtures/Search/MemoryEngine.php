@@ -52,6 +52,15 @@ class MemoryEngine extends Engine
             return call_user_func($builder->callback, $this, $builder->query, []);
         }
 
+        return $this->searchDocuments($builder);
+    }
+
+    /**
+     * @param  Builder<Model>  $builder
+     * @return array{hits: list<array<string, mixed>>, total: int}
+     */
+    protected function searchDocuments(Builder $builder): array
+    {
         $this->searches[] = $builder;
 
         $hits = array_values(array_filter(

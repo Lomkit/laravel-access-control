@@ -593,6 +593,15 @@ Declare the two attributes as filterable in the settings of each searchable mode
 Access::trustSearchEngine(ElasticsearchEngine::class);
 ```
 
+A trusted engine must:
+
+- render `whereIn` on an array attribute as "at least one element in common", and AND the fields together, `_boundary` with `_access`;
+- apply the `whereIns` of the search on every read path: `get()`, `paginate()`, `simplePaginate()`, `keys()`, `raw()` and `cursor()`;
+- write `scoutMetadata()` with the document, as the Meilisearch and Typesense engines do: otherwise no key is indexed and a controlled search finds nothing;
+- for laravel-rest-api, have an engine profile that implements `MatchesStringLists`, or the search throws `UnsupportedRestSearchException` (see [laravel-rest-api](#laravel-rest-api)).
+
+It needs nothing for a closed reader, since the package never calls the engine for one. On Algolia, Meilisearch, Typesense, Turbopuffer and a trusted engine alike, a search callback such as `Post::search('budget', fn ($client, $query, $options) => ...)` receives the options that hold the access filter: pass them on to the engine, never rebuild them.
+
 - The `database` engine searches with SQL: a controlled search applies the control's SQL inside the search query, through Scout's `query()` callback, which still runs the callback you pass to `query()`. No keys are computed for it.
 - The `collection` engine paginates before it filters: a controlled search throws `UnsupportedSearchEngineException`. Use the `database` engine, in tests too.
 - Turbopuffer is filtered with its native `ContainsAny` operator, since Scout renders `whereIn` as `In`, which compares the whole array. A controlled search adds `['_access', 'ContainsAny', [...]]` (and the same for `_boundary`) to the native filters in `options['filters']`, joined with `And` to the filters you pass there, before or after `controlled()`; the filter is applied again when the search runs, so a later `options()` or `whereIn()` cannot remove or widen it. Declare the schema above before the first write: Turbopuffer sets the type of an attribute on its first write and cannot change it, so a namespace written without it must be deleted (`scout:flush`) and imported again.
