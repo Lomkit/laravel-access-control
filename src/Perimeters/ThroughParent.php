@@ -8,15 +8,23 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Decisions\RowContextSwitch;
+use Lomkit\Access\Exceptions\DuplicatePerimeterCallbackException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
 use Lomkit\Access\Exceptions\InvalidDelegationException;
 use Lomkit\Access\Exceptions\InvalidParentRelationException;
+use Lomkit\Access\Exceptions\InvalidRowContextColumnException;
 use Lomkit\Access\Exceptions\MissingParentControlException;
+use Lomkit\Access\Exceptions\MissingRowContextException;
 use Lomkit\Access\Exceptions\ParentCycleException;
 use Lomkit\Access\Exceptions\ThroughParentCallbackException;
 use Lomkit\Access\Perimeters\Parents\Delegation;
+use Lomkit\Access\Perimeters\Parents\ParentDecision;
+use Lomkit\Access\Perimeters\Parents\ParentInRequestContext;
+use Lomkit\Access\Perimeters\Parents\ParentInRowContext;
 use Lomkit\Access\Perimeters\Parents\ParentLink;
 use Lomkit\Access\Perimeters\Parents\ParentStep;
+use Lomkit\Access\Perimeters\Parents\RowContextColumn;
 use Lomkit\Access\Search\Parents\ParentSearch;
 
 final class ThroughParent extends Perimeter
@@ -26,6 +34,8 @@ final class ThroughParent extends Perimeter
     private ?string $inverse = null;
 
     private ?Delegation $delegation = null;
+
+    private ?RowContextColumn $rowContext = null;
 
     private ?ParentLink $link = null;
 
@@ -48,6 +58,22 @@ final class ThroughParent extends Perimeter
     {
         $perimeter = clone $this;
         $perimeter->delegation = Delegation::of($this->relation, $abilities);
+
+        return $perimeter;
+    }
+
+    /**
+     * @throws InvalidRowContextColumnException When the column is not the plain name of a column.
+     * @throws DuplicatePerimeterCallbackException When the perimeter already decides its parent in the row context.
+     */
+    public function decidedInRowContext(string $column): self
+    {
+        if ($this->rowContext !== null) {
+            throw DuplicatePerimeterCallbackException::rowContext($this->relation, $this->rowContext->name());
+        }
+
+        $perimeter = clone $this;
+        $perimeter->rowContext = RowContextColumn::of($this->relation, $column);
 
         return $perimeter;
     }
@@ -91,36 +117,21 @@ final class ThroughParent extends Perimeter
     /**
      * @internal
      *
+     * @throws MissingRowContextException When the perimeter decides its parent in the row context and the application declares none.
      * @throws InvalidParentRelationException When the relation is not a belongsTo of the child model, or the inverse is not its hasMany.
      * @throws MissingParentControlException When no control is registered for the parent model.
      * @throws ParentCycleException When the parents of the parent lead back to the child.
      */
     public function boundTo(Control $child): self
     {
+        if ($this->rowContext !== null && ! RowContextSwitch::current()->isDeclared()) {
+            throw MissingRowContextException::for($child, $this->relation, $this->rowContext->name());
+        }
+
         $perimeter = clone $this;
         $perimeter->link = ParentLink::resolve($child, $this->relation, $this->inverse);
 
         return $perimeter;
-    }
-
-    /** @internal */
-    public function admitsDraft(Model $draft, AccessContext $context): bool
-    {
-        $parent = $this->parentContext($context);
-
-        return $parent !== null && $this->link()->admitsDraft($draft, $parent);
-    }
-
-    /** @internal */
-    public function fingerprint(AccessContext $context): string
-    {
-        $parent = $this->parentContext($context);
-
-        if ($parent === null) {
-            return '';
-        }
-
-        return $parent->ability()->name().':'.$this->link()->control()->reached($parent)->fingerprint($parent);
     }
 
     /** @internal */
@@ -134,7 +145,7 @@ final class ThroughParent extends Perimeter
     /** @internal */
     public function parentSearch(): ParentSearch
     {
-        return new ParentSearch($this->relation, $this->inverse, $this->link()->control(), $this->delegation()->parentAbilityFor(Ability::view()));
+        return new ParentSearch($this->relation, $this->inverse, $this->link()->control(), $this->delegation()->parentAbilityFor(Ability::view()), $this->rowContext?->name());
     }
 
     /** @internal */
@@ -142,51 +153,42 @@ final class ThroughParent extends Perimeter
     {
         return $this->relation === $other->relation
             && $this->inverse === $other->inverse
+            && $this->rowContext?->name() === $other->rowContext?->name()
             && $this->delegation()->matches($other->delegation());
     }
 
-    #[\Override]
-    protected function allows(AccessContext $context): bool
+    /** @internal */
+    public function rowContextColumn(): ?string
     {
-        $parent = $this->parentContext($context);
-
-        if ($parent === null) {
-            return false;
-        }
-
-        if ($this->declaresAllowed() && ! parent::allows($context)) {
-            return false;
-        }
-
-        return ! $this->link()->control()->reached($parent)->isEmpty();
-    }
-
-    /** @param  Builder<covariant Model>  $query */
-    #[\Override]
-    protected function scope(Builder $query, AccessContext $context): void
-    {
-        $parent = $this->parentContext($context);
-
-        if ($parent === null) {
-            $query->whereRaw('0=1');
-
-            return;
-        }
-
-        $this->link()->constrain($query, $parent);
-    }
-
-    private function parentContext(AccessContext $context): ?AccessContext
-    {
-        $ability = $this->delegation()->parentAbilityFor($context->ability());
-
-        return $ability === null ? null : $context->withAbility($ability);
+        return $this->rowContext?->name();
     }
 
     /** @internal */
     public function delegation(): Delegation
     {
         return $this->delegation ?? Delegation::viewOnly($this->relation);
+    }
+
+    #[\Override]
+    protected function allows(AccessContext $context): bool
+    {
+        return $this->decision()->allows($context);
+    }
+
+    /** @param  Builder<covariant Model>  $query */
+    #[\Override]
+    protected function scope(Builder $query, AccessContext $context): void
+    {
+        $this->decision()->scope($query, $context);
+    }
+
+    /** @internal */
+    public function decision(): ParentDecision
+    {
+        $search = $this->parentSearch();
+        $request = new ParentInRequestContext($this->link(), $this->delegation(), $search, fn (AccessContext $context): bool => ! $this->declaresAllowed() || parent::allows($context));
+
+        return $this->rowContext === null ? $request : new ParentInRowContext($request, $this->delegation(), $search, $this->rowContext->name(), $this);
     }
 
     private function link(): ParentLink

@@ -46,4 +46,9 @@ final readonly class DecisionContext
     {
         return $this->values;
     }
+
+    public function equals(self $other): bool
+    {
+        return $this->values === $other->values;
+    }
 }

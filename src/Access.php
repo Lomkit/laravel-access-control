@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Facade;
 use Lomkit\Access\Decisions\DecisionContextResolver;
 use Lomkit\Access\Decisions\DecisionFlushes;
 use Lomkit\Access\Decisions\Preloader;
+use Lomkit\Access\Decisions\RowContextSwitch;
 use Lomkit\Access\Exceptions\AdminSearchTokenKeyException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
 use Lomkit\Access\Exceptions\InvalidBatchRowException;
@@ -89,6 +90,17 @@ final class Access extends Facade
         Container::getInstance()
             ->make(DecisionContextResolver::class)
             ->use($resolver);
+    }
+
+    /**
+     * @param  Closure(): list<int|string>  $values
+     * @param  Closure(int|string, Closure(): mixed): mixed  $within
+     */
+    public static function rowContextUsing(Closure $values, Closure $within): void
+    {
+        Container::getInstance()
+            ->make(RowContextSwitch::class)
+            ->use($values, $within);
     }
 
     /**

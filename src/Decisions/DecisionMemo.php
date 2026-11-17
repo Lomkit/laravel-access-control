@@ -13,10 +13,14 @@ final class DecisionMemo
     /** @var CappedTable<KeptReach> */
     private CappedTable $reaches;
 
+    /** @var CappedTable<KeptBranch> */
+    private CappedTable $branches;
+
     public function __construct()
     {
         $this->verdicts = new CappedTable(self::MAX_ENTRIES);
         $this->reaches = new CappedTable(self::MAX_ENTRIES);
+        $this->branches = new CappedTable(self::MAX_ENTRIES);
     }
 
     public function remember(DecisionKey $key, Verdict $verdict): void
@@ -39,6 +43,16 @@ final class DecisionMemo
         return $this->reaches->get($key->id());
     }
 
+    public function keepBranch(BranchKey $key, KeptBranch $branch): void
+    {
+        $this->branches->put($key->id(), $branch);
+    }
+
+    public function branch(BranchKey $key): ?KeptBranch
+    {
+        return $this->branches->get($key->id());
+    }
+
     public function count(): int
     {
         return $this->verdicts->count();
@@ -51,12 +65,13 @@ final class DecisionMemo
 
     public function isEmpty(): bool
     {
-        return $this->verdicts->count() === 0 && $this->reaches->count() === 0;
+        return $this->verdicts->count() === 0 && $this->reaches->count() === 0 && $this->branches->count() === 0;
     }
 
     public function forget(): void
     {
         $this->verdicts->clear();
         $this->reaches->clear();
+        $this->branches->clear();
     }
 }

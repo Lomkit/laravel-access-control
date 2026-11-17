@@ -5,6 +5,7 @@ namespace Lomkit\Access\Perimeters;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\EmptyLevelsException;
 use Lomkit\Access\Exceptions\NestedLevelsException;
+use Lomkit\Access\Exceptions\RowContextInLevelsException;
 
 final readonly class Levels
 {
@@ -14,6 +15,7 @@ final readonly class Levels
     /**
      * @throws EmptyLevelsException When the group has no level.
      * @throws NestedLevelsException When a level is itself a group.
+     * @throws RowContextInLevelsException When a level is a ThroughParent that decides its parent in the row context.
      */
     public static function of(Perimeter|Levels ...$levels): self
     {
@@ -22,6 +24,12 @@ final readonly class Levels
         foreach (array_values($levels) as $position => $level) {
             if ($level instanceof self) {
                 throw NestedLevelsException::at($position + 1);
+            }
+
+            $column = $level instanceof ThroughParent ? $level->rowContextColumn() : null;
+
+            if ($column !== null) {
+                throw RowContextInLevelsException::at($position + 1, $level->delegation()->relation(), $column);
             }
 
             $perimeters[] = $level;
