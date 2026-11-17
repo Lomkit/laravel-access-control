@@ -33,20 +33,40 @@ class RowContextMemoTest extends RowContextTestCase
     }
 
     #[Test]
-    public function it_keeps_the_decision_of_the_child_under_the_context_of_the_request(): void
+    public function it_never_reuses_the_decision_of_the_child_kept_under_the_request_for_another_context(): void
     {
         $sister = $this->commentNamed('Sister brand');
 
         $this->assertFalse($this->grace->can('view', $sister));
-
         $this->brands->request([2]);
-        Access::forgetDecisions();
 
         $this->assertSame('not_found', $this->code($this->grace, 'view', $sister));
+
+        $this->brands->request([1]);
+
+        $this->assertFalse($this->grace->can('view', $sister));
 
         $this->brands->request([1, 2]);
 
         $this->assertFalse($this->grace->can('view', $sister));
+    }
+
+    #[Test]
+    public function it_switches_once_per_value_for_the_fingerprint_of_a_request_whatever_the_number_of_rows(): void
+    {
+        $comments = Comment::query()->orderBy('id')->get();
+        Access::forgetDecisions();
+        $this->switches = 0;
+
+        Access::preload($this->ada, 'view', $comments);
+        $preload = $this->switches;
+
+        foreach ($comments as $comment) {
+            $this->ada->can('view', $comment);
+        }
+
+        $this->assertSame($preload, $this->switches);
+        $this->assertLessThanOrEqual(6, $preload);
     }
 
     /** @return list<string> */

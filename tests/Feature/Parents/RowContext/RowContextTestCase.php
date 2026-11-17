@@ -31,6 +31,8 @@ abstract class RowContextTestCase extends ParentTestCase
 
     protected RequestedBrands $brands;
 
+    protected int $switches = 0;
+
     /** @var list<string> */
     protected array $postAllowedCalls = [];
 
@@ -62,8 +64,24 @@ abstract class RowContextTestCase extends ParentTestCase
     {
         Access::rowContextUsing(
             values: fn (): array => $this->brands->all(),
-            within: fn (int|string $brand, Closure $decide): mixed => $this->brands->actingIn([(int) $brand], $decide),
+            within: function (int|string $brand, Closure $decide): mixed {
+                $this->switches++;
+
+                return $this->brands->actingIn([(int) $brand], $decide);
+            },
         );
+    }
+
+    protected function aloneIn(int|string $brand, Closure $check): mixed
+    {
+        $requested = $this->brands->all();
+        $this->brands->request([(int) $brand]);
+
+        try {
+            return $check();
+        } finally {
+            $this->brands->request($requested);
+        }
     }
 
     protected function throughPost(): ThroughParent

@@ -77,7 +77,7 @@ class RowContextRowsTest extends RowContextTestCase
     }
 
     #[Test]
-    public function it_gives_the_same_answers_with_the_same_queries_as_without_it_under_a_single_brand(): void
+    public function it_gives_the_same_answers_with_the_same_queries_as_without_it_under_a_single_brand_with_a_child_boundary_on_the_requested_brands(): void
     {
         $this->brands->request([1]);
         $comments = Comment::query()->orderBy('id')->get();
@@ -90,7 +90,7 @@ class RowContextRowsTest extends RowContextTestCase
     }
 
     #[Test]
-    public function it_changes_nothing_for_a_parent_whose_control_reads_the_brand_of_its_row(): void
+    public function it_changes_nothing_for_a_parent_whose_control_reads_the_brand_of_its_row_with_a_child_boundary_on_the_requested_brands(): void
     {
         ConfiguredPostControl::bindWithin(Boundary::none(), $this->postsOfTheRowBrand());
         $comments = Comment::query()->orderBy('id')->get();
@@ -107,6 +107,20 @@ class RowContextRowsTest extends RowContextTestCase
         return ThroughParent::belongsTo('post', inverse: 'comments')
             ->delegates(['view', 'create' => 'view'])
             ->allowed(fn (User $user, Ability $ability): bool => $this->rightsOf($user, "{$ability} comments") !== []);
+    }
+
+    #[Test]
+    public function it_no_longer_reaches_a_child_outside_the_requested_brands_without_a_child_boundary_on_them(): void
+    {
+        $this->brands->request([1]);
+
+        ConfiguredCommentControl::bindWithin(Boundary::none(), $this->plainThroughPost());
+        $this->assertContains('Agreed', $this->visibleComments($this->ada));
+        $this->assertContains('No brand', $this->visibleComments($this->ada));
+
+        ConfiguredCommentControl::bindWithin(Boundary::none(), $this->throughPost());
+        $this->assertNotContains('Agreed', $this->visibleComments($this->ada));
+        $this->assertNotContains('No brand', $this->visibleComments($this->ada));
     }
 
     /**

@@ -9,7 +9,7 @@ final readonly class BranchKey
 {
     private function __construct(private string $id) {}
 
-    public static function of(object $perimeter, AccessContext $context): ?self
+    public static function of(object $perimeter, AccessContext $context, int|string|null $value): ?self
     {
         $reader = $context->reader();
         $readerKey = DecisionKey::readerKey($reader);
@@ -26,6 +26,7 @@ final readonly class BranchKey
             $perimeter::class,
             spl_object_id($perimeter),
             $context->ability()->name(),
+            $value === null ? null : (string) $value,
         ]));
     }
 

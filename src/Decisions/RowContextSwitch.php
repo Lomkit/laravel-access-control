@@ -9,6 +9,7 @@ use Lomkit\Access\Exceptions\InvalidDecisionContextException;
 use Lomkit\Access\Exceptions\InvalidRowContextValuesException;
 use Lomkit\Access\Exceptions\MissingRowContextException;
 use Lomkit\Access\Exceptions\RowContextSwitchException;
+use Throwable;
 
 /** @internal */
 #[Singleton]
@@ -52,16 +53,22 @@ final class RowContextSwitch
      * @return TResult
      *
      * @throws MissingRowContextException When the application declares no row context.
-     * @throws RowContextSwitchException When the switch does not run the callback once, has no effect on the decision context, or does not restore it.
+     * @throws RowContextSwitchException When the switch does not run the callback once, does not switch to the value alone, or does not restore the decision context, even when the decision throws.
      * @throws InvalidDecisionContextException When the decision context resolver returns an invalid context.
      */
     public function within(RowContextValues $values, int|string $value, Closure $decide): mixed
     {
         $within = $this->within ?? throw MissingRowContextException::undeclared();
         $resolver = Container::getInstance()->make(DecisionContextResolver::class);
-        $call = new RowContextCall($decide, $resolver, $resolver->current(), $values->hasSeveral(), $value);
+        $call = new RowContextCall($decide, $this->values(...), $resolver, $resolver->current(), $values->hasSeveral(), $value);
 
-        $within($value, $call->decide(...));
+        try {
+            $within($value, $call->decide(...));
+        } catch (Throwable $thrown) {
+            $call->ensureRestored($thrown);
+
+            throw $thrown;
+        }
 
         return $call->result();
     }

@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Exceptions;
 
 use LogicException;
+use Throwable;
 
 final class RowContextSwitchException extends LogicException
 {
@@ -26,8 +27,29 @@ final class RowContextSwitchException extends LogicException
     public static function withoutEffect(int|string $value, array $context): self
     {
         return new self(sprintf(
-            'The within closure given to Access::rowContextUsing() called the decide callback for the value [%s] while the decision context was still %s, the context of the whole request. Switch the state that Access::decisionContextUsing() reads before calling the callback, so that the parent is decided, and its decisions are kept, in that value alone.',
+            'The within closure given to Access::rowContextUsing() called the decide callback for the value [%s] while the decision context was still %s, the context of several values it was called from. Switch the state that Access::decisionContextUsing() reads before calling the callback, so that the parent is decided, and its decisions are kept, in that value alone.',
             $value,
+            self::encode($context),
+        ));
+    }
+
+    /** @param  list<int|string>  $seen */
+    public static function otherValues(int|string $value, array $seen): self
+    {
+        return new self(sprintf(
+            'The within closure given to Access::rowContextUsing() called the decide callback for the value [%s] while the values closure returned [%s]. Switch the application to the value the closure receives, so that the values closure returns that value alone while the callback runs.',
+            $value,
+            implode(', ', $seen),
+        ));
+    }
+
+    /** @param  array<string, string|int|bool|null>  $context */
+    public static function sameContext(int|string $first, int|string $second, array $context): self
+    {
+        return new self(sprintf(
+            'The within closure given to Access::rowContextUsing() switched the values [%s] and [%s] to the same decision context %s. Make Access::decisionContextUsing() read the state that within switches, so that each value gets its own context and the decisions kept for one value are never reused for another.',
+            $first,
+            $second,
             self::encode($context),
         ));
     }
@@ -36,14 +58,15 @@ final class RowContextSwitchException extends LogicException
      * @param  array<string, string|int|bool|null>  $before
      * @param  array<string, string|int|bool|null>  $after
      */
-    public static function leaked(int|string $value, array $before, array $after): self
+    public static function leaked(int|string $value, array $before, array $after, ?Throwable $previous = null): self
     {
         return new self(sprintf(
-            'The within closure given to Access::rowContextUsing() left the decision context on %s after deciding for the value [%s], instead of restoring %s. Restore the previous state in a finally block: the next decisions of the request, or of the next request served by the same worker, would run in the wrong context.',
+            'The within closure given to Access::rowContextUsing() left the decision context on %s after deciding for the value [%s]%s, instead of restoring %s. Restore the previous state in a finally block: the next decisions of the request, or of the next request served by the same worker, would run in the wrong context.',
             self::encode($after),
             $value,
+            $previous === null ? '' : ' and throwing '.$previous::class,
             self::encode($before),
-        ));
+        ), previous: $previous);
     }
 
     /** @param  array<string, string|int|bool|null>  $context */

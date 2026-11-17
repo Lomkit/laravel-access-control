@@ -40,7 +40,7 @@ class RowContextDeclarationTest extends RowContextTestCase
     public function it_throws_on_a_column_that_is_not_a_plain_column_name(string $column): void
     {
         $this->expectException(InvalidRowContextColumnException::class);
-        $this->expectExceptionMessage("The ThroughParent perimeter through the [post] relation is decidedInRowContext('{$column}'), which is not the name of a column of the child model.");
+        $this->expectExceptionMessage("The ThroughParent perimeter through the [post] relation is decidedInRowContext('{$column}'), which is not a plain column name");
 
         ThroughParent::belongsTo('post')->decidedInRowContext($column);
     }

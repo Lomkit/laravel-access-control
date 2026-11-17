@@ -31,6 +31,7 @@ return new class extends Migration
             $table->foreignId('author_id')->constrained('users');
             $table->string('body');
             $table->unsignedBigInteger('workspace_id')->nullable();
+            $table->string('brand_code')->nullable();
             $table->timestamps();
         });
     }

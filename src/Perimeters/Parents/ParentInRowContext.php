@@ -9,6 +9,7 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Decisions\MemoizedBranch;
 use Lomkit\Access\Decisions\RowContextSwitch;
 use Lomkit\Access\Decisions\RowContextValues;
+use Lomkit\Access\Exceptions\RowContextSwitchException;
 use Lomkit\Access\Search\Parents\ParentSearch;
 use Lomkit\Access\Search\SearchKeyValues;
 
@@ -66,16 +67,16 @@ final readonly class ParentInRowContext implements ParentDecision
             return false;
         }
 
-        return $this->branch($switch, $values, $value, $context, fn (AccessContext $child): bool => $this->request->admitsDraft($draft, $child)) === [true];
+        return $this->branch($switch, $values, $value, $context, fn (AccessContext $child): bool => $this->request->admitsDraft($draft, $child))[1] === [true];
     }
 
     #[\Override]
     public function fingerprint(AccessContext $context): string
     {
-        return implode('', $this->branches(
+        return (new MemoizedBranch($this->perimeter))->fingerprint($context, fn (): string => implode('', $this->branches(
             $context,
             fn (AccessContext $child, int|string $value): string => '['.SearchKeyValues::component($value).':'.$this->request->fingerprint($child).']',
-        ));
+        )));
     }
 
     /** @return list<string> */
@@ -96,6 +97,8 @@ final readonly class ParentInRowContext implements ParentDecision
      *
      * @param  Closure(AccessContext, int|string): TResult  $decide
      * @return list<TResult>
+     *
+     * @throws RowContextSwitchException When two values are switched to the same decision context.
      */
     private function branches(AccessContext $context, Closure $decide): array
     {
@@ -105,10 +108,19 @@ final readonly class ParentInRowContext implements ParentDecision
 
         $switch = RowContextSwitch::current();
         $values = $switch->values();
+        $contexts = [];
         $results = [];
 
         foreach ($values->all() as $value) {
-            array_push($results, ...$this->branch($switch, $values, $value, $context, $decide));
+            [$switched, $branch] = $this->branch($switch, $values, $value, $context, $decide);
+            $seen = serialize($switched);
+
+            if (array_key_exists($seen, $contexts)) {
+                throw RowContextSwitchException::sameContext($contexts[$seen], $value, $switched);
+            }
+
+            $contexts[$seen] = $value;
+            array_push($results, ...$branch);
         }
 
         return $results;
@@ -118,14 +130,15 @@ final readonly class ParentInRowContext implements ParentDecision
      * @template TResult
      *
      * @param  Closure(AccessContext, int|string): TResult  $decide
-     * @return list<TResult>
+     * @return array{array<string, string|int|bool|null>, list<TResult>}
      */
     private function branch(RowContextSwitch $switch, RowContextValues $values, int|string $value, AccessContext $context, Closure $decide): array
     {
         return $switch->within($values, $value, function () use ($context, $value, $decide): array {
             $child = AccessContext::of($context->reader(), $context->ability());
+            $reached = (new MemoizedBranch($this->perimeter))->reached($child, $value, $this->request->allows(...));
 
-            return (new MemoizedBranch($this->perimeter))->reached($child, $this->request->allows(...)) ? [$decide($child, $value)] : [];
+            return [$child->decisionContext(), $reached ? [$decide($child, $value)] : []];
         });
     }
 }

@@ -117,6 +117,29 @@ class RowContextSearchTest extends ParentSearchTestCase
         $this->assertSame([], $this->searchedReplies($this->grace));
     }
 
+    #[Test]
+    public function it_escapes_a_value_given_as_a_string_in_the_keys(): void
+    {
+        $codes = ['Acme' => 1, 'globex' => 2];
+        Access::rowContextUsing(
+            values: fn (): array => array_keys(array_intersect($codes, $this->brands->all())),
+            within: fn (int|string $code, Closure $decide): mixed => $this->brands->actingIn([$codes[$code]], $decide),
+        );
+        Reply::withoutSyncingToSearch(function (): void {
+            foreach (['Ship it' => 'Acme', 'Typo in the title' => 'globex', 'Wrong workspace' => 'Acme', 'Offsite plan' => 'globex'] as $body => $code) {
+                $this->replyNamed($body)->update(['brand_code' => $code]);
+            }
+        });
+        ConfiguredReplyControl::bind($this->throughThread()->decidedInRowContext('brand_code'));
+        $this->reindexReplies();
+
+        $this->assertSame(['through.thread.in._41636d65.0', 'through.thread.in._41636d65.0.brand.1'], $this->accessKeysOf('Ship it'));
+        $this->assertSame(['through.thread.in._41636d65.0.brand.1', 'through.thread.in.globex.0.brand.2'], $this->readerKeys($this->ada));
+        $this->assertSame(['Offsite plan'], $this->searchedReplies($this->grace));
+        $this->assertSame(['Offsite plan', 'Ship it'], $this->searchedReplies($this->ada));
+        $this->assertSearchAgrees(ReplyControl::class, [$this->ada, $this->grace, $this->linus]);
+    }
+
     private function throughThread(): ThroughParent
     {
         return ThroughParent::belongsTo('thread', inverse: 'replies');
