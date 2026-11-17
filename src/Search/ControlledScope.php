@@ -57,9 +57,7 @@ final class ControlledScope implements SearchScope
         $filter = $this->filter();
 
         if ($filter->isClosed()) {
-            $search->callback = EmptySearchPage::callback();
-
-            return $engine;
+            return new NullEngine;
         }
 
         foreach ($filter->whereIns() as $field => $values) {
