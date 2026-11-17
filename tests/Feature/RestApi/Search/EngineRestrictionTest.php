@@ -72,16 +72,21 @@ class EngineRestrictionTest extends RestApiSearchTestCase
     }
 
     #[Test]
-    public function it_drops_a_row_that_the_index_still_matches_but_the_control_now_hides(): void
+    public function it_shows_a_row_that_a_stale_index_still_matches_until_it_is_indexed_again(): void
     {
         $this->grant(['view client threads' => ['Ada']]);
         DB::table('threads')->where('id', $this->roadmap->getKey())->update(['forum_id' => $this->support->getKey()]);
 
         $response = $this->textSearch('threads', $this->ada, 'o')->assertOk();
 
-        $this->assertSame([], $response->json('data'));
+        $this->assertSame(['Roadmap'], array_column($response->json('data'), 'title'));
         $this->assertSame(1, $response->json('total'));
+        $this->assertSame(0, $response->json('dropped'));
         $this->assertSame([], Thread::controlledFor($this->ada)->pluck('title')->all());
+
+        Thread::query()->get()->searchable();
+
+        $this->assertSame([], $this->found('threads', $this->ada, 'o', 'title'));
     }
 
     #[Test]
