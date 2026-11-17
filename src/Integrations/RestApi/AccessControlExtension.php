@@ -20,7 +20,7 @@ use Lomkit\Rest\Extensions\Kinds\ProvidesPerimeter;
 use Lomkit\Rest\Extensions\Kinds\RestrictsEngineQueries;
 use Lomkit\Rest\Extensions\Kinds\VersionsRowChecks;
 
-class AccessControlExtension extends Extension implements ChecksResources, ContributesCacheContext, DeclaresIndexAttributes, PreparesRowChecks, ProvidesPerimeter, RestrictsEngineQueries, VersionsRowChecks
+final class AccessControlExtension extends Extension implements ChecksResources, ContributesCacheContext, DeclaresIndexAttributes, PreparesRowChecks, ProvidesPerimeter, RestrictsEngineQueries, VersionsRowChecks
 {
     #[\Override]
     public static function name(): string
@@ -37,7 +37,7 @@ class AccessControlExtension extends Extension implements ChecksResources, Contr
     #[\Override]
     public function restrict(RestrictionContext $context): void
     {
-        Access::controlFor($context->resource::modelClass())->restrict($context->query, RestReader::of($context->user, static::class), Ability::view());
+        Access::controlFor($context->resource::modelClass())->restrict($context->query, RestReader::of($context->user, self::class), Ability::view());
     }
 
     #[\Override]
@@ -49,13 +49,13 @@ class AccessControlExtension extends Extension implements ChecksResources, Contr
     #[\Override]
     public function restrictEngine(EngineRestrictionContext $context): void
     {
-        (new SearchRestriction(static::class))->apply($context);
+        (new SearchRestriction(self::class))->apply($context);
     }
 
     #[\Override]
     public function prepareRowChecks(PendingChecks $checks): void
     {
-        (new RowCheckPreparation(static::class))->prepare($checks);
+        (new RowCheckPreparation(self::class))->prepare($checks);
     }
 
     #[\Override]

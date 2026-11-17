@@ -1775,7 +1775,32 @@ To turn the extension off, list it in `disabled_extensions` of `config/rest.php`
 ],
 ```
 
-To replace it, extend it, list the subclass in `extensions` and `AccessControlExtension` in `disabled_extensions`: the subclass keeps the `access_control` name. Its `restrict()` may call `controlledFor()` on the query of the context and narrow it with conditions of its own: these scopes add only where clauses and remove no global scope, as rest-api requires of a restriction. The restriction must list exactly the rows the `view` policy grants: an `orWhere()` with another `controlledFor()` branch, of another ability or built under another decision context, lists rows that the policy and the row checks refuse (see [Several brands in one list](#several-brands-in-one-list)).
+`AccessControlExtension` is final, so that no subclass can drop the restriction of the rows, the filter of the search engines or the decision context of the kept decisions. Keep the conditions that are not access rules, such as a published flag, in `perimeterQuery()` for the SQL lists and in `ScoutEngine::perimeter()` for the text searches, the `database` and `collection` drivers included: rest-api applies both, and the extension adds its restriction to them.
+
+```php
+use Lomkit\Rest\Fields\Boolean;
+use Lomkit\Rest\Text\Engine\EngineQuery;
+use Lomkit\Rest\Text\ScoutEngine;
+use Lomkit\Rest\Text\TextSearch;
+
+class PostResource extends Resource
+{
+    public function perimeterQuery(Builder $query): Builder
+    {
+        return $query->where('published', true);
+    }
+
+    public function text(): ?TextSearch
+    {
+        return ScoutEngine::make()->perimeter(
+            fn (EngineQuery $query) => $query->where('published', '=', true),
+            [Boolean::make('published')],
+        );
+    }
+}
+```
+
+If you extended `AccessControlExtension`, move the conditions of its `restrict()` to these two methods and delete the subclass: PHP refuses to load it. To replace the access rules of rest-api instead, list `AccessControlExtension` in `disabled_extensions` and register an extension of your own: the package then restricts nothing in rest-api, text searches included, preloads no row check and adds nothing to the key of the kept decisions. That extension is the responsibility of your application.
 
 ### Removed helpers
 
