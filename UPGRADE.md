@@ -286,7 +286,7 @@ protected function perimeters(): array
 }
 ```
 
-The control of the parent decides for the same reader and the same decision context, in the policy, in `controlled()`, in the row checks, in `withAbilities()`, `Access::preload()` and `reachableKeys()`. The parent's boundary applies to the parent, and the child's own boundary still applies to the child (AND).
+The control of the parent decides for the same reader and the same decision context, in the policy, in `controlled()`, in the row checks, in `withAbilities()`, `Access::preload()` and `reachableKeys()`. Under a decision context that covers several brands, the parent is decided under all of them, not under the brand of the child row (see [Several brands in one list](#several-brands-in-one-list)). The parent's boundary applies to the parent, and the child's own boundary still applies to the child (AND).
 
 **Only `view` is delegated by default.** Reusing every ability would let whoever may update a post delete any comment on it. `->delegates([...])` replaces the default with the abilities it lists: a list item delegates the same ability, a string key maps a child ability to an ability of the parent. Creating a comment on a post the reader may view is the usual mapping:
 
@@ -1122,7 +1122,7 @@ protected function perimeters(): array
 }
 ```
 
-`Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one. Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
+`Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one, as long as the rules read the brand of the row: the parent of a child read through `ThroughParent` is not decided that way (see below). Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
 
 Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands where the reader holds the `view` right:
 
@@ -1144,6 +1144,10 @@ OwnPerimeter::new()
 ```
 
 The reader keys read the `view` rights, since a search always finds the rows the reader may view. The key of an own post holds its brand with its author: an author key alone would find the reader's posts in every brand, even one where they hold no right. These `reader:` closures never read the current brand from the `AccessContext`, and the boundary stays out of the brand, as in SQL: `Post::search()->controlled()` finds the posts of every brand of the reader, whatever the current one. laravel-rest-api then serves the lists and the searches of several brands under one decision context, with `AccessControlExtension` as it is: the extension is final, and nothing here needs to override it. Check the search with `assertSearchAgrees()` on posts of several brands, as the list with `assertControlAgrees()`.
+
+**A child read through its parent.** A `ThroughParent` decides its parent under the decision context of the request, with only the ability changed, not under the brand of the child row. Under a context that covers several brands, the parent is decided over all of them, and nothing ties the brand of the child to the brand in which the parent is readable, although a child can carry another brand than its parent. Take a reader who reads brands A and B but may view post P only in brand B, and a comment of brand A on P, under a comment boundary that keeps the brands of the request: under A and B, the comment is listed and granted, since P is readable in one of them; under A alone, P is not readable; under B alone, the boundary refuses the comment. On this hop, the answer under several brands is wider than the union of the answers under each brand alone. Every path gives the same wide answer: `controlled()`, the policy, the row checks, `withAbilities()`, `Access::preload()`, `reachableKeys()`, the drafts, the decisions without a row, the search and the kept decisions, so `assertControlAgrees()` and `assertSearchAgrees()` pass and cannot catch it.
+
+The boundary of the child cannot express it: it sees only the child row, never the decision on the parent, so the rule given with `ThroughParentCallbackException`, a condition on the child row in the boundary of the child, does not cover this case. Neither does `allowed()` on the `ThroughParent`, which never sees the row. Serve the models that inherit through a `ThroughParent` one brand at a time. To show several brands on one page, run one query per brand, with its `withAbilities()` and its policy checks, and switch the decision context between them: that is supported, since each decision reads the resolver again. Never join those queries with `orWhere()`.
 
 #### Kept decisions
 
