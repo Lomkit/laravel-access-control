@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Feature\Console\Check;
 
+use Closure;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Bus;
@@ -27,6 +28,7 @@ use Lomkit\Access\Tests\Fixtures\Check\Clean\Controls\TicketReplyControl;
 use Lomkit\Access\Tests\Fixtures\Check\Clean\Models\Ticket;
 use Lomkit\Access\Tests\Fixtures\Check\Clean\Models\TicketReply;
 use Lomkit\Access\Tests\Fixtures\Check\Gated\GatedTicketReplyControl;
+use Lomkit\Access\Tests\Fixtures\Check\Gated\RowContextTicketReplyControl;
 use Lomkit\Access\Tests\Fixtures\Check\Inherited\Controls\AlphaControl;
 use Lomkit\Access\Tests\Fixtures\Check\Inherited\Controls\BetaControl;
 use Lomkit\Access\Tests\Fixtures\Check\Inherited\Controls\TeamControl;
@@ -72,7 +74,25 @@ class AccessCheckCommandTest extends CheckTestCase
         [, $report] = $this->checkJson();
         $parents = array_values(array_filter(array_column(array_merge(...array_column($report['controls'], 'perimeters')), 'parent')));
 
-        $this->assertSame([['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view'], 'allowed' => true]], $parents);
+        $this->assertSame([['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view'], 'allowed' => true, 'row_context' => null]], $parents);
+    }
+
+    #[Test]
+    public function it_shows_the_column_of_a_through_parent_decided_in_the_row_context(): void
+    {
+        $this->discover(['Clean']);
+        Access::rowContextUsing(values: fn (): array => [1], within: fn (int|string $brand, Closure $decide): mixed => $decide());
+        $this->app->instance(TicketReplyControl::class, new RowContextTicketReplyControl);
+        Access::registerPolicies();
+
+        $this->artisan('access:check')
+            ->expectsOutputToContain('sql, row context brand_id')
+            ->assertOk();
+
+        [, $report] = $this->checkJson();
+        $parents = array_values(array_filter(array_column(array_merge(...array_column($report['controls'], 'perimeters')), 'parent')));
+
+        $this->assertSame([['relation' => 'ticket', 'delegates' => ['view' => 'view'], 'allowed' => false, 'row_context' => 'brand_id']], $parents);
     }
 
     #[Test]
@@ -107,7 +127,7 @@ class AccessCheckCommandTest extends CheckTestCase
                 'control' => TicketReplyControl::class,
                 'model' => TicketReply::class,
                 'perimeters' => [
-                    ['position' => '#1', 'perimeter' => ThroughParent::class, 'mode' => 'sql', 'unrestricted' => false, 'search_keys' => null, 'parent' => ['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view'], 'allowed' => false]],
+                    ['position' => '#1', 'perimeter' => ThroughParent::class, 'mode' => 'sql', 'unrestricted' => false, 'search_keys' => null, 'parent' => ['relation' => 'ticket', 'delegates' => ['create' => 'update', 'update' => 'update', 'view' => 'view'], 'allowed' => false, 'row_context' => null]],
                 ],
                 'boundary' => null,
                 'search' => ['searchable' => false, 'engine' => null],

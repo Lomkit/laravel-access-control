@@ -61,11 +61,11 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
             fn (string $control): bool => $control !== CountryControl::class,
         )));
         $this->assertSame(
-            ['relation' => 'country', 'delegates' => ['create' => 'view', 'view' => 'view'], 'allowed' => false],
+            ['relation' => 'country', 'delegates' => ['create' => 'view', 'view' => 'view'], 'allowed' => false, 'row_context' => null],
             $this->controlNamed($report, OfficeControl::class)['perimeters'][0]['parent'],
         );
         $this->assertSame(
-            ['relation' => 'country', 'delegates' => ['view' => 'view'], 'allowed' => false],
+            ['relation' => 'country', 'delegates' => ['view' => 'view'], 'allowed' => false, 'row_context' => null],
             $this->controlNamed($report, DeskControl::class)['perimeters'][0]['parent'],
         );
         $this->assertArrayNotHasKey('unconfigured', DB::getConnections());

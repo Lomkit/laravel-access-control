@@ -18,6 +18,7 @@ final readonly class PerimeterInventory
         public ?string $relation,
         public array $delegates,
         public bool $parentAllowed,
+        public ?string $rowContext,
     ) {}
 
     public static function of(Perimeter $perimeter, string $position): self
@@ -33,6 +34,7 @@ final readonly class PerimeterInventory
             $delegation?->relation(),
             $delegation?->names() ?? [],
             $delegation !== null && $perimeter->declaresAllowed(),
+            $perimeter instanceof ThroughParent ? $perimeter->rowContextColumn() : null,
         );
     }
 
@@ -59,6 +61,10 @@ final readonly class PerimeterInventory
             $parts[] = "search keys {$this->searchKeys}";
         }
 
+        if ($this->rowContext !== null) {
+            $parts[] = "row context {$this->rowContext}";
+        }
+
         foreach ($this->delegates as $child => $parent) {
             $parts[] = "{$child} from the parent's {$parent}";
         }
@@ -66,7 +72,7 @@ final readonly class PerimeterInventory
         return implode(', ', $parts);
     }
 
-    /** @return array{position: string, perimeter: string, mode: string, unrestricted: bool, search_keys: string|null, parent: array{relation: string, delegates: array<string, string>, allowed: bool}|null} */
+    /** @return array{position: string, perimeter: string, mode: string, unrestricted: bool, search_keys: string|null, parent: array{relation: string, delegates: array<string, string>, allowed: bool, row_context: string|null}|null} */
     public function toArray(): array
     {
         return [
@@ -75,7 +81,7 @@ final readonly class PerimeterInventory
             'mode' => $this->mode->value,
             'unrestricted' => $this->unrestricted,
             'search_keys' => $this->searchKeys,
-            'parent' => $this->relation === null ? null : ['relation' => $this->relation, 'delegates' => $this->delegates, 'allowed' => $this->parentAllowed],
+            'parent' => $this->relation === null ? null : ['relation' => $this->relation, 'delegates' => $this->delegates, 'allowed' => $this->parentAllowed, 'row_context' => $this->rowContext],
         ];
     }
 }
