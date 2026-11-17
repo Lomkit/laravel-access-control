@@ -704,6 +704,52 @@ The document's own model needs nothing: Scout reindexes it when it is saved. Whe
 
 The engine stays the only barrier, and freshness has a limit: between the change and the end of the job, the documents keep their former keys. Without a queue the window closes right after the commit; with one it lasts as long as the queue's backlog, and a failed job leaves the keys stale until it is retried or the model reindexed. Turn on Scout's `after_commit` option so that Scout's own indexing never writes the keys of a change that is rolled back.
 
+#### Exceptions in search keys
+
+A key can only add rows: a document is found when it shares a key with the reader, and nothing in the filter removes a document that a key found. A rule with an exception, such as a stand-in who sees the posts of the author they stand in for, except some sectors or some posts, becomes a positive key.
+
+When the exception is on a finite dimension of the row, such as a sector, a category or a status, the reader gets the complement of their exclusions: one key per sector they may see. Nothing is reindexed when an exclusion changes, since the reader keys are computed at each search:
+
+```php
+StandInPerimeter::new()
+    // allowed() and query() with the exclusions, as in SQL
+    ->searchKeys(
+        name: 'stand_in',
+        row: fn (Post $post) => [[$post->author_id, $post->sector_id]],
+        reader: fn (User $user) => $user->standingInFor->flatMap(
+            fn (StandIn $standIn) => array_map(fn (int $sector): array => [$standIn->principal_id, $sector], $standIn->allowedSectorIds()),
+        )->all(),
+    ),
+```
+
+`standingInFor` stands for the stand-ins the reader holds, and `allowedSectorIds()` for every sector of your application minus the ones the stand-in excludes. A reader gets one key per author and sector, a few dozen at most.
+
+When the exception is on specific rows, such as a table of excluded posts, each row lists the readers who see it through the perimeter: the stand-ins of its author, minus the ones who exclude it. The reader has one key, their own id. Declare with `reindexWhen()` what reindexes the rows: a new stand-in reindexes the posts of the author once, an exclusion reindexes one post:
+
+```php
+StandInPerimeter::new()
+    // allowed() and query() with the exclusions, as in SQL
+    ->searchKeys(
+        name: 'stand_in',
+        row: fn (Post $post) => $post->author->standIns
+            ->reject(fn (StandIn $standIn) => $standIn->excludes($post))
+            ->pluck('stand_in_id')
+            ->all(),
+        reader: fn (User $user) => $user->id,
+        load: ['author.standIns.exclusions'],
+    )
+    ->reindexWhen(StandIn::class, changed: ['principal_id', 'stand_in_id'], rows: fn (StandIn $standIn) => Post::where('author_id', $standIn->principal_id))
+    ->reindexWhen(StandInExclusion::class, changed: ['post_id'], rows: fn (StandInExclusion $exclusion) => Post::whereKey($exclusion->post_id)),
+```
+
+A post carries one key per stand-in of its author, usually fewer than ten. Between a new exclusion and the end of its job, the stand-in who excludes the post still finds it: the window of every `reindexWhen()`, described above.
+
+When neither form fits, such as an exclusion that depends on the time, the resource stays in SQL: search it with the `database` engine or with a controlled query.
+
+There is no negative key. A perimeter with an exception grants its rows minus its exclusions, and a reader sees the union of what each of their perimeters grants: no engine can express that union of differences through Scout, which joins every filter with AND. A global `whereNotIn` would also remove the rows that another perimeter grants: a stand-in who also manages the excluded sector would lose the posts of that sector, and the search would be narrower than the SQL, which `assertSearchAgrees()` reports. A negation also fails open: a document indexed before its exclusion, or whose exclusion is not reindexed yet, does not carry the excluded value and passes a `NOT IN`, while the engine is the only barrier, in a controlled search as in laravel-rest-api, which serves the rows of a page as the engine returns them. A positive key that is missing hides the row instead.
+
+Check the recipe with `assertSearchAgrees()` on a stand-in and rows that cover each case: rows of an excluded sector, an excluded row, and an excluded row that another perimeter grants, such as a post of a sector the stand-in also manages. That last row must be found: it proves that the search keeps the union of the perimeters. With the second form, test too that adding an exclusion reindexes the post.
+
 #### Searching through a parent
 
 A searchable child is found through its parent with the same rule as in SQL: the parent's boundary AND the parent's access keys must both open the parent for the reader. The child's own filter is `_boundary` AND `_access`, and `_access` is a union, so each pair of a parent boundary key and a parent access key becomes one composite key in the child's `_access`:
@@ -1078,7 +1124,26 @@ protected function perimeters(): array
 
 `Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one. Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
 
-Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands of the reader.
+Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands where the reader holds the `view` right:
+
+```php
+BrandPerimeter::new()
+    // allowed(), should() and query() as above
+    ->searchKeys(
+        name: 'brand',
+        row: fn (Post $post) => $post->brand_id,
+        reader: fn (User $user) => $user->brandsWhere('view brand posts'),
+    ),
+OwnPerimeter::new()
+    // allowed(), should() and query() as above
+    ->searchKeys(
+        name: 'own',
+        row: fn (Post $post) => [[$post->brand_id, $post->author_id]],
+        reader: fn (User $user) => array_map(fn (int $brand): array => [$brand, $user->id], $user->brandsWhere('view own posts')),
+    ),
+```
+
+The reader keys read the `view` rights, since a search always finds the rows the reader may view. The key of an own post holds its brand with its author: an author key alone would find the reader's posts in every brand, even one where they hold no right. These `reader:` closures never read the current brand from the `AccessContext`, and the boundary stays out of the brand, as in SQL: `Post::search()->controlled()` finds the posts of every brand of the reader, whatever the current one. laravel-rest-api then serves the lists and the searches of several brands under one decision context, with `AccessControlExtension` as it is: the extension is final, and nothing here needs to override it. Check the search with `assertSearchAgrees()` on posts of several brands, as the list with `assertControlAgrees()`.
 
 #### Kept decisions
 
