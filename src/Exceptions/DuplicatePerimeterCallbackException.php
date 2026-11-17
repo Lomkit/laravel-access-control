@@ -24,4 +24,13 @@ final class DuplicatePerimeterCallbackException extends LogicException
             $perimeter::class,
         ));
     }
+
+    public static function rowContext(string $relation, string $column): self
+    {
+        return new self(sprintf(
+            'The ThroughParent perimeter through the [%s] relation calls decidedInRowContext() twice, after decidedInRowContext(\'%s\'): the second column would replace the first without a trace. Call it once, with the column of the child row that holds the value.',
+            $relation,
+            $column,
+        ));
+    }
 }

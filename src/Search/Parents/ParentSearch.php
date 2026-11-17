@@ -21,6 +21,7 @@ final readonly class ParentSearch
         private ?string $inverse,
         private Control $parent,
         private ?Ability $view,
+        private ?string $rowContext = null,
     ) {
         $this->key = ParentKey::through($relation);
     }
@@ -69,26 +70,29 @@ final readonly class ParentSearch
     {
         $parent = $this->view !== null && $row->relationLoaded($this->relation) ? $row->getRelation($this->relation) : null;
 
-        if (! $parent instanceof Model) {
+        $key = $this->rowKey($row);
+
+        if (! $parent instanceof Model || $key === null) {
             return [];
         }
 
         $document = $this->rules()->documentFor($parent);
         $boundary = $this->rules()->isBounded() ? $document[SearchField::Boundary->value] : null;
 
-        return [...$this->key->products($boundary, null), ...$this->key->products($boundary, $document[SearchField::Access->value])];
+        return [...$key->products($boundary, null), ...$key->products($boundary, $document[SearchField::Access->value])];
     }
 
     /** @return list<string> */
-    public function readerKeys(AccessContext $context): array
+    public function readerKeys(AccessContext $context, int|string|null $value = null): array
     {
         if ($this->view === null) {
             return [];
         }
 
         $filter = $this->parent->searchFilterIn($context->withAbility($this->view));
+        $key = $value === null ? $this->key : $this->key->in($value);
 
-        return $filter->isClosed() ? [] : $this->key->products($filter->boundaryKeys(), $filter->accessKeys());
+        return $filter->isClosed() ? [] : $key->products($filter->boundaryKeys(), $filter->accessKeys());
     }
 
     /** @return array<string, list<ReindexRule>> */
@@ -110,6 +114,17 @@ final readonly class ParentSearch
         }
 
         return $rules;
+    }
+
+    private function rowKey(Model $row): ?ParentKey
+    {
+        if ($this->rowContext === null) {
+            return $this->key;
+        }
+
+        $value = $row->getAttributes()[$this->rowContext] ?? null;
+
+        return is_int($value) || (is_string($value) && $value !== '') ? $this->key->in($value) : null;
     }
 
     private function rules(): SearchRules

@@ -140,7 +140,7 @@ final class SearchRules
 
         foreach ($perimeters->all() as $perimeter) {
             $keys = $perimeter instanceof ThroughParent
-                ? $perimeter->parentSearch()->readerKeys($context)
+                ? $perimeter->decision()->readerKeys($context)
                 : $perimeter->declaredSearchKeys()?->readerKeys($context) ?? [];
 
             array_push($access, ...$keys);

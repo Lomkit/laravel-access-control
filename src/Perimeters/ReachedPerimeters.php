@@ -63,7 +63,7 @@ final readonly class ReachedPerimeters
         }
 
         foreach ($this->perimeters as $perimeter) {
-            if ($perimeter instanceof ThroughParent && $perimeter->admitsDraft($draft, $context)) {
+            if ($perimeter instanceof ThroughParent && $perimeter->decision()->admitsDraft($draft, $context)) {
                 return true;
             }
         }
@@ -82,7 +82,7 @@ final readonly class ReachedPerimeters
         $positions = [];
 
         foreach ($perimeters as $position => $perimeter) {
-            $positions[] = $perimeter instanceof ThroughParent ? "{$position}({$perimeter->fingerprint($context)})" : $position;
+            $positions[] = $perimeter instanceof ThroughParent ? "{$position}({$perimeter->decision()->fingerprint($context)})" : $position;
         }
 
         return implode(',', $positions);

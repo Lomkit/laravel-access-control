@@ -286,7 +286,7 @@ protected function perimeters(): array
 }
 ```
 
-The control of the parent decides for the same reader and the same decision context, in the policy, in `controlled()`, in the row checks, in `withAbilities()`, `Access::preload()` and `reachableKeys()`. It never reads the brand of the child row: when the parent's control reads the brands from a decision context that names several of them, the parent is decided under the whole context at once, so being readable in any one of those brands is enough (see [Several brands in one list](#several-brands-in-one-list)). The parent's boundary applies to the parent, and the child's own boundary still applies to the child (AND).
+The control of the parent decides for the same reader and the same decision context, in the policy, in `controlled()`, in the row checks, in `withAbilities()`, `Access::preload()` and `reachableKeys()`. It never reads the brand of the child row: when the parent's control reads the brands from a decision context that names several of them, the parent is decided under the whole context at once, so being readable in any one of those brands is enough (see [Several brands in one list](#several-brands-in-one-list)), unless the `ThroughParent` decides it within the brand of the child row (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)). The parent's boundary applies to the parent, and the child's own boundary still applies to the child (AND).
 
 **Only `view` is delegated by default.** Reusing every ability would let whoever may update a post delete any comment on it. `->delegates([...])` replaces the default with the abilities it lists: a list item delegates the same ability, a string key maps a child ability to an ability of the parent. Creating a comment on a post the reader may view is the usual mapping:
 
@@ -394,9 +394,116 @@ It is on purpose:
 
 `php artisan make:control CommentControl --parent=post` writes the `ThroughParent::belongsTo('post')` entry, and refuses a relation that is not a `belongsTo` of the model.
 
+#### Deciding the parent in the context of the child row
+
+A `ThroughParent` decides its parent under the decision context of the request. When the control of the parent depends on that context, because it reads the brands of the request from the decision context or from application state set per request, a context of several brands opens a child of brand A on a parent readable only in brand B (see [Several brands in one list](#several-brands-in-one-list)). `decidedInRowContext()` decides the parent, for each child row, within the value that the row holds, with the application really switched to that value through `within()`. A parent whose rules read the brand of its own row and the reader's rights, and never the current brand, does not depend on the context: `decidedInRowContext()` gives it the same answers when the boundary of the child keeps the child rows to the values of the request, and is not needed there.
+
+Declare once, in the `boot()` method of a service provider and next to `Access::decisionContextUsing()`, the values the request covers and how the application acts in one of them; `Brands` stands for the application's own state:
+
+```php
+use Closure;
+use Lomkit\Access\Access;
+
+public function boot(): void
+{
+    Access::decisionContextUsing(fn (): array => ['brands' => Brands::requested()->sort()->implode(',')]);
+
+    Access::rowContextUsing(
+        values: fn (): array => Brands::requested()->all(),
+        within: fn (int|string $brand, Closure $decide): mixed => Brands::actingIn([$brand], $decide),
+    );
+}
+```
+
+`values` returns the list of the values the request covers, as ints or non-empty strings, as stored in the column of the child rows; an empty list reaches nothing. It runs each time a decision needs it, so keep it cheap. `within` switches the application to the single value it receives, every state that the perimeters and the boundaries of the parent read included (the brands, the team of spatie/laravel-permission, a tenant), calls `$decide` exactly once, and restores the previous state in a `finally` block, so that, while `$decide` runs, `values` returns that value alone and the decision context names it, a context of its own for each value. Keep both cheap: they run once per value for each list, and once per value for the first row check of a reader, ability and context in a request:
+
+```php
+public static function actingIn(array $brands, Closure $callback): mixed
+{
+    $previous = self::$requested;
+    self::$requested = $brands;
+
+    try {
+        return $callback();
+    } finally {
+        self::$requested = $previous;
+    }
+}
+```
+
+Two rules follow from the way the package keeps its decisions and builds its queries:
+
+- **`values` reads the same state as the decision context.** The package files what it keeps, in the request and in laravel-rest-api's authorization cache, under the decision context. A `values` closure that reads a state the resolver of `Access::decisionContextUsing()` does not return could get an answer computed for another list of values.
+- **Only the PHP state is switched.** `within` runs while the package builds the SQL, and the query runs after it returns. A state that the database reads when the query runs, such as a session variable (`SET app.brand = ...`), a row-level security policy of PostgreSQL or a view filtered by `current_setting()`, is not switched for the branch: keep it out of the rules of the parent. A `SET` in `within` is also a write, which forgets the kept decisions on each branch.
+
+The values are compared as strings in PHP, for the drafts, the search keys and `assertRowContextAgrees()`, and with `=` in SQL. Return them exactly as stored in the column: integer keys, or strings with their exact case. The package adds no coercion of its own, so a database that compares `'ACME'` and `'acme'`, or `'01'` and `1`, as equal would list a row that the drafts and the search refuse.
+
+Then name, on the `ThroughParent`, the column of the child row that holds the value:
+
+```php
+ThroughParent::belongsTo('post', inverse: 'comments')
+    ->decidedInRowContext('brand_id'),
+```
+
+The SQL gets one branch per value of the request:
+
+```sql
+where (
+     (comments.brand_id = 'A' and exists (select * from posts where posts.id = comments.post_id and (<PostControl built within A>)))
+  or (comments.brand_id = 'B' and exists (select * from posts where posts.id = comments.post_id and (<PostControl built within B>)))
+)
+```
+
+Each branch is built while `within()` runs for its value, so its bindings are those of that value. The `allowed()` of the `ThroughParent` is evaluated in each branch, and a branch where it refuses, or where the parent reaches no perimeter, disappears. A child row whose value is null, or not one of `values()`, has no branch: the `ThroughParent` refuses it, even on a parent the reader may view, where a `ThroughParent` without `decidedInRowContext()` granted it. When such rows must stay reachable, reach them through another perimeter. The other paths follow the same rule:
+
+- the policy, the row checks, `withAbilities()`, `Access::preload()` and `reachableKeys()` use the same branches;
+- a decision without a row (`viewAny`, `create` without a draft, a business ability without a row) is granted through the `ThroughParent` when there is a value of the request in which its `allowed()` accepts and the parent reaches a perimeter;
+- a draft reads the column from its attributes, like the foreign key: a null value, or one outside `values()`, is refused without loading the parent, and otherwise the control of the parent decides on the stored parent within that value;
+- the search writes the value in the keys (see [Searching through a parent](#searching-through-a-parent));
+- the decisions on the parent are kept under the context of each value (see [Kept decisions](#kept-decisions)).
+
+With a single value, and a boundary of the child that keeps the child rows to the values of the request, the answers, and the number of queries, are those of the same `ThroughParent` without `decidedInRowContext()`. Without such a boundary, the rows whose value is null or outside the request are no longer reached through the `ThroughParent`. `access:check` prints `row context brand_id` on the line of the `ThroughParent`, and `--json` gives `parent.row_context`.
+
+**What throws.**
+
+| Mistake | Exception |
+| --- | --- |
+| `decidedInRowContext()` without `Access::rowContextUsing()` | `MissingRowContextException`, when the control is built, before any query |
+| `values` returns something else than a list of ints and non-empty strings | `InvalidRowContextValuesException` |
+| `within` returns without calling `$decide`, or calls it twice | `RowContextSwitchException` |
+| `within` leaves the decision context on another value than before it ran, also when the decision throws | `RowContextSwitchException`, with the exception of the decision as previous: the next decisions, or the next request of an Octane worker, would run in the wrong context |
+| `within` calls `$decide` while the decision context is still the one of the request, which covers several values | `RowContextSwitchException`: the parent would be decided, and kept, under the whole request |
+| `within` calls `$decide` while `values` returns another list than the value it received alone, such as a switch that ignores its value | `RowContextSwitchException`: the branch of one value would be decided in another |
+| Two values are switched to the same decision context | `RowContextSwitchException`: the decisions kept for one value would be reused for the other |
+| The column is not a plain column name (`comments.brand_id`); only its syntax is checked, so a column missing from the table fails in SQL and refuses the drafts and the search keys | `InvalidRowContextColumnException` |
+| `decidedInRowContext()` twice on one `ThroughParent` | `DuplicatePerimeterCallbackException` |
+| The `ThroughParent` is a level of `Levels::of()` | `RowContextInLevelsException`: a group keeps the level reached in one value and hides the lower levels in the others; declare it next to the group |
+
+A column that changes between two builds of the control throws `ImpurePerimetersException`, like any impure declaration. On a searchable child, the exceptions of [Searching through a parent](#searching-through-a-parent) still apply.
+
+**Perimeters of the parent that grow with the brands.** Each row gets the answer of its own value alone. That only narrows what a `ThroughParent` without `decidedInRowContext()` grants when the control of the parent grants, within one value, a part of what it grants under all the values of the request: each rule that reads the brands of the request filters the rows by them (`whereIn('brand_id', $brands)`), and each `allowed()` that reads them accepts as soon as the reader holds the right in one of them. A rule that grants more for fewer brands, such as an `allowed()` that accepts only when the request names a single brand, opens, within one value, a parent that the whole request does not open. Keep those rules growing with the brands: no assertion checks it.
+
+**Testing the switch.** `assertRowContextAgrees()` compares each row with a request of its value alone, which the test sets up itself through `alone:`, without the `within` closure under test:
+
+```php
+public function test_the_brand_switch_is_complete(): void
+{
+    foreach ([$this->headquarters, $this->brandManager] as $reader) {
+        $this->assertRowContextAgrees(
+            CommentControl::class,
+            $reader,
+            Comment::uncontrolled()->get(),
+            alone: fn (int|string $brand, Closure $check): mixed => $this->asBrandRequest($brand, $check),
+        );
+    }
+}
+```
+
+`alone` receives a value and a callback, sets up the state of a real request of that value alone (every state the request would set: the brands, the permission team, the tenant), calls the callback, and restores the state; `asBrandRequest()` stands for that helper of your tests. For each row whose value is one of the request, the assertion compares the answer under the request with the answer inside `alone`, for `view`, `update` and `delete` by default (pass others as `abilities:`), through the Gate and through `controlledFor()`, with the kept decisions flushed on each side. Inside `alone`, the `ThroughParent` still switches through `within`, but every state that `within` forgets already holds the value of the row, so a forgotten state makes the two answers differ. A failure names the reader, then each row, path and pair of answers that differ. It catches a `within` that does not switch a state the parent reads, and a perimeter or a boundary of the child that reads the brands of the request instead of the brand of the row. It does not check that the rules of the parent grow with the brands, and it proves the switch on the rows and the readers of the test only. The control must declare exactly one column with `decidedInRowContext()`, and at least one row must hold a value of the request; an `alone` that does not call its callback fails the assertion.
+
 ### Testing the levels
 
-The `Lomkit\Access\Testing\InteractsWithAccess` trait adds three assertions to your tests: `assertLevelsNest()` for the levels (below), `assertControlAgrees()` for the decisions (see [Testing the decisions](#testing-the-decisions)) and `assertSearchAgrees()` for the search (see [Testing the search](#testing-the-search)). `assertLevelsNest()` checks, for each reader and each pair of adjacent levels of every group, that no row of the lower level, inside the boundary, is missing from the upper level:
+The `Lomkit\Access\Testing\InteractsWithAccess` trait adds four assertions to your tests: `assertLevelsNest()` for the levels (below), `assertControlAgrees()` for the decisions (see [Testing the decisions](#testing-the-decisions)), `assertSearchAgrees()` for the search (see [Testing the search](#testing-the-search)) and `assertRowContextAgrees()` for a parent decided in the context of the child row (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)). `assertLevelsNest()` checks, for each reader and each pair of adjacent levels of every group, that no row of the lower level, inside the boundary, is missing from the upper level:
 
 ```php
 use Lomkit\Access\Testing\InteractsWithAccess;
@@ -767,7 +874,9 @@ The relation of the parent is loaded with its own `load:` relations when the chi
 - when it delegates `view` to another ability of the parent: a search only knows the keys that open the parent for `view`;
 - when the parent's boundary has no search form.
 
-`assertSearchAgrees()` compares the search with the SQL on a searchable child as on any model. The `through` keys carry nothing of the child's own brand: see [Several brands in one list](#several-brands-in-one-list).
+`assertSearchAgrees()` compares the search with the SQL on a searchable child as on any model. The `through` keys carry nothing of the child's own brand: see [Several brands in one list](#several-brands-in-one-list), unless the `ThroughParent` is `decidedInRowContext()`.
+
+A `ThroughParent` that is `decidedInRowContext('workspace_id')` (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)) writes the value of the child row after the relation: a reply of brand 1 under the parent document of the first row of the table above carries `through.thread.in.1.2.workspace_id.1`, `through.thread.in.1.2.workspace_id.1.author.7` and `through.thread.in.1.2.workspace_id.1.client.3`. A child without a value carries no key through that parent. The reader gets, for each value of the request where the `ThroughParent`'s own `allowed()` accepts, the keys of the parent's filter computed while `within()` runs for that value, with the same prefix: `through.thread.in.1.2.workspace_id.1.author.7` and `through.thread.in.2.2.workspace_id.1.author.7` for an author who reads the threads in brands 1 and 2. `in` is not a number, so these keys never meet the keys `through.thread.<n>...` of a parent decided in the context of the request, and a value is written as one key component (a value with other characters than lowercase letters, digits and underscores is hex-encoded, as in search keys). The reader gets about as many keys as the parent has in all the values together. No freshness rule is added: Scout reindexes the child itself when its column changes, as any saved model, and the parent's changes reindex the children as below.
 
 The children follow their parent, through the watch map, jobs queued after the commit, unique jobs and chunks, as for `reindexWhen()`:
 
@@ -1147,9 +1256,9 @@ The reader keys read the `view` rights, since a search always finds the rows the
 
 **A child read through its parent.** A `ThroughParent` decides its parent under the decision context of the request, with only the ability changed: it never reads the brand of the child row. With the perimeters above, which read the brand of the row and the reader's rights and never the current brand, the parent's answer does not depend on the context: a comment is readable wherever its post is, whatever the comment's own brand, and switching the context changes nothing. A condition on the comment's brand and the reader's rights, not on the current brand, goes in the comment's boundary.
 
-It is different when the control of the parent reads the brands from the decision context: a resolver that returns several brands, such as `['brands' => '1,2']` for a headquarters that reads two brands, read by the parent's boundary, an `allowed()` callback or a hook, or application state that the parent's perimeters read, set to the brands of the request. The parent is then decided under the whole context at once, and being readable in any one of its brands is enough. Take post P of brand B, readable only under a context that names B, and a comment of brand A on P, under a comment boundary that keeps the brands of the request: under A and B, the comment is listed and granted, since P is readable in B; under A alone, P is not readable; under B alone, the comment's boundary refuses it. On this hop, the answer under several brands is wider than the union of the answers under each brand alone. `controlled()`, the policy, the row checks, `withAbilities()`, `Access::preload()`, `reachableKeys()`, the drafts (with a child boundary that checks in memory) and the search give that same wide answer, and the decisions kept for the request are filed under its context, so `assertControlAgrees()` and `assertSearchAgrees()` pass and cannot catch it. A decision without a row has no child brand, and agrees with the brands taken one by one.
+It is different when the control of the parent reads the brands from the decision context: a resolver that returns several brands, such as `['brands' => '1,2']` for a headquarters that reads two brands, read by the parent's boundary, an `allowed()` callback or a hook, or application state that the parent's perimeters read, set to the brands of the request. The parent is then decided under the whole context at once, and being readable in any one of its brands is enough. Take post P of brand B, readable only under a context that names B, and a comment of brand A on P, under a comment boundary that keeps the brands of the request: under A and B, the comment is listed and granted, since P is readable in B; under A alone, P is not readable; under B alone, the comment's boundary refuses it. On this hop, the answer under several brands is wider than the union of the answers under each brand alone. `controlled()`, the policy, the row checks, `withAbilities()`, `Access::preload()`, `reachableKeys()`, the drafts (with a child boundary that checks in memory) and the search give that same wide answer, and the decisions kept for the request are filed under its context, so `assertControlAgrees()` and `assertSearchAgrees()` pass and cannot catch it. A decision without a row has no child brand, and agrees with the brands taken one by one. `decidedInRowContext()`, below, removes this widening.
 
-`allowed()` on the `ThroughParent` never sees the row, and the boundary of the child sees only the child row, never the decision on the parent, so the rule given with `ThroughParentCallbackException`, a condition on the child row in the boundary of the child, does not cover this case in general. It does only when the parent is readable in its own brand alone: a `whereHas()` on the parent that compares the brand of the parent with the brand of the child then gives the answer of each brand, but not for a parent readable in another brand than its own. Otherwise, serve the models that inherit through a `ThroughParent` one brand at a time, with a boundary on the child that keeps its rows to the brand of the request: that boundary is what ties the child to the brand its parent is decided in, so the advice above to keep the brand out of the boundary does not apply to it. To show several brands on one page, run one query per brand and switch the decision context between them: that is supported, since each decision reads the resolver again. Decide everything the page needs on those rows (`withAbilities()`, every `can()`, `@can` and `authorize()`, and the API resources that check them) while the context of their brand is in force: a check made after switching back is decided again under the context in force then, and gets the wide answer. Never join those queries with `orWhere()`. laravel-rest-api decides under the context of the request, so there one brand at a time means one brand per request.
+`allowed()` on the `ThroughParent` never sees the row, and the boundary of the child sees only the child row, never the decision on the parent, so the rule given with `ThroughParentCallbackException`, a condition on the child row in the boundary of the child, does not cover this case in general. It does only when the parent is readable in its own brand alone: a `whereHas()` on the parent that compares the brand of the parent with the brand of the child then gives the answer of each brand, but not for a parent readable in another brand than its own. Otherwise, decide the parent in the brand of the child row: declare the switch with `Access::rowContextUsing()` and add `->decidedInRowContext('brand_id')` to the `ThroughParent` (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)). Each child row then reaches its parent within its own brand: the hop to the parent under several brands is the union of its answers under each brand alone, when the boundary of the child keeps the child rows to the brands of the request. The other perimeters and the boundary of the child are still decided under the request. Without that switch, serve the models that inherit through a `ThroughParent` one brand at a time, with a boundary on the child that keeps its rows to the brand of the request: that boundary is what ties the child to the brand its parent is decided in, so the advice above to keep the brand out of the boundary does not apply to it. To show several brands on one page, run one query per brand and switch the decision context between them: that is supported, since each decision reads the resolver again. Decide everything the page needs on those rows (`withAbilities()`, every `can()`, `@can` and `authorize()`, and the API resources that check them) while the context of their brand is in force: a check made after switching back is decided again under the context in force then, and gets the wide answer. Never join those queries with `orWhere()`. laravel-rest-api decides under the context of the request, so there one brand at a time means one brand per request.
 
 #### Kept decisions
 
@@ -1157,6 +1266,8 @@ The package keeps two things for the length of a request, a queued job or a cons
 
 - the perimeters a reader reaches, under the reader (its morph class, connection and key), the decision context, the control instance and the ability: what every `allowed()` callback and `allows()` hook answered, what the boundary's `admits()` answered, the level reached in each group, and, for a `ThroughParent`, the perimeters the reader reaches on the parent, kept the same way under the parent's control;
 - the SQL check of each row, under the reader, the decision context, the model, the row key and the ability.
+
+For a `ThroughParent` that is `decidedInRowContext()`, the parent is decided while `within()` runs, so the perimeters the reader reaches on the parent, and what the `ThroughParent`'s own `allowed()` answered, are kept under the decision context of that value: the same key as a request of that value alone, so a decision made later in the same request or job after a real switch to that value reuses them, and the parent's `allowed()` callbacks run once per value. The decision of the child itself stays kept under the context of the request.
 
 A reader without a key, or not saved, is never kept: its perimeters are evaluated again on every decision. For the others, an `allowed()` that reads the database runs once per reader, ability and decision context in a request, not once per row: a page of 100 posts decided through `withAbilities()` costs the page query plus the queries of each `allowed()` once, and so does a page of 100 comments whose `ThroughParent` reaches the posts. The policy, `controlled()`, `controlledFor()`, the batches, the search filter and `applicablePerimeters()` read the same kept perimeters, so they always agree within a request. The in-memory checks (`should`, `includes()` and the in-memory form of the boundary) run on every decision, on the row as stored.
 

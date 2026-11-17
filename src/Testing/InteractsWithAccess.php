@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Testing;
 
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
@@ -10,6 +11,7 @@ use Lomkit\Access\Exceptions\IgnoredArgumentException;
 use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\ControlledSearchable;
 use PHPUnit\Framework\Assert;
 
@@ -91,6 +93,41 @@ trait InteractsWithAccess
 
             Assert::assertSame(['searchOnly' => [], 'sqlOnly' => []], $disagreements, $this->searchAgreesFailure($control, $reader, $disagreements));
         }
+    }
+
+    /**
+     * @param  class-string<Control>  $control
+     * @param  iterable<Model>  $rows
+     * @param  Closure(int|string, Closure(): void): mixed  $alone
+     * @param  list<string>  $abilities
+     */
+    public function assertRowContextAgrees(string $control, Model $reader, iterable $rows, Closure $alone, array $abilities = ['view', 'update', 'delete']): void
+    {
+        $instance = Access::control($control);
+        $columns = array_values(array_unique(array_filter(array_map(fn (ThroughParent $parent): ?string => $parent->rowContextColumn(), $instance->declaration()->perimeters()->parents()))));
+        $model = $instance->getModel();
+
+        Assert::assertContains(HasControl::class, class_uses_recursive($model), sprintf('The [%s] model does not use the HasControl trait, so assertRowContextAgrees() cannot compare the lists.', $model));
+        Assert::assertCount(1, $columns, sprintf('assertRowContextAgrees() needs exactly one column decidedInRowContext() on the ThroughParent perimeters of the [%s] control, found [%s].', $control, implode(', ', $columns)));
+
+        $saved = [];
+
+        foreach ($rows as $row) {
+            Assert::assertTrue($row instanceof $model && $row->exists, sprintf('assertRowContextAgrees() received a row that is not a saved [%s] model: pass the saved rows of the [%s] control.', $model, $control));
+            $saved[] = $row;
+        }
+
+        $result = (new RowContextAgreement($instance, $columns[0], $saved, $alone, $abilities))->disagreementsFor($reader);
+        $key = $reader->getKey();
+
+        Assert::assertGreaterThan(0, $result['compared'], sprintf('assertRowContextAgrees() received no saved [%s] row whose [%s] is one of the values of the request: it compares only the rows of the values of the request.', $model, $columns[0]));
+        Assert::assertSame([], $result['disagreements'], sprintf(
+            "The decisions of the [%s] control under the request disagree, for the [%s] reader with key [%s], with the decisions in a request of the value of each row alone, as the alone closure sets it up:\n- %s\nThe usual causes are a within closure of Access::rowContextUsing() that does not switch a state the parent reads (the brands, the permission team, the tenant), and a perimeter or the boundary of the child that reads the values of the request instead of the value of the row.",
+            $control,
+            $reader::class,
+            is_int($key) || is_string($key) ? $key : get_debug_type($key),
+            implode("\n- ", $result['disagreements']),
+        ));
     }
 
     /**

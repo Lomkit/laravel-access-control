@@ -11,11 +11,18 @@ final readonly class ParentKey
 
     private const string SEPARATOR = '.';
 
+    private const string IN = 'in';
+
     private function __construct(private string $prefix) {}
 
     public static function through(string $relation): self
     {
         return new self(self::PREFIX.self::SEPARATOR.SearchKeyValues::component($relation));
+    }
+
+    public function in(int|string $value): self
+    {
+        return new self($this->prefix.self::SEPARATOR.self::IN.self::SEPARATOR.SearchKeyValues::component($value));
     }
 
     public function name(): string
