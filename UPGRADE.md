@@ -502,7 +502,7 @@ ClientPerimeter::new()
 ```
 
 - The name is required, made of lowercase letters, digits and underscores, and unique in the control: the package prefixes each key with it, such as `client.7`, so two perimeters never open each other's rows. An invalid name throws `InvalidSearchKeyNameException`, a duplicate `DuplicateSearchKeyNameException`.
-- Each side returns a value, a list of values, or a list of tuples: `[3, 7]` gives `client.3` and `client.7`, `[['fr', 7]]` gives `client.fr.7`. Use a tuple when a key depends on a context, such as the brand of the request. A value is an int, a string or a backed enum; anything else throws `InvalidSearchKeyValueException`.
+- Each side returns a value, a list of values, or a list of tuples: `[3, 7]` gives `client.3` and `client.7`, `[['fr', 7]]` gives `client.fr.7`. Use a tuple when a key depends on the decision context, such as the brand of the request (see below). A value is an int, a string or a backed enum; anything else throws `InvalidSearchKeyValueException`.
 - `null` gives no key, never a key that matches `null`. A reader with no key finds nothing.
 - A row callback that reads a relation declares it in `load:`. The relations are loaded once per indexed batch, on a copy of the rows, and the keys are computed with lazy loading disabled: a relation read without `load:` throws `UndeclaredSearchKeyRelationException`.
 
@@ -514,6 +514,20 @@ ClientPerimeter::new()
     load: ['sharedWith:id'],
 )
 ```
+
+The `reader:` closure may take the `AccessContext` as its second parameter, the same object the hooks of a perimeter class receive, so a key that depends on the brand of the request reads it from the [decision context](#the-decision-context), never from a second source such as a global that a job, a command or a test could set differently. Its ability is always `view`, since a search only finds the rows the reader may view. The `row:` closure never receives a context, since the rows are indexed outside any request: the context dimension of a key comes from a column of the row.
+
+```php
+use Lomkit\Access\AccessContext;
+
+->searchKeys(
+    name: 'author',
+    row: fn (Post $post) => [[$post->brand_id, $post->author_id]],
+    reader: fn (User $user, AccessContext $context) => [[$context->decisionContext()['brand'], $user->id]],
+)
+```
+
+A second parameter whose type does not accept an `AccessContext`, or a third parameter without a default value, throws `InvalidSearchKeyReaderException` when the keys are declared, naming the perimeter or the boundary and the key name. A `reader:` closure of one parameter is called with the reader alone.
 
 The levels apply as in the queries: only the highest level the reader reaches gives its reader keys. An unrestricted perimeter gives no key filter: the search keeps every row of the boundary. A perimeter that applies to the reader but declares no search keys adds no row to the search, which is then narrower than the query, never wider. Search keys on an unrestricted perimeter throw `UnrestrictedPerimeterCallbackException`.
 
@@ -536,6 +550,8 @@ class TenantBoundary extends Boundary
     }
 }
 ```
+
+The `reader:` closure of `SearchKeys::of()` may take the `AccessContext` as its second parameter too, like the `scope()` of the boundary class, so a boundary that reads the brand of the request finds the same rows in SQL and in a search. The reader value of `Boundary::where()` receives the reader alone, in SQL as in a search.
 
 A controlled search on a search engine whose control has a boundary class without `searchKeys()` throws `UnsearchableBoundaryException`, which replaces the exception of the same name that 0.x threw for every boundary. A reader whose boundary value is `null` finds nothing.
 
@@ -1032,7 +1048,7 @@ public function boot(): void
 }
 ```
 
-The resolver returns an array of strings, ints, booleans or nulls keyed by name; anything else, such as a model or a float, throws `InvalidDecisionContextException`. It runs each time the package builds an `AccessContext`, and the hooks of a perimeter class read it with `$context->decisionContext()`, sorted by key. Without a resolver, the context is `[]`. The package files the decisions it keeps for a request under this context, so a decision made for one brand is never reused for another.
+The resolver returns an array of strings, ints, booleans or nulls keyed by name; anything else, such as a model or a float, throws `InvalidDecisionContextException`. It runs each time the package builds an `AccessContext`, and the hooks of a perimeter class and the `reader:` closures of search keys read it with `$context->decisionContext()`, sorted by key. In a `reader:` closure, the ability of the context is always `view`. Without a resolver, the context is `[]`. The package files the decisions it keeps for a request under this context, so a decision made for one brand is never reused for another.
 
 #### Several brands in one list
 

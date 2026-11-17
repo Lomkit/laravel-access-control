@@ -6,17 +6,17 @@ use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\LazyLoadingViolationException;
 use Lomkit\Access\AccessContext;
+use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\DuplicatePerimeterCallbackException;
 use Lomkit\Access\Exceptions\DuplicateReindexException;
 use Lomkit\Access\Exceptions\InvalidSearchKeyNameException;
+use Lomkit\Access\Exceptions\InvalidSearchKeyReaderException;
 use Lomkit\Access\Exceptions\UndeclaredSearchKeyRelationException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
 use Lomkit\Access\Perimeters\ClosureShape;
-use Lomkit\Access\Perimeters\ParameterType;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Search\Freshness\ReindexRules;
 use Lomkit\Access\Search\Freshness\ReindexWhen;
-use ReflectionFunction;
 
 final readonly class SearchKeys
 {
@@ -26,8 +26,7 @@ final readonly class SearchKeys
     private function __construct(
         private string $name,
         private Closure $row,
-        private Closure $reader,
-        private ParameterType $readerType,
+        private SearchKeyReader $reader,
         private array $load,
         private ReindexRules $reindexes,
     ) {}
@@ -43,7 +42,7 @@ final readonly class SearchKeys
             throw InvalidSearchKeyNameException::named($name);
         }
 
-        return new self($name, $row, $reader, ParameterType::at(new ReflectionFunction($reader), 0), $load, ReindexRules::none());
+        return new self($name, $row, SearchKeyReader::of($reader), $load, ReindexRules::none());
     }
 
     /**
@@ -54,6 +53,7 @@ final readonly class SearchKeys
      * @throws InvalidSearchKeyNameException When the name is not made of lowercase letters, digits and underscores.
      * @throws UnrestrictedPerimeterCallbackException When the perimeter is unrestricted.
      * @throws DuplicatePerimeterCallbackException When the perimeter already declares search keys.
+     * @throws InvalidSearchKeyReaderException When the reader closure takes a parameter that the package cannot fill.
      */
     public static function declaredBy(Perimeter $perimeter, string $name, Closure $row, Closure $reader, array $load): self
     {
@@ -69,7 +69,23 @@ final readonly class SearchKeys
             throw InvalidSearchKeyNameException::forPerimeter($perimeter, $name);
         }
 
-        return self::of($name, $row, $reader, $load);
+        return self::of($name, $row, $reader, $load)->checkedFor($perimeter);
+    }
+
+    /**
+     * @internal
+     *
+     * @throws InvalidSearchKeyReaderException When the reader closure takes a parameter that the package cannot fill.
+     */
+    public function checkedFor(Perimeter|Boundary $declarer): self
+    {
+        $parameter = $this->reader->unfillableParameter();
+
+        if ($parameter !== null) {
+            throw InvalidSearchKeyReaderException::for($declarer, $this->name, $parameter);
+        }
+
+        return $this;
     }
 
     /** @internal */
@@ -78,8 +94,7 @@ final readonly class SearchKeys
         return new self(
             SearchKeyValues::component($column),
             static fn (Model $row): mixed => $row->getAttribute($column),
-            $reader,
-            ParameterType::at(new ReflectionFunction($reader), 0),
+            SearchKeyReader::withoutContext($reader),
             [],
             ReindexRules::none(),
         );
@@ -114,7 +129,7 @@ final readonly class SearchKeys
      */
     public function reindexingWhen(ReindexWhen $reindex, Perimeter $perimeter): self
     {
-        return new self($this->name, $this->row, $this->reader, $this->readerType, $this->load, $this->reindexes->with($reindex, $perimeter));
+        return new self($this->name, $this->row, $this->reader, $this->load, $this->reindexes->with($reindex, $perimeter));
     }
 
     /** @internal */
@@ -126,7 +141,7 @@ final readonly class SearchKeys
     /** @internal */
     public function admits(Model $reader): bool
     {
-        return $this->readerType->admits($reader);
+        return $this->reader->admits($reader);
     }
 
     /**
@@ -160,7 +175,7 @@ final readonly class SearchKeys
             return [];
         }
 
-        return SearchKeyValues::keys($this->name, ($this->reader)($reader), $reader);
+        return SearchKeyValues::keys($this->name, $this->reader->values($context), $reader);
     }
 
     /** @internal */
@@ -169,7 +184,7 @@ final readonly class SearchKeys
         return $this->name === $other->name
             && $this->load === $other->load
             && ClosureShape::of($this->row)->matches(ClosureShape::of($other->row))
-            && ClosureShape::of($this->reader)->matches(ClosureShape::of($other->reader))
+            && $this->reader->matches($other->reader)
             && $this->reindexes->matches($other->reindexes);
     }
 }

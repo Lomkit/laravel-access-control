@@ -2,10 +2,15 @@
 
 namespace Lomkit\Access\Tests\Feature\Perimeters;
 
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
+use Lomkit\Access\AccessContext;
+use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\DuplicateSearchKeyNameException;
 use Lomkit\Access\Exceptions\InvalidSearchKeyNameException;
+use Lomkit\Access\Exceptions\InvalidSearchKeyReaderException;
 use Lomkit\Access\Exceptions\UnrestrictedPerimeterCallbackException;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
@@ -126,6 +131,98 @@ class SearchKeysDeclarationTest extends PackageTestCase
         $this->assertFalse($declare('author', 1)->shape()->matches($declare('editor', 1)->shape()));
         $this->assertFalse($declare('author', 1)->shape()->matches($declare('author', 2)->shape()));
         $this->assertFalse($declare('author', 1)->shape()->matches(OwnPerimeter::new()->shape()));
+    }
+
+    /** @return array<string, array{Closure, string}> */
+    public static function unfillableReaders(): array
+    {
+        return [
+            'a string context' => [fn (User $user, string $brand): int => 1, 'string $brand'],
+            'a union without the context' => [fn (User $user, int|string $brand): int => 1, 'string|int $brand'],
+            'a model context' => [fn (User $user, Model $context): int => 1, 'Illuminate\Database\Eloquent\Model $context'],
+            'an optional string context' => [fn (User $user, ?string $brand = null): int => 1, '?string $brand'],
+            'variadic strings' => [fn (User $user, string ...$brands): int => 1, 'string $brands'],
+            'a required third parameter' => [fn (User $user, AccessContext $context, int $page): int => 1, 'int $page'],
+            'a required untyped third parameter' => [fn (User $user, mixed $context, $page): int => 1, '$page'],
+        ];
+    }
+
+    /** @return array<string, array{Closure}> */
+    public static function fillableReaders(): array
+    {
+        return [
+            'the reader alone' => [fn (User $user): int => 1],
+            'the context' => [fn (User $user, AccessContext $context): int => 1],
+            'an untyped context' => [fn (User $user, $context): int => 1],
+            'a mixed context' => [fn (User $user, mixed $context): int => 1],
+            'an object context' => [fn (User $user, object $context): int => 1],
+            'a nullable context' => [fn (User $user, ?AccessContext $context): int => 1],
+            'an optional third parameter' => [fn (User $user, AccessContext $context, int $page = 1): int => 1],
+            'variadic mixed values' => [fn (User $user, mixed ...$rest): int => 1],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('unfillableReaders')]
+    public function it_refuses_a_reader_closure_whose_other_parameters_cannot_be_filled(Closure $reader, string $parameter): void
+    {
+        $this->expectException(InvalidSearchKeyReaderException::class);
+        $this->expectExceptionMessage(sprintf(
+            'The [%s] perimeter declares the [author] search keys with a reader closure that takes [%s], which the package cannot fill. Declare the reader closure as fn (Model $reader, AccessContext $context), or with the reader alone.',
+            OwnPerimeter::class,
+            $parameter,
+        ));
+
+        OwnPerimeter::new()->searchKeys('author', fn (Post $post): int => 1, $reader);
+    }
+
+    #[Test]
+    #[DataProvider('fillableReaders')]
+    public function it_accepts_a_reader_closure_that_takes_the_reader_and_maybe_the_context(Closure $reader): void
+    {
+        $this->assertSame('author', OwnPerimeter::new()->searchKeys('author', fn (Post $post): int => 1, $reader)->declaredSearchKeys()?->name());
+    }
+
+    #[Test]
+    #[DataProvider('unfillableReaders')]
+    public function it_refuses_such_a_reader_closure_in_the_search_keys_of_a_boundary(Closure $reader, string $parameter): void
+    {
+        $boundary = new class($reader) extends Boundary
+        {
+            public function __construct(private readonly Closure $reader) {}
+
+            #[\Override]
+            protected function scope(Builder $query, AccessContext $context): void {}
+
+            #[\Override]
+            protected function searchKeys(): SearchKeys
+            {
+                return SearchKeys::of('brand', fn (Post $post): int => 1, $this->reader);
+            }
+        };
+        ConfiguredPostControl::bindWithin($boundary, Levels::of($this->own()));
+
+        $this->expectException(InvalidSearchKeyReaderException::class);
+        $this->expectExceptionMessage(sprintf(
+            'The [%s] boundary declares the [brand] search keys with a reader closure that takes [%s], which the package cannot fill.',
+            $boundary::class,
+            $parameter,
+        ));
+
+        Access::control(PostControl::class);
+    }
+
+    #[Test]
+    public function it_compares_the_search_keys_whose_reader_takes_the_context(): void
+    {
+        $declare = fn (int $value): Perimeter => OwnPerimeter::new()->searchKeys(
+            'author',
+            fn (Post $post): int => 1,
+            fn (User $user, AccessContext $context): array => [[$context->decisionContext()['brand'] ?? 0, $value]],
+        );
+
+        $this->assertTrue($declare(1)->shape()->matches($declare(1)->shape()));
+        $this->assertFalse($declare(1)->shape()->matches($declare(2)->shape()));
     }
 
     #[Test]

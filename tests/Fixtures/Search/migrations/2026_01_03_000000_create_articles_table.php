@@ -14,6 +14,7 @@ return new class extends Migration
             $table->unsignedBigInteger('project_id')->nullable();
             $table->unsignedBigInteger('folder_id')->nullable();
             $table->unsignedBigInteger('workspace_id')->nullable();
+            $table->unsignedBigInteger('brand_id')->nullable();
             $table->string('title');
             $table->boolean('featured')->default(false);
             $table->text('body');
