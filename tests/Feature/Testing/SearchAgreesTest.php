@@ -121,7 +121,7 @@ class SearchAgreesTest extends SearchTestCase
 
         $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage(sprintf(
-            'The search keys of the [%s] control do not agree with its SQL for the [%s] reader with key [%s], whose search holds [any _boundary and _access {author.%s}]: the keys find the rows [%s with _access {author.%s} and _boundary {}] that the SQL does not, and miss the rows [] that the SQL finds.',
+            'The search keys of the [%s] control do not agree with its SQL for the [%s] reader with key [%s], whose search holds [_access {author.%s}]: the keys find the rows [%s with _access {author.%s}] that the SQL does not, and miss the rows [] that the SQL finds.',
             ArticleControl::class,
             User::class,
             $this->ada->getKey(),
@@ -129,6 +129,25 @@ class SearchAgreesTest extends SearchTestCase
             $recipes->getKey(),
             $website->getKey(),
         ));
+
+        $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);
+    }
+
+    #[Test]
+    public function it_lists_the_first_keys_of_a_reader_with_many_keys_in_its_failure(): void
+    {
+        $website = Project::query()->where('name', 'Website')->firstOrFail();
+        ConfiguredArticleControl::bind(
+            AuthorPerimeter::new()
+                ->allowed(fn (User $user): bool => true)
+                ->query(function (Builder $query, User $user): void {
+                    $query->where('author_id', $user->getKey());
+                })
+                ->searchKeys('author', fn (Article $article): mixed => $article->project_id, fn (User $user): array => [...range(1001, 1012), $website->getKey()]),
+        );
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage('whose search holds [_access {author.1001, author.1002, author.1003, author.1004, author.1005, author.1006, author.1007, author.1008, author.1009, author.1010 and 3 more}]');
 
         $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);
     }

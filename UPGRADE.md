@@ -977,7 +977,7 @@ public function test_its_search_says_what_its_sql_says(): void
 }
 ```
 
-It proves the agreement on the rows of the test only: seed the rows each perimeter reaches. It compares the digests of the keys, as the engine receives them, so it proves the logic of your keys, not the behaviour of the engine. A failure lists the readable keys of the reader and of each row in disagreement.
+It proves the agreement on the rows of the test only: seed the rows each perimeter reaches. It compares the digests of the keys, as the engine receives them, so it proves the logic of your keys, not the behaviour of the engine. A failure lists the readable keys of the reader and of each row in disagreement, the first ten of each list.
 
 ### Linking a model to its control
 

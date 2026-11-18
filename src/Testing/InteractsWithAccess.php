@@ -87,11 +87,13 @@ trait InteractsWithAccess
         Assert::assertNotSame([], $readers, sprintf('assertSearchAgrees() received no reader for the [%s] control: the search agrees with the SQL only for the readers it compares.', $control));
 
         $agreement = new SearchAgreement($instance);
+        $agreed = ['searchOnly' => [], 'sqlOnly' => []];
 
         foreach ($readers as $reader) {
             $disagreements = $agreement->disagreementsFor($reader);
+            $failure = $disagreements === $agreed ? '' : $this->searchAgreesFailure($control, $reader, $agreement->readerKeys($reader), $disagreements);
 
-            Assert::assertSame(['searchOnly' => [], 'sqlOnly' => []], $disagreements, $this->searchAgreesFailure($control, $reader, $agreement->readerKeys($reader), $disagreements));
+            Assert::assertSame($agreed, $disagreements, $failure);
         }
     }
 

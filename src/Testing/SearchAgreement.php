@@ -13,6 +13,8 @@ final class SearchAgreement
 {
     private const int REPORTED_ROWS = 10;
 
+    private const int REPORTED_KEYS = 10;
+
     /** @var array<string, array<string, list<string>>> */
     private array $keys = [];
 
@@ -54,7 +56,7 @@ final class SearchAgreement
             return 'none, the search is closed';
         }
 
-        return self::keysOf([SearchField::Boundary->value => $filter->boundaryKeys(), SearchField::Access->value => $filter->accessKeys()]);
+        return $this->keysOf([SearchField::Boundary->value => $filter->boundaryKeys(), SearchField::Access->value => $filter->accessKeys()]);
     }
 
     /**
@@ -64,21 +66,34 @@ final class SearchAgreement
     private function described(array $rows): array
     {
         return array_map(
-            fn (string $row): string => sprintf('%s with %s', $row, self::keysOf($this->keys[$row])),
+            fn (string $row): string => sprintf('%s with %s', $row, $this->keysOf($this->keys[$row])),
             array_slice($rows, 0, self::REPORTED_ROWS),
         );
     }
 
     /** @param  array<string, list<string>|null>  $keys */
-    private static function keysOf(array $keys): string
+    private function keysOf(array $keys): string
     {
+        if (! $this->control->searchRules()->isBounded()) {
+            unset($keys[SearchField::Boundary->value]);
+        }
+
         $fields = [];
 
         foreach ($keys as $field => $values) {
-            $fields[] = $values === null ? "any {$field}" : sprintf('%s {%s}', $field, implode(', ', $values));
+            $fields[] = $values === null ? "any {$field}" : sprintf('%s {%s}', $field, self::listed($values));
         }
 
         return implode(' and ', $fields);
+    }
+
+    /** @param  list<string>  $values */
+    private static function listed(array $values): string
+    {
+        $listed = implode(', ', array_slice($values, 0, self::REPORTED_KEYS));
+        $more = count($values) - self::REPORTED_KEYS;
+
+        return $more > 0 ? "{$listed} and {$more} more" : $listed;
     }
 
     /** @return list<string> */
