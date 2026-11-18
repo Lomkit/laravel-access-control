@@ -9,7 +9,11 @@ use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\PostControl;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
+use Lomkit\Access\Tests\Fixtures\Purity\BoundScopePostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\CollectedPostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\CountingUser;
 use Lomkit\Access\Tests\Fixtures\Purity\SelfWrappedPostControl;
+use Lomkit\Access\Tests\Fixtures\Purity\SharedChildPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\WrappedLevelsPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\WrappedParentPostControl;
 use Lomkit\Access\Tests\Fixtures\Purity\WrappedPostControl;
@@ -135,5 +139,56 @@ class HeldPerimeterPurityTest extends PackageTestCase
         $this->expectImpure(SelfWrappedPostControl::class);
 
         Post::controlledFor($this->ada)->get();
+    }
+
+    #[Test]
+    public function it_catches_a_perimeter_held_in_a_collection_that_captures_another_value(): void
+    {
+        config(['posts.title' => 'Draft']);
+        $this->app->instance(PostControl::class, new CollectedPostControl);
+
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        config(['posts.title' => 'Roadmap']);
+
+        $this->expectImpure(CollectedPostControl::class);
+
+        Post::controlledFor($this->ada)->get();
+    }
+
+    #[Test]
+    public function it_catches_a_callback_bound_to_a_perimeter_whose_state_changes(): void
+    {
+        config(['posts.title' => 'Draft']);
+        $this->app->instance(PostControl::class, new BoundScopePostControl);
+
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+        $this->assertSame(['Draft'], Post::controlledFor($this->ada)->pluck('title')->all());
+
+        config(['posts.title' => 'Roadmap']);
+
+        $this->expectImpure(BoundScopePostControl::class);
+
+        Post::controlledFor($this->ada)->get();
+    }
+
+    #[Test]
+    public function it_compares_a_child_that_a_chain_of_perimeters_holds_twice_at_each_step_once(): void
+    {
+        config(['posts.title' => 'Draft', 'posts.depth' => 16, 'posts.owner' => (new CountingUser)->forceFill(['id' => $this->ada->getKey()])]);
+        $this->app->instance(PostControl::class, $control = new SharedChildPostControl);
+        $control->declaration();
+        CountingUser::$comparisons = 0;
+
+        $control->verifyPerimeters();
+
+        $this->assertSame(1, CountingUser::$comparisons);
+
+        config(['posts.title' => 'Roadmap']);
+
+        $this->expectImpure(SharedChildPostControl::class);
+
+        $control->verifyPerimeters();
     }
 }
