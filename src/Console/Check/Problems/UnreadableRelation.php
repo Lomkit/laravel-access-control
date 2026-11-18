@@ -3,13 +3,14 @@
 namespace Lomkit\Access\Console\Check\Problems;
 
 /** @internal */
-final readonly class UnreadableRelation implements Problem
+final readonly class UnreadableRelation implements PositionedProblem
 {
     public function __construct(
         private string $model,
         private string $relation,
         private string $reason,
         private ?string $readBy = null,
+        private ?string $position = null,
     ) {}
 
     #[\Override]
@@ -22,6 +23,12 @@ final readonly class UnreadableRelation implements Problem
     public function subject(): string
     {
         return $this->model;
+    }
+
+    #[\Override]
+    public function position(): ?string
+    {
+        return $this->position;
     }
 
     #[\Override]

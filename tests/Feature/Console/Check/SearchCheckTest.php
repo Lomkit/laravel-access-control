@@ -130,7 +130,7 @@ class SearchCheckTest extends SearchCheckTestCase
     public function it_reports_a_relation_read_by_the_keys_that_nothing_reindexes(): void
     {
         $this->assertSame([
-            ['kind' => 'search_freshness', 'subject' => RelatedDocument::class, 'position' => null, 'message' => 'The [client] search keys of the ['.RelatedDocument::class.'] model read the [folder] relation, but nothing reindexes the documents when ['.Folder::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Folder::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
+            ['kind' => 'search_freshness', 'subject' => RelatedDocument::class, 'position' => '#1', 'message' => 'The [client] search keys of the ['.RelatedDocument::class.'] model read the [folder] relation, but nothing reindexes the documents when ['.Folder::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Folder::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
         ], $this->problemsOf(RelatedDocument::class));
     }
 

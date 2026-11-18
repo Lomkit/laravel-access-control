@@ -5,9 +5,12 @@ namespace Lomkit\Access\Console\Check\Problems;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessIssue;
 
 /** @internal */
-final readonly class SearchFreshness implements Problem
+final readonly class SearchFreshness implements PositionedProblem
 {
-    public function __construct(private FreshnessIssue $issue) {}
+    public function __construct(
+        private FreshnessIssue $issue,
+        private ?string $position,
+    ) {}
 
     #[\Override]
     public function kind(): ProblemKind
@@ -19,6 +22,12 @@ final readonly class SearchFreshness implements Problem
     public function subject(): string
     {
         return $this->issue->model();
+    }
+
+    #[\Override]
+    public function position(): ?string
+    {
+        return $this->position;
     }
 
     #[\Override]

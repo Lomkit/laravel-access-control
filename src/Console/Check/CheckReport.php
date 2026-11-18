@@ -5,7 +5,7 @@ namespace Lomkit\Access\Console\Check;
 use Lomkit\Access\Console\Check\Inventory\ControlInventory;
 use Lomkit\Access\Console\Check\Inventory\DiscoveryInventory;
 use Lomkit\Access\Console\Check\Notes\Note;
-use Lomkit\Access\Console\Check\Problems\PerimeterProblem;
+use Lomkit\Access\Console\Check\Problems\PositionedProblem;
 use Lomkit\Access\Console\Check\Problems\Problem;
 
 /** @internal */
@@ -40,7 +40,7 @@ final readonly class CheckReport
             'problems' => array_map(fn (Problem $problem): array => [
                 'kind' => $problem->kind()->value,
                 'subject' => $problem->subject(),
-                'position' => $problem instanceof PerimeterProblem ? $problem->position() : null,
+                'position' => $problem instanceof PositionedProblem ? $problem->position() : null,
                 'message' => $problem->message(),
             ], $this->problems),
             'notes' => array_map(fn (Note $note): array => ['kind' => $note->kind()->value, 'subject' => $note->subject(), 'message' => $note->message()], $this->notes),

@@ -57,11 +57,11 @@ final class KeyRelations
             try {
                 $shape = method_exists($parent, $segment) ? RelationInspector::shape($parent, $segment) : null;
             } catch (Throwable $exception) {
-                return [...$issues, new UnreadableKeyRelation($model, $keys->name(), $parent::class, $segment, $exception->getMessage())];
+                return [...$issues, new UnreadableKeyRelation($model, $keys, $parent::class, $segment, $exception->getMessage())];
             }
 
             if ($shape === null) {
-                return [...$issues, new UnwatchedKeyRelation($model, $keys->name(), implode(self::NESTING, $walked), null)];
+                return [...$issues, new UnwatchedKeyRelation($model, $keys, implode(self::NESTING, $walked), null)];
             }
 
             $related = $shape->related();
@@ -69,7 +69,7 @@ final class KeyRelations
             $read = $position === array_key_last($segments) && $columns !== [] ? array_values(array_diff($columns, [$parent->getKeyName(), $parent->getQualifiedKeyName()])) : null;
 
             if (! self::watched($parent, $read, $reindexes) && ! ($read === [] && self::reindexedByItsPivot($shape))) {
-                $issues[] = new UnwatchedKeyRelation($model, $keys->name(), implode(self::NESTING, $walked), $related);
+                $issues[] = new UnwatchedKeyRelation($model, $keys, implode(self::NESTING, $walked), $related);
             }
         }
 

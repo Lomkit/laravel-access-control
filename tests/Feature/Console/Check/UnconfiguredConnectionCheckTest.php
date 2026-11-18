@@ -130,8 +130,8 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'search_freshness', 'subject' => Branch::class, 'position' => null, 'message' => 'The [country] search keys of the ['.Branch::class.'] model read the [country] relation, but nothing reindexes the documents when ['.Country::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Country::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
-            ['kind' => 'unreadable_relation', 'subject' => Branch::class, 'position' => null, 'message' => 'The [ministry] relation of the ['.Branch::class.'] model, read by the [ministry] search keys of the ['.Branch::class.'] model, throws when the package reads it without a database connection, so access:check cannot verify it: The ministry relation is not wired yet. Fix the ['.Branch::class.'::ministry()] method.'],
+            ['kind' => 'search_freshness', 'subject' => Branch::class, 'position' => '#1', 'message' => 'The [country] search keys of the ['.Branch::class.'] model read the [country] relation, but nothing reindexes the documents when ['.Country::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Country::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
+            ['kind' => 'unreadable_relation', 'subject' => Branch::class, 'position' => '#2', 'message' => 'The [ministry] relation of the ['.Branch::class.'] model, read by the [ministry] search keys of the ['.Branch::class.'] model, throws when the package reads it without a database connection, so access:check cannot verify it: The ministry relation is not wired yet. Fix the ['.Branch::class.'::ministry()] method.'],
         ], $report['problems']);
     }
 

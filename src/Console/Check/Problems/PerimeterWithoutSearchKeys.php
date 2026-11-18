@@ -3,7 +3,7 @@
 namespace Lomkit\Access\Console\Check\Problems;
 
 /** @internal */
-final readonly class PerimeterWithoutSearchKeys implements PerimeterProblem
+final readonly class PerimeterWithoutSearchKeys implements PositionedProblem
 {
     public function __construct(
         private string $control,
