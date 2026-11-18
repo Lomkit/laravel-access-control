@@ -20,9 +20,20 @@ Version 0.7 already changed several things. If you upgrade from 0.6, apply the [
 
 ### What is public in 1.x
 
-The releases of 1.x follow semantic versioning for the classes and methods that this guide documents and that are not marked `@internal`, the exceptions included, and for the artisan commands, their options and the JSON of `access:check`. A class or a method marked `@internal` may change or disappear in any release, whatever its PHP visibility, and so may a public method that this guide does not document: do not call, extend, implement or type against them. The classes behind the artisan commands, the control registry and the search keys and filters, such as `SearchKeyValues`, `SearchDocuments`, `SearchRules` and `SearchFilter`, are internal.
+The releases of 1.x follow semantic versioning for what the documentation describes, on [laravel-access-control.lomkit.com](https://laravel-access-control.lomkit.com) and in this guide, and does not mark `@internal`:
 
-- Your application extends `Perimeter`, `Control`, `Boundary` and `ControlledPolicy`. A minor release may add methods to these classes, and a method of the same name in your subclass would then clash with it: give the methods you add to your subclasses distinctive names. The hooks and helpers this guide documents on them (`allows()`, `includes()` and `scope()` of a perimeter, `scope()`, `includes()` and `searchKeys()` of a boundary, `perimeters()`, `boundary()` and `abilityFor()` of a control, `decideByControl()` and `declaredControl()` of a policy) are stable.
+- the classes, and their public and protected methods, that the documentation shows an application calling, extending, implementing or overriding;
+- the exception classes and the classes they extend, which your application may catch, thrown in the cases the documentation gives; their messages and the way they are built are not covered;
+- the refusal codes of the policies (`unsaved`, `no_perimeter`, `outside_boundary`, `not_found`, `outside_rows`) and the names of the search attributes `_access` and `_boundary`;
+- the artisan commands, their options, their exit codes and the JSON of `access:check`. A minor release may add problems and notes to `access:check`, so a CI that passed may fail after it, as with the new rules of a linter.
+
+A class or a method marked `@internal` may change or disappear in any release, whatever its PHP visibility, and so may a method, public or protected, that the documentation does not describe: do not call, extend, implement, override or type against them. The classes behind the artisan commands, the control registry and the search keys and filters, such as `SearchKeyValues`, `SearchDocuments`, `SearchRules` and `SearchFilter`, are internal. `AccessServiceProvider` is registered by Laravel's package discovery: list it in `bootstrap/providers.php` if your application turns the discovery off, and do not extend it. `ControlledSearchBuilder` is the builder that `search()` returns on a `ControlledSearchable` model, whose `controlled()`, `controlledFor()` and `uncontrolled()` are public (see [Search](#search)).
+
+- Your application extends `Perimeter`, `Control` and `Boundary`. A minor release may add methods to these classes, and a method of the same name in your subclass would then clash with it: give the methods you add to your subclasses distinctive names. Their members covered by 1.x are these:
+  - `Perimeter`: `new()`, `allowed()`, `should()`, `query()`, `searchKeys()`, `reindexWhen()`, `unrestricted()`, `admits()` and `checksInMemory()`, and the protected hooks `allows()`, `includes()` and `scope()`;
+  - `Control`: `new()`, `abilityFor()`, `decide()`, `applies()` and `reachableKeys()`, and the protected `perimeters()`, `boundary()` and `applicablePerimeters()`;
+  - `Boundary`: `where()`, `none()` and `checksInMemory()`, the protected hooks `scope()`, `includes()`, `searchKeys()` and `admits()` (see [Boundaries](#boundaries)), and `readOnlyWhenNotNull()` on the boundary that `where()` returns.
+- `ControlledPolicy` gets no new method in 1.x, since the methods of your policy are named after your abilities: it keeps the seven standard abilities, the protected `decideByControl()` and `declaredControl()`, and nothing else (see [Business abilities](#business-abilities)).
 - PHP lets a perimeter class call the protected hooks of another perimeter, since both extend `Perimeter`. That is not supported: the package admits the reader by the type of the callbacks and by the `reader:` closure of the search keys before it calls `allows()`, and a hook called directly skips both (see [Perimeter classes](#perimeter-classes)).
 - The access keys stored in your search documents are not an API, but they live in your indexes: a release that changes them says so in its upgrade notes, with the reindex it needs, even a minor one.
 
@@ -244,6 +255,8 @@ protected function boundary(): Boundary
 ```
 
 Without `includes()`, the policy checks the boundary with an `exists` query on the row; with it, in memory. Even an unrestricted perimeter grants a row without SQL only when the boundary is empty or checks in memory: otherwise the policy runs that `exists` on the boundary alone. The policy checks the boundary before the `should` callbacks of the perimeters. `boundary()` follows the rule of `perimeters()`: it is built once per process and must not read the user, the request or the tenant while it builds the boundary (see [Pure perimeter lists](#pure-perimeter-lists)).
+
+A boundary class may also override `admits(AccessContext $context): bool`, the form of the boundary without a row. When it returns `false`, the reader reaches nothing for that ability: `controlled()` lists no row, and the policy refuses with `no_perimeter`, `viewAny` and `create` included. Its answer is kept like the one of `allowed()`, once per reader, ability and decision context (see [Kept decisions](#kept-decisions)). `Boundary::where()` uses it to close the boundary for a null reader value.
 
 Replace the overrides of `applies()` and `applyQueryControl()` that added such a condition by hand with a boundary:
 
@@ -1016,7 +1029,7 @@ class PostSearchTokenController
 ```
 
 - The engine is the one the model searches with (`searchableUsing()`): a tenant token for Meilisearch, a scoped search key for Typesense, a secured API key for Algolia. Pass the key of that engine, `SearchTokenKey::meilisearch(uid:, key:)`, `SearchTokenKey::typesense(key:)` or `SearchTokenKey::algolia(key:)`, or `MismatchedSearchTokenKeyException` is thrown. The package has no configuration file: read the key from your own, such as `config/services.php`.
-- The filter in the token is the one `controlled()` applies, rendered in the engine's syntax from the same `searchFilter()`, with the same meaning: a document is found when it shares at least one key with the reader, inside the boundary. A reader that `controlled()` would show an empty page (no reader, no perimeter that allows them, no key) gets a token whose filter asks for an `_access` key that no document can carry, so it finds nothing. An unrestricted reader without a boundary gets a token with no filter, over the whole index of the model.
+- The filter in the token is the one `controlled()` applies, rendered in the engine's syntax from the same filter, with the same meaning: a document is found when it shares at least one key with the reader, inside the boundary. A reader that `controlled()` would show an empty page (no reader, no perimeter that allows them, no key) gets a token whose filter asks for an `_access` key that no document can carry, so it finds nothing. An unrestricted reader without a boundary gets a token with no filter, over the whole index of the model.
 - The token keeps the keys of its reader until it expires: a permission change reaches the browser at the next token. The expiry is required, and one that is not in the future throws `PastSearchTokenExpiryException`. Keep it short, from a few minutes to an hour, and fetch a new token when it expires.
 - Never sign with the admin key: a key equal to the one Scout uses (`scout.meilisearch.key`, `scout.typesense.client-settings.api_key`, `scout.algolia.secret`) throws `AdminSearchTokenKeyException`. Create a search-only key for each engine:
   - Meilisearch: `POST /keys` with the master key and `{"actions": ["search"], "indexes": ["posts"], "expiresAt": null}`; pass the `uid` and the `key` it returns. The token is limited to the model's index in its `searchRules`.
@@ -1337,7 +1350,7 @@ $this->authorize('record', $visit);                            // a saved visit,
 $this->authorize('record', Visit::class);                      // somewhere
 ```
 
-Never wrap the argument in `Draft::of()` inside the policy: a saved visit changed with `fill()` would then be judged on its new values.
+Never wrap the argument in `Draft::of()` inside the policy: a saved visit changed with `fill()` would then be judged on its new values. `Draft::model()` returns the model about to be created, for a policy that reads it; pass the draft itself to `decideByControl()`.
 
 A `ThroughParent` judges such a draft only when `delegates()` lists that ability.
 
@@ -2249,6 +2262,7 @@ If you extended `AccessControlExtension`, move the conditions of its `restrict()
 | `$this->allowedCallback = ...` in a perimeter subclass | `->allowed(...)`, or the `allows()` hook |
 | `$user instanceof User ? ... : $query->whereRaw('0 = 1')` in a callback | Type the reader: `fn (Builder $query, User $user) => ...` |
 | `Control::appNamespace()` | `app()->getNamespace()` |
+| `$control->getModel()`, `$control->isModel($model)` | Internal: the model is the `$model` of your control; from a model, `Access::controlFor($model)` |
 | `class SharedPerimeter extends OverlayPerimeter` | `class SharedPerimeter extends Perimeter`, written outside the `Levels::of()` group |
 | Perimeters that stop at the first allowed one | `Levels::of(...)`, widest first, in the same order; checked by `assertLevelsNest()` |
 | `overlays()` overridden on a perimeter | Removed: a perimeter outside a group always adds up |
