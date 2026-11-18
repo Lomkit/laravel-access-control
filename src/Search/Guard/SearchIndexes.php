@@ -11,10 +11,9 @@ use Lomkit\Access\Search\UsesControlledSearchable;
 /** @internal */
 final readonly class SearchIndexes
 {
-    /** @param  array<string, Model>  $models */
+    /** @param  array<string, list<Model>>  $models */
     private function __construct(private array $models) {}
 
-    /** @throws AmbiguousSearchIndexException When two models are searched in the same index. */
     public static function discovered(ControlRegistry $registry): self
     {
         $models = [];
@@ -23,23 +22,26 @@ final readonly class SearchIndexes
             $model = is_subclass_of($class, Model::class) && UsesControlledSearchable::check($class) ? new $class : null;
             $index = $model !== null && method_exists($model, 'searchableAs') ? $model->searchableAs() : null;
 
-            if ($model === null || ! is_string($index)) {
-                continue;
+            if ($model !== null && is_string($index)) {
+                $models[$index][] = $model;
             }
-
-            if (array_key_exists($index, $models)) {
-                throw AmbiguousSearchIndexException::for($index, $models[$index]::class, $class);
-            }
-
-            $models[$index] = $model;
         }
 
         return new self($models);
     }
 
-    /** @throws UnknownSearchIndexException When no ControlledSearchable model of a discovered control is searched in the index. */
+    /**
+     * @throws UnknownSearchIndexException When no ControlledSearchable model of a discovered control is searched in the index.
+     * @throws AmbiguousSearchIndexException When two models are searched in the index.
+     */
     public function model(string $index): Model
     {
-        return $this->models[$index] ?? throw UnknownSearchIndexException::named($index);
+        $models = $this->models[$index] ?? throw UnknownSearchIndexException::named($index);
+
+        if (count($models) > 1) {
+            throw AmbiguousSearchIndexException::for($index, $models[0]::class, $models[1]::class);
+        }
+
+        return $models[0];
     }
 }

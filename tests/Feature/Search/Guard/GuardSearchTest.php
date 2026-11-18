@@ -118,6 +118,16 @@ class GuardSearchTest extends GuardTestCase
         Access::guardSearch(['searches' => [['collection' => $this->index()]]], $this->ada);
     }
 
+    #[Test]
+    public function it_refuses_a_shared_index_only_when_a_search_names_it(): void
+    {
+        Access::discoverControlsIn([dirname(__DIR__, 3).'/Fixtures/SearchGuardMirror']);
+
+        $this->expectException(UnknownSearchIndexException::class);
+
+        Access::guardSearch(['searches' => [['collection' => 'other']]], $this->ada);
+    }
+
     /** @return array<string, array{string}> */
     public static function unguardableDrivers(): array
     {
