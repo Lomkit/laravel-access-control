@@ -86,7 +86,7 @@ class SearchTokenTest extends SearchTestCase
         $filter = sprintf("(_access:'%s' OR _access:'%s')", ...SearchKeyDigest::all(["author.{$this->ada->getKey()}", 'featured.yes']));
         $this->assertSame($filter, $token->filter());
         $this->assertSame('articles', $token->index());
-        $this->assertSame(['enableRules' => 'false', 'filters' => $filter, 'restrictIndices' => 'articles', 'validUntil' => (string) now()->addMinutes(15)->getTimestamp()], $this->restrictionsOf($token));
+        $this->assertSame(['enableABTest' => 'false', 'enableRules' => 'false', 'filters' => $filter, 'restrictIndices' => 'articles', 'validUntil' => (string) now()->addMinutes(15)->getTimestamp()], $this->restrictionsOf($token));
     }
 
     #[Test]
@@ -132,6 +132,7 @@ class SearchTokenTest extends SearchTestCase
         $this->assertSame("(_access:'#closed')", $token->filter());
         $this->assertSame("(_access:'#closed')", $this->restrictionsOf($token)['filters']);
         $this->assertSame('false', $this->restrictionsOf($token)['enableRules']);
+        $this->assertSame('false', $this->restrictionsOf($token)['enableABTest']);
     }
 
     #[Test]

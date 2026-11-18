@@ -32,6 +32,7 @@ final readonly class AlgoliaSigner implements SearchTokenSigner
         if ($filter !== null) {
             $restrictions['filters'] = $filter;
             $restrictions[AlgoliaRules::PARAMETER] = 'false';
+            $restrictions[AlgoliaRules::AB_TESTS] = 'false';
         }
 
         ksort($restrictions);

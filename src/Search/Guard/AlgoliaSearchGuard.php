@@ -33,7 +33,7 @@ final readonly class AlgoliaSearchGuard implements SearchGuard
 
     public function __construct()
     {
-        $this->rules = new SearchParameterRules($this->engine(), self::REFUSED, [self::FILTER, AlgoliaRules::PARAMETER], self::KEY_PREFIX);
+        $this->rules = new SearchParameterRules($this->engine(), self::REFUSED, [self::FILTER, AlgoliaRules::PARAMETER, AlgoliaRules::AB_TESTS], self::KEY_PREFIX);
     }
 
     #[\Override]
@@ -114,6 +114,7 @@ final readonly class AlgoliaSearchGuard implements SearchGuard
         }
 
         $parameters[AlgoliaRules::PARAMETER] = $disabled;
+        $parameters[AlgoliaRules::AB_TESTS] = $disabled;
 
         return $parameters;
     }

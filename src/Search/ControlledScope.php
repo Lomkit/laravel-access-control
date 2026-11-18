@@ -73,7 +73,7 @@ final class ControlledScope implements SearchScope
         }
 
         if ($engine instanceof AlgoliaEngine && $filter->whereIns() !== []) {
-            $search->options[AlgoliaRules::PARAMETER] = false;
+            $search->options = [...$search->options, ...AlgoliaRules::off()];
         }
 
         return $engine;

@@ -61,17 +61,18 @@ class AlgoliaRulesTest extends SearchTestCase
     }
 
     #[Test]
-    public function it_turns_the_rules_off_on_a_controlled_search_whatever_the_options(): void
+    public function it_turns_the_rules_and_the_ab_tests_off_on_a_controlled_search_whatever_the_options(): void
     {
         $this->allow(['view own articles']);
 
-        $this->searchEveryWay(['enableRules' => true]);
+        $this->searchEveryWay(['enableRules' => true, 'enableABTest' => true]);
         $this->searchEveryWay([]);
 
         $this->assertCount(10, $this->client->requests);
 
         foreach ($this->client->requests as $request) {
             $this->assertFalse($request['enableRules']);
+            $this->assertFalse($request['enableABTest']);
         }
     }
 

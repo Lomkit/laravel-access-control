@@ -60,6 +60,7 @@ class AlgoliaSearchGuardTest extends GuardTestCase
             'facetFilters' => [['featured:true']],
             'filters' => "featured:true AND author_id:1 AND {$this->access()}",
             'enableRules' => false,
+            'enableABTest' => false,
         ], $search);
     }
 
@@ -79,10 +80,11 @@ class AlgoliaSearchGuardTest extends GuardTestCase
     }
 
     #[Test]
-    public function it_always_turns_the_rules_off(): void
+    public function it_always_turns_the_rules_and_the_ab_tests_off(): void
     {
         $this->assertFalse($this->guard([])['enableRules']);
         $this->assertFalse($this->guard(['enableRules' => true])['enableRules']);
+        $this->assertFalse($this->guard(['enableABTest' => true])['enableABTest']);
     }
 
     #[Test]
@@ -105,6 +107,7 @@ class AlgoliaSearchGuardTest extends GuardTestCase
             'hitsPerPage' => '20',
             'filters' => "(featured:true OR featured:false) AND {$this->access()}",
             'enableRules' => 'false',
+            'enableABTest' => 'false',
         ], $parameters);
     }
 
@@ -114,7 +117,7 @@ class AlgoliaSearchGuardTest extends GuardTestCase
         $search = $this->guard(['type' => 'facet', 'facet' => 'author_id', 'params' => 'facetQuery=1']);
 
         $this->assertSame(['indexName' => $this->index(), 'type' => 'facet', 'facet' => 'author_id'], array_diff_key($search, ['params' => true]));
-        $this->assertSame(['facetQuery' => '1', 'filters' => $this->access(), 'enableRules' => 'false'], $this->parameters('facetQuery=1'));
+        $this->assertSame(['facetQuery' => '1', 'filters' => $this->access(), 'enableRules' => 'false', 'enableABTest' => 'false'], $this->parameters('facetQuery=1'));
     }
 
     #[Test]
@@ -168,6 +171,7 @@ class AlgoliaSearchGuardTest extends GuardTestCase
             'an expiry' => ['validUntil', 1],
             'the filters in another case' => ['Filters', 'featured:true'],
             'the rules in another case' => ['EnableRules', true],
+            'the A/B tests in another case' => ['enableAbTest', true],
         ];
     }
 
