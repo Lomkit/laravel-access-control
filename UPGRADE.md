@@ -1422,14 +1422,14 @@ protected function perimeters(): array
 
 ```php
 OwnPerimeter::new()
-    ->allowed(fn (User $user, Ability $ability): bool => $user->brandsOnlyWhere("{$ability} own posts", above: "{$ability} brand posts") !== [])
-    ->should(fn (User $user, Post $post, Ability $ability): bool => $post->author_id === $user->id && in_array($post->brand_id, $user->brandsOnlyWhere("{$ability} own posts", above: "{$ability} brand posts"), true))
+    ->allowed(fn (User $user, Ability $ability): bool => $user->brandsOnlyWhere("{$ability} own posts", above: ["{$ability} brand posts"]) !== [])
+    ->should(fn (User $user, Post $post, Ability $ability): bool => $post->author_id === $user->id && in_array($post->brand_id, $user->brandsOnlyWhere("{$ability} own posts", above: ["{$ability} brand posts"]), true))
     ->query(function (Builder $query, User $user, Ability $ability): void {
-        $query->whereBelongsTo($user, 'author')->whereIn('brand_id', $user->brandsOnlyWhere("{$ability} own posts", above: "{$ability} brand posts"));
+        $query->whereBelongsTo($user, 'author')->whereIn('brand_id', $user->brandsOnlyWhere("{$ability} own posts", above: ["{$ability} brand posts"]));
     }),
 ```
 
-`brandsOnlyWhere()` stands for `brandsWhere()` of the first permission minus `brandsWhere()` of the permission above it, so each brand is read by one level only. The answers stay the same, and `assertControlAgrees()` on posts of several brands checks them. A child read through its parent gets the level of each brand with `decidedInRowContext()` on its `ThroughParent` (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)); 1.1 plans the same decision in the context of the row for `Levels::of()`.
+`brandsOnlyWhere()` stands for `brandsWhere()` of the first permission minus the brands of every higher level, whose permissions `above:` lists, so each brand is read by one level only. The answers stay the same as long as each level contains the next one in every brand; `assertControlAgrees()` on posts of several brands checks that the paths agree, not that the answers are those of the perimeters without the filter. A child read through a parent written this way gets the level of each brand without anything more. When the control of the parent reads the brands from the decision context instead, such as a `Levels::of()` group evaluated under the brands of the request, add `decidedInRowContext()` to the `ThroughParent` (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)); 1.1 plans the decision in the context of the row for `Levels::of()` itself.
 
 Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands where the reader holds the `view` right:
 
