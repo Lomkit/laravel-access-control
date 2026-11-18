@@ -1,6 +1,6 @@
 <?php
 
-namespace Lomkit\Access\Tests\Fixtures\Search;
+namespace Lomkit\Access\Tests\Fixtures\Engines;
 
 use Laravel\Scout\Builder;
 use Laravel\Scout\Engines\TypesenseEngine;

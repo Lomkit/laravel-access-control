@@ -3,11 +3,12 @@
 namespace Lomkit\Access\Tests\Feature\Engines;
 
 use Laravel\Scout\EngineManager;
+use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
+use Lomkit\Access\Tests\Fixtures\Engines\MultiSearchTypesenseEngine;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
-use Lomkit\Access\Tests\Fixtures\Search\MultiSearchTypesenseEngine;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Typesense\Client;
@@ -16,6 +17,16 @@ use Typesense\Client;
 #[Group('typesense')]
 class TypesenseMultiSearchEngineTest extends TypesenseEngineTest
 {
+    #[\Override]
+    protected function setUp(): void
+    {
+        if (! method_exists(TypesenseEngine::class, 'executeSearch')) {
+            $this->markTestSkipped('This Scout version has no TypesenseEngine::executeSearch().');
+        }
+
+        parent::setUp();
+    }
+
     #[\Override]
     protected function configureDriver($app): void
     {

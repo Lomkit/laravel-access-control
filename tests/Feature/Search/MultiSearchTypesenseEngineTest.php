@@ -3,14 +3,15 @@
 namespace Lomkit\Access\Tests\Feature\Search;
 
 use Laravel\Scout\EngineManager;
+use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Search\SearchEngineKind;
 use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Search\Tokens\Signers\SearchTokenSigners;
 use Lomkit\Access\Search\Tokens\Signers\TypesenseSigner;
 use Lomkit\Access\Search\TrustedSearchEngines;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
+use Lomkit\Access\Tests\Fixtures\Engines\MultiSearchTypesenseEngine;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
-use Lomkit\Access\Tests\Fixtures\Search\MultiSearchTypesenseEngine;
 use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
@@ -25,6 +26,10 @@ class MultiSearchTypesenseEngineTest extends SearchTestCase
     #[\Override]
     protected function setUp(): void
     {
+        if (! method_exists(TypesenseEngine::class, 'executeSearch')) {
+            $this->markTestSkipped('This Scout version has no TypesenseEngine::executeSearch().');
+        }
+
         parent::setUp();
 
         $this->ada = $this->user('Ada');
