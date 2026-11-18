@@ -69,7 +69,7 @@ final class SearchCheck
 
         foreach ($positions as $position => $perimeter) {
             if (! $perimeter->isUnrestricted() && ! $perimeter instanceof ThroughParent && $perimeter->declaredSearchKeys() === null) {
-                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $position, $perimeter::class, $model));
+                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $position, $perimeter::class, $model, HeldPerimeters::in($perimeter)));
             }
         }
 

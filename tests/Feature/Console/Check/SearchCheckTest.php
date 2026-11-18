@@ -16,6 +16,7 @@ use Lomkit\Access\Tests\Fixtures\Check\Search\Pivot\Models\LooseTag;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Controls\BoundedDocumentControl;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Controls\KeylessDocumentControl;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Controls\RepeatedDocumentControl;
+use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Controls\WrappedDocumentControl;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\BoundedDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\Folder;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\KeylessDocument;
@@ -23,6 +24,8 @@ use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\PlainDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\RelatedDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\RepeatedDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\RewrittenDocument;
+use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\WrappedDocument;
+use Lomkit\Access\Tests\Fixtures\Purity\WrappingPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\MemoryEngine;
 use Orchestra\Testbench\Attributes\WithConfig;
 use PHPUnit\Framework\Attributes\Group;
@@ -108,6 +111,14 @@ class SearchCheckTest extends SearchCheckTestCase
         $this->assertStringContainsString('The ['.OwnPerimeter::class.'] perimeter at #1 of the ['.RepeatedDocumentControl::class.'] control declares no search keys', $output);
         $this->assertStringContainsString('The ['.OwnPerimeter::class.'] perimeter at #2.2 of the ['.RepeatedDocumentControl::class.'] control declares no search keys', $output);
         $this->assertStringContainsString('2 problems found.', $output);
+    }
+
+    #[Test]
+    public function it_reports_a_perimeter_holding_another_one_for_its_own_search_keys(): void
+    {
+        $this->assertSame([
+            ['kind' => 'perimeter_without_search_keys', 'subject' => WrappedDocumentControl::class, 'position' => '#1', 'message' => 'The ['.WrappingPerimeter::class.'] perimeter at #1 of the ['.WrappedDocumentControl::class.'] control declares no search keys, so a reader that only this perimeter reaches finds none of its ['.WrappedDocument::class.'] rows in a controlled text search. Declare searchKeys() on the perimeter, or unrestricted() if it reaches every row. The search keys of the perimeters it holds are never read: declare them on this perimeter itself.'],
+        ], $this->problemsOf(WrappedDocument::class));
     }
 
     #[Test]
