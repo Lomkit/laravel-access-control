@@ -14,7 +14,7 @@ final class MeilisearchSyntax extends FilterSyntax
     #[\Override]
     protected function quote(string $value): string
     {
-        return '"'.addcslashes($value, '"\\').'"';
+        return "\"{$value}\"";
     }
 
     #[\Override]

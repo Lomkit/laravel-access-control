@@ -121,11 +121,13 @@ class SearchAgreesTest extends SearchTestCase
 
         $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage(sprintf(
-            'The search keys of the [%s] control do not agree with its SQL for the [%s] reader with key [%s]: the keys find the rows [%s] that the SQL does not, and miss the rows [] that the SQL finds.',
+            'The search keys of the [%s] control do not agree with its SQL for the [%s] reader with key [%s], whose search holds [any _boundary and _access {author.%s}]: the keys find the rows [%s with _access {author.%s} and _boundary {}] that the SQL does not, and miss the rows [] that the SQL finds.',
             ArticleControl::class,
             User::class,
             $this->ada->getKey(),
+            $website->getKey(),
             $recipes->getKey(),
+            $website->getKey(),
         ));
 
         $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);

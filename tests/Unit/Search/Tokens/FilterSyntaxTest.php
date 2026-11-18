@@ -2,8 +2,8 @@
 
 namespace Lomkit\Access\Tests\Unit\Search\Tokens;
 
-use Lomkit\Access\Exceptions\UnquotableSearchKeyException;
 use Lomkit\Access\Search\SearchFilter;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Search\Tokens\Syntax\AlgoliaSyntax;
 use Lomkit\Access\Search\Tokens\Syntax\FilterSyntax;
 use Lomkit\Access\Search\Tokens\Syntax\MeilisearchSyntax;
@@ -31,6 +31,7 @@ class FilterSyntaxTest extends PackageTestCase
         $this->assertSame($expected, $syntax->render(SearchFilter::closed()));
         $this->assertSame($expected, $syntax->render(SearchFilter::of(null, [])));
         $this->assertSame($expected, $syntax->render(SearchFilter::of([], null)));
+        $this->assertDoesNotMatchRegularExpression('/^[0-9a-f]{32}$/', '#closed');
     }
 
     /** @return array<string, array{FilterSyntax}> */
@@ -54,26 +55,29 @@ class FilterSyntaxTest extends PackageTestCase
     public static function accessFilters(): array
     {
         return [
-            'Meilisearch' => [new MeilisearchSyntax, '_access IN ["client.7", "author._416461"]'],
-            'Typesense' => [new TypesenseSyntax, '_access:=[`client.7`, `author._416461`]'],
-            'Algolia' => [new AlgoliaSyntax, "(_access:'client.7' OR _access:'author._416461')"],
+            'Meilisearch' => [new MeilisearchSyntax, '_access IN ["%s", "%s"]'],
+            'Typesense' => [new TypesenseSyntax, '_access:=[`%s`, `%s`]'],
+            'Algolia' => [new AlgoliaSyntax, "(_access:'%s' OR _access:'%s')"],
         ];
     }
 
     #[Test]
     #[DataProvider('accessFilters')]
-    public function it_renders_the_access_keys_with_a_dot_and_an_escaped_value(FilterSyntax $syntax, string $expected): void
+    public function it_renders_the_digests_of_the_access_keys(FilterSyntax $syntax, string $expected): void
     {
-        $this->assertSame($expected, $syntax->render(SearchFilter::of(null, ['client.7', 'author._416461'])));
+        $this->assertSame(
+            sprintf($expected, SearchKeyDigest::of('client.7'), SearchKeyDigest::of('author._416461')),
+            $syntax->render(SearchFilter::of(null, ['client.7', 'author._416461'])),
+        );
     }
 
     /** @return array<string, array{FilterSyntax, string}> */
     public static function boundedFilters(): array
     {
         return [
-            'Meilisearch' => [new MeilisearchSyntax, '_boundary IN ["workspace.1"] AND _access IN ["client.7", "featured.yes"]'],
-            'Typesense' => [new TypesenseSyntax, '_boundary:=[`workspace.1`] && _access:=[`client.7`, `featured.yes`]'],
-            'Algolia' => [new AlgoliaSyntax, "(_boundary:'workspace.1') AND (_access:'client.7' OR _access:'featured.yes')"],
+            'Meilisearch' => [new MeilisearchSyntax, '_boundary IN ["%s"] AND _access IN ["%s", "%s"]'],
+            'Typesense' => [new TypesenseSyntax, '_boundary:=[`%s`] && _access:=[`%s`, `%s`]'],
+            'Algolia' => [new AlgoliaSyntax, "(_boundary:'%s') AND (_access:'%s' OR _access:'%s')"],
         ];
     }
 
@@ -81,16 +85,19 @@ class FilterSyntaxTest extends PackageTestCase
     #[DataProvider('boundedFilters')]
     public function it_renders_the_boundary_and_the_access_keys(FilterSyntax $syntax, string $expected): void
     {
-        $this->assertSame($expected, $syntax->render(SearchFilter::of(['workspace.1'], ['client.7', 'featured.yes'])));
+        $this->assertSame(
+            sprintf($expected, ...SearchKeyDigest::all(['workspace.1', 'client.7', 'featured.yes'])),
+            $syntax->render(SearchFilter::of(['workspace.1'], ['client.7', 'featured.yes'])),
+        );
     }
 
     /** @return array<string, array{FilterSyntax, string}> */
     public static function boundaryFilters(): array
     {
         return [
-            'Meilisearch' => [new MeilisearchSyntax, '_boundary IN ["workspace.1"]'],
-            'Typesense' => [new TypesenseSyntax, '_boundary:=[`workspace.1`]'],
-            'Algolia' => [new AlgoliaSyntax, "(_boundary:'workspace.1')"],
+            'Meilisearch' => [new MeilisearchSyntax, '_boundary IN ["%s"]'],
+            'Typesense' => [new TypesenseSyntax, '_boundary:=[`%s`]'],
+            'Algolia' => [new AlgoliaSyntax, "(_boundary:'%s')"],
         ];
     }
 
@@ -98,38 +105,21 @@ class FilterSyntaxTest extends PackageTestCase
     #[DataProvider('boundaryFilters')]
     public function it_renders_only_the_boundary_for_an_unrestricted_reader_inside_a_boundary(FilterSyntax $syntax, string $expected): void
     {
-        $this->assertSame($expected, $syntax->render(SearchFilter::of(['workspace.1'], null)));
-    }
-
-    /** @return array<string, array{FilterSyntax, string}> */
-    public static function quotedValues(): array
-    {
-        return [
-            'Meilisearch' => [new MeilisearchSyntax, '_access IN ["a\\"b\\\\c", "x, y) || (z"]'],
-            'Typesense' => [new TypesenseSyntax, '_access:=[`a"b\\c`, `x, y) || (z`]'],
-            'Algolia' => [new AlgoliaSyntax, "(_access:'a\"b\\\\c' OR _access:'x, y) || (z')"],
-        ];
+        $this->assertSame(sprintf($expected, SearchKeyDigest::of('workspace.1')), $syntax->render(SearchFilter::of(['workspace.1'], null)));
     }
 
     #[Test]
-    #[DataProvider('quotedValues')]
-    public function it_quotes_every_value_with_the_rules_of_the_engine(FilterSyntax $syntax, string $expected): void
+    #[DataProvider('syntaxes')]
+    public function it_never_renders_a_readable_key_or_a_character_the_engine_would_read(FilterSyntax $syntax): void
     {
-        $this->assertSame($expected, $syntax->render(SearchFilter::of(null, ['a"b\\c', 'x, y) || (z'])));
-    }
+        $filter = (string) $syntax->render(SearchFilter::of(null, ['a"b\\c', 'x, y) || (z', 'it\'s', 'a`b']));
 
-    #[Test]
-    public function it_escapes_a_single_quote_for_algolia(): void
-    {
-        $this->assertSame("(_access:'it\\'s')", (new AlgoliaSyntax)->render(SearchFilter::of(null, ["it's"])));
-    }
+        foreach (['a"b', 'b\\c', 'x, y', '|| (z', 'it\'s', 'a`b'] as $readable) {
+            $this->assertStringNotContainsString($readable, $filter);
+        }
 
-    #[Test]
-    public function it_refuses_a_value_with_a_backtick_for_typesense(): void
-    {
-        $this->expectException(UnquotableSearchKeyException::class);
-        $this->expectExceptionMessage('The search key [a`b] holds a backtick, which a Typesense filter cannot quote');
-
-        (new TypesenseSyntax)->render(SearchFilter::of(null, ['a`b']));
+        foreach (SearchKeyDigest::all(['a"b\\c', 'x, y) || (z', 'it\'s', 'a`b']) as $digest) {
+            $this->assertStringContainsString($digest, $filter);
+        }
     }
 }

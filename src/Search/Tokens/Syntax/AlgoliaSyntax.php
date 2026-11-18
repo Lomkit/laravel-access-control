@@ -14,7 +14,7 @@ final class AlgoliaSyntax extends FilterSyntax
     #[\Override]
     protected function quote(string $value): string
     {
-        return "'".str_replace(['\\', "'"], ['\\\\', "\\'"], $value)."'";
+        return "'{$value}'";
     }
 
     #[\Override]

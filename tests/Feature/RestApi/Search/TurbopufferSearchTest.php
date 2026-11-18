@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Http;
 use Laravel\Scout\EngineManager;
 use Laravel\Scout\Engines\TurbopufferEngine;
 use Lomkit\Access\Search\SearchField;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\RestApi\Search\ThreadResource;
 use Lomkit\Access\Tests\Fixtures\Threads\Reply;
@@ -51,8 +52,8 @@ class TurbopufferSearchTest extends RestApiSearchTestCase
         $this->assertSame(['Roadmap'], $this->found('threads', $this->ada, 'roadmap', 'title'));
 
         $filters = ['And', [
-            [SearchField::Boundary->value, 'ContainsAny', ['workspace_id.1']],
-            [SearchField::Access->value, 'ContainsAny', ['client.'.$this->acme->getKey()]],
+            [SearchField::Boundary->value, 'ContainsAny', SearchKeyDigest::all(['workspace_id.1'])],
+            [SearchField::Access->value, 'ContainsAny', SearchKeyDigest::all(['client.'.$this->acme->getKey()])],
         ]];
         $this->assertSame([
             ['rank_by' => ['title', 'BM25', 'roadmap'], 'filters' => $filters, 'limit' => 50],
@@ -68,7 +69,7 @@ class TurbopufferSearchTest extends RestApiSearchTestCase
         $this->textSearch('replies', $this->ada, 'ship')->assertOk();
 
         $this->assertSame(
-            [SearchField::Access->value, 'ContainsAny', ['through.thread.2.workspace_id.1.client.'.$this->acme->getKey(), 'author.'.$this->ada->getKey()]],
+            [SearchField::Access->value, 'ContainsAny', SearchKeyDigest::all(['through.thread.2.workspace_id.1.client.'.$this->acme->getKey(), 'author.'.$this->ada->getKey()])],
             $this->queries((new Reply)->searchableAs())[0]['filters'],
         );
     }

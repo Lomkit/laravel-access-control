@@ -77,9 +77,9 @@ class RowContextSearchTest extends ParentSearchTestCase
     #[Test]
     public function it_writes_the_value_of_the_row_in_the_keys_through_the_parent(): void
     {
-        $this->assertSame(['through.thread.in.1.0', 'through.thread.in.1.0.brand.1'], $this->accessKeysOf('Ship it'));
-        $this->assertSame(['through.thread.in.2.0', 'through.thread.in.2.0.brand.1'], $this->accessKeysOf('Typo in the title'));
-        $this->assertSame(['through.thread.in.1.0'], $this->accessKeysOf('Nowhere'));
+        $this->assertRowKeys(['through.thread.in.1.0', 'through.thread.in.1.0.brand.1'], 'Ship it');
+        $this->assertRowKeys(['through.thread.in.2.0', 'through.thread.in.2.0.brand.1'], 'Typo in the title');
+        $this->assertRowKeys(['through.thread.in.1.0'], 'Nowhere');
     }
 
     #[Test]
@@ -104,7 +104,7 @@ class RowContextSearchTest extends ParentSearchTestCase
     {
         $this->replyNamed('Wrong workspace')->update(['workspace_id' => 2]);
 
-        $this->assertSame(['through.thread.in.2.0', 'through.thread.in.2.0.brand.2'], $this->accessKeysOf('Wrong workspace'));
+        $this->assertRowKeys(['through.thread.in.2.0', 'through.thread.in.2.0.brand.2'], 'Wrong workspace');
         $this->assertSame(['Offsite plan', 'Wrong workspace'], $this->searchedReplies($this->grace));
     }
 
@@ -113,7 +113,7 @@ class RowContextSearchTest extends ParentSearchTestCase
     {
         $this->offsite->update(['workspace_id' => 1]);
 
-        $this->assertSame(['through.thread.in.1.0', 'through.thread.in.1.0.brand.1'], $this->accessKeysOf('Wrong workspace'));
+        $this->assertRowKeys(['through.thread.in.1.0', 'through.thread.in.1.0.brand.1'], 'Wrong workspace');
         $this->assertSame([], $this->searchedReplies($this->grace));
     }
 
@@ -133,7 +133,7 @@ class RowContextSearchTest extends ParentSearchTestCase
         ConfiguredReplyControl::bind($this->throughThread()->decidedInRowContext('brand_code'));
         $this->reindexReplies();
 
-        $this->assertSame(['through.thread.in._41636d65.0', 'through.thread.in._41636d65.0.brand.1'], $this->accessKeysOf('Ship it'));
+        $this->assertRowKeys(['through.thread.in._41636d65.0', 'through.thread.in._41636d65.0.brand.1'], 'Ship it');
         $this->assertSame(['through.thread.in._41636d65.0.brand.1', 'through.thread.in.globex.0.brand.2'], $this->readerKeys($this->ada));
         $this->assertSame(['Offsite plan'], $this->searchedReplies($this->grace));
         $this->assertSame(['Offsite plan', 'Ship it'], $this->searchedReplies($this->ada));

@@ -16,6 +16,15 @@ final readonly class SearchDocuments
      */
     public function metadataFor(array $rows): array
     {
+        return array_map(SearchKeyDigest::document(...), $this->keysFor($rows));
+    }
+
+    /**
+     * @param  list<Model>  $rows
+     * @return list<array<string, list<string>>>
+     */
+    public function keysFor(array $rows): array
+    {
         return $this->withoutLazyLoading(function () use ($rows): array {
             $copies = new Collection(array_map($this->copy(...), $rows));
             $load = $this->rules->load();

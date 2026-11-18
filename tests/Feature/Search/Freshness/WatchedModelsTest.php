@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Queue;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\UnwatchableReindexException;
 use Lomkit\Access\Search\Freshness\ReindexWatchedRows;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Search\ArchiveFolder;
 use Lomkit\Access\Tests\Fixtures\Search\Folder;
@@ -64,7 +65,7 @@ class WatchedModelsTest extends FreshnessTestCase
         $this->assertSame(0, PageControl::$declarations);
         $folder->update(['client_id' => $this->globex->getKey()]);
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->pageAccess($page));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->pageAccess($page));
     }
 
     #[Test]
@@ -76,7 +77,7 @@ class WatchedModelsTest extends FreshnessTestCase
 
         $folder->update(['client_id' => $this->globex->getKey()]);
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->pageAccess($page));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->pageAccess($page));
     }
 
     #[Test]
@@ -91,7 +92,7 @@ class WatchedModelsTest extends FreshnessTestCase
         $this->assertSame(0, PageControl::$declarations);
 
         $folder->update(['client_id' => $this->globex->getKey()]);
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->pageAccess($page));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->pageAccess($page));
     }
 
     #[Test]
@@ -147,7 +148,7 @@ class WatchedModelsTest extends FreshnessTestCase
 
         $folder->update(['client_id' => $this->globex->getKey()]);
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->pageAccess($page));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->pageAccess($page));
     }
 
     /** @param  array<string, list<string>>  $watchers */

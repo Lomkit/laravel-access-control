@@ -6,6 +6,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Laravel\Scout\Engines\TurbopufferEngine;
 use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
@@ -70,7 +71,7 @@ class TurbopufferSearchTest extends SearchTestCase
     /** @return list<mixed> */
     protected function adaAccess(): array
     {
-        return ['_access', 'ContainsAny', ["author.{$this->ada->getKey()}"]];
+        return ['_access', 'ContainsAny', SearchKeyDigest::all(["author.{$this->ada->getKey()}"])];
     }
 
     #[Test]
@@ -90,7 +91,7 @@ class TurbopufferSearchTest extends SearchTestCase
 
         Article::search('Scout')->controlledFor($this->ada)->get();
 
-        $this->assertSame(['_access', 'ContainsAny', ["author.{$this->ada->getKey()}", 'featured.yes']], $this->filtersOfTheOnlyQuery());
+        $this->assertSame(['_access', 'ContainsAny', SearchKeyDigest::all(["author.{$this->ada->getKey()}", 'featured.yes'])], $this->filtersOfTheOnlyQuery());
     }
 
     #[Test]
@@ -118,7 +119,7 @@ class TurbopufferSearchTest extends SearchTestCase
         Article::search('Scout')->controlledFor($this->ada)->get();
 
         $this->assertSame(['And', [
-            ['_boundary', 'ContainsAny', ['workspace_id.1']],
+            ['_boundary', 'ContainsAny', SearchKeyDigest::all(['workspace_id.1'])],
             $this->adaAccess(),
         ]], $this->filtersOfTheOnlyQuery());
     }
@@ -135,7 +136,7 @@ class TurbopufferSearchTest extends SearchTestCase
 
         Article::search('Scout')->controlledFor($this->ada)->get();
 
-        $this->assertSame(['_boundary', 'ContainsAny', ['workspace_id.1']], $this->filtersOfTheOnlyQuery());
+        $this->assertSame(['_boundary', 'ContainsAny', SearchKeyDigest::all(['workspace_id.1'])], $this->filtersOfTheOnlyQuery());
     }
 
     #[Test]
@@ -256,7 +257,7 @@ class TurbopufferSearchTest extends SearchTestCase
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
             && ! str_ends_with($request->url(), '/query')
-            && $request['upsert_rows'][0]['_access'] === ["author.{$this->ada->getKey()}"]
+            && $request['upsert_rows'][0]['_access'] === SearchKeyDigest::all(["author.{$this->ada->getKey()}"])
             && $request['upsert_rows'][0]['id'] === $article->getKey()
             && $request['schema']['_access'] === ['type' => '[]string', 'filterable' => true]);
     }

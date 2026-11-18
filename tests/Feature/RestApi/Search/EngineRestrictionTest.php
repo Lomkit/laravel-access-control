@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Feature\RestApi\Search;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Search\SearchField;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\RestApi\Search\ReplyResource;
 use Lomkit\Access\Tests\Fixtures\RestApi\Search\ThreadResource;
@@ -30,7 +31,7 @@ class EngineRestrictionTest extends RestApiSearchTestCase
         $this->assertSame([], $this->found('threads', $this->grace, 'o', 'title'));
         $this->assertSame($this->controlledTitles($this->ada, 'o'), $this->found('threads', $this->ada, 'o', 'title'));
         $this->assertSame(
-            [SearchField::Boundary->value => ['workspace_id.1'], SearchField::Access->value => ['client.'.$this->acme->getKey()]],
+            [SearchField::Boundary->value => SearchKeyDigest::all(['workspace_id.1']), SearchField::Access->value => SearchKeyDigest::all(['client.'.$this->acme->getKey()])],
             $this->index->searches[0]->whereIns,
         );
         $this->assertSearchAgrees(ThreadControl::class, [$this->ada, $this->grace, $this->linus, $this->root]);
@@ -42,7 +43,7 @@ class EngineRestrictionTest extends RestApiSearchTestCase
         $this->grant(['view global threads' => ['Root', 'Ada']]);
 
         $this->assertSame(['Roadmap'], $this->found('threads', $this->ada, 'o', 'title'));
-        $this->assertSame([SearchField::Boundary->value => ['workspace_id.1']], $this->index->searches[0]->whereIns);
+        $this->assertSame([SearchField::Boundary->value => SearchKeyDigest::all(['workspace_id.1'])], $this->index->searches[0]->whereIns);
         $this->assertSame(['Offsite'], $this->found('threads', $this->root, 'o', 'title'));
         $this->assertSearchAgrees(ThreadControl::class, [$this->ada, $this->root]);
     }
@@ -55,7 +56,7 @@ class EngineRestrictionTest extends RestApiSearchTestCase
         $this->assertSame(['Ship it', 'Too expensive', 'Typo in the title'], $this->found('replies', $this->ada, 'i', 'body'));
         $this->assertSame($this->controlledReplies($this->ada, 'i'), $this->found('replies', $this->ada, 'i', 'body'));
         $this->assertSame(
-            [SearchField::Access->value => ['through.thread.2.workspace_id.1.client.'.$this->acme->getKey(), 'author.'.$this->ada->getKey()]],
+            [SearchField::Access->value => SearchKeyDigest::all(['through.thread.2.workspace_id.1.client.'.$this->acme->getKey(), 'author.'.$this->ada->getKey()])],
             $this->index->searches[0]->whereIns,
         );
         $this->assertSearchAgrees(ReplyControl::class, [$this->ada, $this->grace, $this->linus]);

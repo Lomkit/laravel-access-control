@@ -10,6 +10,7 @@ use Laravel\Scout\EngineManager;
 use Laravel\Scout\ScoutServiceProvider;
 use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
@@ -291,6 +292,62 @@ abstract class EngineTestCase extends PackageTestCase
         foreach ($readers as $label => [$reader, $expected]) {
             $this->assertSame($expected, $this->controlledTitles($reader), "The controlled search for {$label}.");
             $this->assertSame($expected, $this->tokenTitles($reader, $key), "The search token for {$label}.");
+        }
+    }
+
+    /**
+     * @param  class-string<Perimeter>  $perimeter
+     * @param  array<string, mixed>  $rows
+     * @param  array<string, mixed>  $readers
+     */
+    protected function keyedPerimeter(string $perimeter, string $name, array $rows, array $readers): Perimeter
+    {
+        return $perimeter::new()
+            ->allowed(fn (User $user): bool => true)
+            ->searchKeys($name, fn (Article $article): mixed => $rows[$article->title] ?? null, fn (User $user): mixed => $readers[$user->name] ?? null);
+    }
+
+    #[Test]
+    public function it_finds_only_the_documents_of_the_reader_among_keys_that_the_engine_would_merge_or_cut(): void
+    {
+        $cases = [
+            'Ivy' => ['Scout tuple one', 'author', [[1, 23]]],
+            'Jay' => ['Scout tuple two', 'author', [[12, 3]]],
+            'Kim' => ['Scout letter', 'author', 'A'],
+            'Lou' => ['Scout number', 'author', 41],
+            'Max' => ['Scout long one', 'author', str_repeat('a', 100).str_repeat('b', 50)],
+            'Ned' => ['Scout long two', 'author', str_repeat('a', 100).str_repeat('c', 50)],
+            'Oz' => ['Scout very long', 'author', str_repeat('d', 500)],
+            'Pam' => ['Scout team with an underscore', 'team_a', 1],
+            'Quinn' => ['Scout team without an underscore', 'teama', 1],
+        ];
+        $rows = [];
+        $readerValues = [];
+
+        foreach ($cases as $reader => [$title, $name, $value]) {
+            $rows[$name][$title] = $value;
+            $readerValues[$name][$reader] = $value;
+        }
+
+        ConfiguredArticleControl::bind(
+            $this->keyedPerimeter(AuthorPerimeter::class, 'author', $rows['author'], $readerValues['author']),
+            $this->keyedPerimeter(SharedPerimeter::class, 'team_a', $rows['team_a'], $readerValues['team_a']),
+            $this->keyedPerimeter(ClientPerimeter::class, 'teama', $rows['teama'], $readerValues['teama']),
+        );
+
+        foreach ($cases as [$title]) {
+            Article::factory()->createOne(['title' => $title]);
+        }
+
+        Article::query()->get()->searchable();
+        $this->waitForDocuments(3 + count($cases));
+        $key = $this->searchOnlyKey((new Article)->searchableAs());
+
+        foreach ($cases as $name => [$title]) {
+            $reader = $this->reader($name);
+
+            $this->assertSame([$title], $this->controlledTitles($reader), "The controlled search of {$name}.");
+            $this->assertSame([$title], $this->tokenTitles($reader, $key), "The search token of {$name}.");
         }
     }
 
