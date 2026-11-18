@@ -5,11 +5,13 @@ namespace Lomkit\Access\Tests\Feature\Engines;
 use Lomkit\Access\Access;
 use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
+use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
 use Meilisearch\Client;
 use Meilisearch\Contracts\TasksQuery;
 use Meilisearch\Exceptions\ApiException;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 
 #[Group('scout')]
 #[Group('meilisearch')]
@@ -81,5 +83,25 @@ class MeilisearchEngineTest extends EngineTestCase
     protected function refusedSearch(): string
     {
         return ApiException::class;
+    }
+
+    #[Test]
+    public function it_finds_only_the_rows_of_the_reader_when_the_app_passes_a_filter_in_the_options(): void
+    {
+        $this->allow(['view own articles']);
+        $filter = ['filter' => '_access EXISTS OR _access NOT EXISTS'];
+
+        $before = Article::search('Scout')
+            ->options($filter)
+            ->controlled()
+            ->get();
+        $after = Article::search('Scout')
+            ->controlled()
+            ->options($filter)
+            ->paginate(10);
+
+        $this->assertSame(['Scout primer'], $before->pluck('title')->all());
+        $this->assertSame(['Scout primer'], $after->pluck('title')->all());
+        $this->assertSame(1, $after->total());
     }
 }
