@@ -101,6 +101,16 @@ final class ControlRegistry
         return WatchMap::of($this, $this->discovered());
     }
 
+    /**
+     * @internal
+     *
+     * @return list<string>
+     */
+    public function discoveredModels(): array
+    {
+        return array_keys($this->discovered()->toArray());
+    }
+
     /** @param  list<string>  $paths */
     public function discoverControlsIn(array $paths): void
     {

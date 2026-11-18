@@ -7,6 +7,7 @@ use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
+use Lomkit\Access\Tests\Fixtures\SearchGuard\MeilisearchGuardEngineTests;
 use Meilisearch\Client;
 use Meilisearch\Contracts\TasksQuery;
 use Meilisearch\Exceptions\ApiException;
@@ -17,6 +18,8 @@ use PHPUnit\Framework\Attributes\Test;
 #[Group('meilisearch')]
 class MeilisearchEngineTest extends EngineTestCase
 {
+    use MeilisearchGuardEngineTests;
+
     #[\Override]
     protected function driver(): string
     {

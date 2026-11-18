@@ -12,9 +12,11 @@ use Lomkit\Access\Decisions\DecisionFlushes;
 use Lomkit\Access\Decisions\Preloader;
 use Lomkit\Access\Decisions\RowContextSwitch;
 use Lomkit\Access\Exceptions\AdminSearchTokenKeyException;
+use Lomkit\Access\Exceptions\AmbiguousSearchIndexException;
 use Lomkit\Access\Exceptions\ConflictingSearchTokensException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
 use Lomkit\Access\Exceptions\InvalidBatchRowException;
+use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
 use Lomkit\Access\Exceptions\MismatchedSearchTokenKeyException;
 use Lomkit\Access\Exceptions\MissingControlException;
@@ -22,12 +24,17 @@ use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\MissingSearchClientException;
 use Lomkit\Access\Exceptions\PastSearchTokenExpiryException;
 use Lomkit\Access\Exceptions\ProxiedSearchTokenException;
+use Lomkit\Access\Exceptions\RefusedSearchFilterException;
+use Lomkit\Access\Exceptions\RefusedSearchParameterException;
 use Lomkit\Access\Exceptions\UndeclaredSearchTokensException;
+use Lomkit\Access\Exceptions\UnguardableSearchEngineException;
+use Lomkit\Access\Exceptions\UnknownSearchIndexException;
 use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsupportedSearchTokenEngineException;
 use Lomkit\Access\Policies\AutomaticPolicies;
 use Lomkit\Access\Registry\ControlRegistry;
+use Lomkit\Access\Search\Guard\SearchGuards;
 use Lomkit\Access\Search\SearchField;
 use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenDeclaration;
@@ -96,6 +103,26 @@ final class Access extends Facade
         }
 
         return SearchTokens::issue($reader, $model, $key, $expiresAt);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $body
+     * @return array<array-key, mixed>
+     *
+     * @throws InvalidSearchBodyException When the body is not a multi-search body of Typesense, Meilisearch or Algolia.
+     * @throws UnknownSearchIndexException When a search names an index that no ControlledSearchable model of a discovered control is searched in.
+     * @throws RefusedSearchParameterException When a search sends a parameter that a guarded search refuses.
+     * @throws RefusedSearchFilterException When the filter of a search cannot be ANDed with the access filter.
+     * @throws AmbiguousSearchIndexException When two models are searched in the same index.
+     * @throws UnguardableSearchEngineException When the model of an index searches with an engine that has no guard.
+     * @throws MissingControlException When no control is registered for the model of an index.
+     * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
+     */
+    public static function guardSearch(array $body, ?Model $reader): array
+    {
+        return Container::getInstance()
+            ->make(SearchGuards::class)
+            ->guard($body, $reader);
     }
 
     /** @param  Closure(): array<string, string|int|bool|null>  $resolver */
