@@ -10,8 +10,6 @@ final readonly class TypesenseAppFilter
 {
     private const string OPTION = 'filter_by';
 
-    private const string QUOTE = '`';
-
     private function __construct(private string $expression) {}
 
     /**
@@ -50,31 +48,10 @@ final readonly class TypesenseAppFilter
             throw UncombinableSearchFilterException::notAString($model, $source, $filter);
         }
 
-        if (! self::isSelfContained($filter)) {
+        if (! TypesenseFilterBalance::isSelfContained($filter)) {
             throw UncombinableSearchFilterException::notSelfContained($model, $source, $filter);
         }
 
         return new self($filter);
-    }
-
-    private static function isSelfContained(string $filter): bool
-    {
-        $depth = 0;
-        $quoted = false;
-
-        foreach (str_split($filter) as $character) {
-            $quoted = $character === self::QUOTE ? ! $quoted : $quoted;
-            $depth += $quoted ? 0 : match ($character) {
-                '(' => 1,
-                ')' => -1,
-                default => 0,
-            };
-
-            if ($depth < 0) {
-                return false;
-            }
-        }
-
-        return ! $quoted && $depth === 0;
     }
 }
