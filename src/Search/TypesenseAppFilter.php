@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 use Lomkit\Access\Exceptions\UncombinableSearchFilterException;
 
+/** @internal */
 final readonly class TypesenseAppFilter
 {
     private const string OPTION = 'filter_by';

@@ -7,6 +7,7 @@ use Laravel\Scout\Builder;
 use Lomkit\Access\Exceptions\UncombinableSearchFilterException;
 use Lomkit\Access\Search\Tokens\Syntax\TypesenseSyntax;
 
+/** @internal */
 final class TypesenseAccessFilter
 {
     private const string FILTER = 'filter_by';
