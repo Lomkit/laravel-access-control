@@ -14,6 +14,7 @@ trait ControlledSearchable
 {
     use Searchable;
 
+    /** @internal */
     public static function bootControlledSearchable(): void
     {
         static::updated(static function (Model $model): void {

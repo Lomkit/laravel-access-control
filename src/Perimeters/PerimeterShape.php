@@ -4,6 +4,7 @@ namespace Lomkit\Access\Perimeters;
 
 use Lomkit\Access\Search\SearchKeys;
 
+/** @internal */
 final readonly class PerimeterShape
 {
     /** @param  array<string, ClosureShape>  $callbacks */

@@ -97,6 +97,7 @@ class Perimeter
         return $perimeter;
     }
 
+    /** @internal */
     final public function isUnrestricted(): bool
     {
         return $this->unrestricted;

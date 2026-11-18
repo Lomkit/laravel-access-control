@@ -9,6 +9,7 @@ use Laravel\Scout\Engines\DatabaseEngine;
 use Laravel\Scout\Engines\TurbopufferEngine;
 use Lomkit\Access\Exceptions\UnsupportedSearchEngineException;
 
+/** @internal */
 enum SearchEngineKind
 {
     case Index;

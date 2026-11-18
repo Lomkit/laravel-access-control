@@ -34,13 +34,21 @@ class Control
 
     private ?ControlDeclaration $declaration = null;
 
-    /** @param  class-string<Model>  $model */
+    /**
+     * @internal
+     *
+     * @param  class-string<Model>  $model
+     */
     public function isModel(string $model): bool
     {
         return $model === $this->model;
     }
 
-    /** @return class-string<Model> */
+    /**
+     * @internal
+     *
+     * @return class-string<Model>
+     */
     public function getModel(): string
     {
         return $this->model;

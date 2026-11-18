@@ -9,6 +9,7 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Perimeters\Perimeter;
 
+/** @internal */
 final readonly class LevelNesting
 {
     private const string UPPER_LEVEL_ALIAS = 'access_upper_level';

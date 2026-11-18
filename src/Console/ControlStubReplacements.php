@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Console;
 
+/** @internal */
 final readonly class ControlStubReplacements
 {
     /**

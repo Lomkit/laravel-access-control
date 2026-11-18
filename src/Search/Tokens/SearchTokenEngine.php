@@ -7,6 +7,7 @@ use Laravel\Scout\Engines\AlgoliaEngine;
 use Laravel\Scout\Engines\MeilisearchEngine;
 use Laravel\Scout\Engines\TypesenseEngine;
 
+/** @internal */
 enum SearchTokenEngine
 {
     case Meilisearch;

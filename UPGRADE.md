@@ -18,6 +18,14 @@ Version 0.7 already changed several things. If you upgrade from 0.6, apply the [
 - `HasControl::newControl()` returns `Control` instead of `?Control`.
 - Overridden `ControlledPolicy` methods declare a return type compatible with `bool|Response`.
 
+### What is public in 1.x
+
+The releases of 1.x follow semantic versioning for the classes and methods that this guide documents and that are not marked `@internal`, the exceptions included, and for the artisan commands, their options and the JSON of `access:check`. A class or a method marked `@internal` may change or disappear in any release, whatever its PHP visibility, and so may a public method that this guide does not document: do not call, extend, implement or type against them. The classes behind the artisan commands, the control registry and the search keys and filters, such as `SearchKeyValues`, `SearchDocuments`, `SearchRules` and `SearchFilter`, are internal.
+
+- Your application extends `Perimeter`, `Control`, `Boundary` and `ControlledPolicy`. A minor release may add methods to these classes, and a method of the same name in your subclass would then clash with it: give the methods you add to your subclasses distinctive names. The hooks and helpers this guide documents on them (`allows()`, `includes()` and `scope()` of a perimeter, `scope()`, `includes()` and `searchKeys()` of a boundary, `perimeters()`, `boundary()` and `abilityFor()` of a control, `decideByControl()` and `declaredControl()` of a policy) are stable.
+- PHP lets a perimeter class call the protected hooks of another perimeter, since both extend `Perimeter`. That is not supported: the package admits the reader by the type of the callbacks and by the `reader:` closure of the search keys before it calls `allows()`, and a hook called directly skips both (see [Perimeter classes](#perimeter-classes)).
+- The access keys stored in your search documents are not an API, but they live in your indexes: a release that changes them says so in its upgrade notes, with the reindex it needs, even a minor one.
+
 ### The configuration file
 
 The package has no configuration file anymore: `config/access-control.php`, its `methods` map and the `access-control-config` publish tag are removed, and the package reads no `access-control.*` key. Delete your published `config/access-control.php`. A file left in place is ignored, so a custom `methods` map stops applying: move it to the control, as [Abilities](#abilities) shows.

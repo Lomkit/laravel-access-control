@@ -5,6 +5,7 @@ namespace Lomkit\Access\Search;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 
+/** @internal */
 interface SearchScope
 {
     /** @param  Builder<covariant Model>  $search */

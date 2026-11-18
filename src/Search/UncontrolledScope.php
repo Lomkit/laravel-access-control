@@ -5,6 +5,7 @@ namespace Lomkit\Access\Search;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 
+/** @internal */
 final class UncontrolledScope implements SearchScope
 {
     /** @param  Builder<covariant Model>  $search */

@@ -6,6 +6,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
 
+/** @internal */
 enum PerimeterPurity
 {
     case Verified;

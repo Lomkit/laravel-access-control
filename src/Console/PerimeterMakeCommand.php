@@ -11,6 +11,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 use function Laravel\Prompts\confirm;
 
+/** @internal */
 #[AsCommand(name: 'make:perimeter')]
 #[Description('Create a new perimeter class')]
 class PerimeterMakeCommand extends GeneratorCommand

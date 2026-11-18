@@ -5,6 +5,7 @@ namespace Lomkit\Access\Perimeters;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\AccessContext;
 
+/** @internal */
 final readonly class ReachedPerimeters
 {
     /** @param  array<string, Perimeter>  $perimeters */

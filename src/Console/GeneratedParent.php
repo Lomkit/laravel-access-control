@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Relations\RelationInspector;
 
+/** @internal */
 final readonly class GeneratedParent
 {
     public function __construct(private string $relation) {}

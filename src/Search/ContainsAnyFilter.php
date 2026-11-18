@@ -5,6 +5,7 @@ namespace Lomkit\Access\Search;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 
+/** @internal */
 final class ContainsAnyFilter
 {
     private const string OPTION = 'filters';

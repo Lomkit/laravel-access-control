@@ -9,6 +9,7 @@ use Lomkit\Access\Search\SearchDocuments;
 use Lomkit\Access\Search\SearchField;
 use Lomkit\Access\Search\SearchKeyDigest;
 
+/** @internal */
 final class SearchAgreement
 {
     private const int REPORTED_ROWS = 10;

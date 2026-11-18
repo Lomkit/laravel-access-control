@@ -1,0 +1,121 @@
+<?php
+
+namespace Lomkit\Access\Tests\Unit;
+
+use Lomkit\Access\Tests\PackageTestCase;
+use PhpToken;
+use PHPUnit\Framework\Attributes\Test;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
+
+class PublicSurfaceTest extends PackageTestCase
+{
+    private const array PUBLIC_CLASSES = [
+        'Lomkit\Access\Ability',
+        'Lomkit\Access\Access',
+        'Lomkit\Access\AccessContext',
+        'Lomkit\Access\AccessServiceProvider',
+        'Lomkit\Access\Attributes\ControlledBy',
+        'Lomkit\Access\Boundaries\Boundary',
+        'Lomkit\Access\Boundaries\ColumnBoundary',
+        'Lomkit\Access\Controls\Control',
+        'Lomkit\Access\Controls\ControlsQueries',
+        'Lomkit\Access\Controls\ControlsSearches',
+        'Lomkit\Access\Controls\DecidesRows',
+        'Lomkit\Access\Controls\HasControl',
+        'Lomkit\Access\Controls\ReachesKeys',
+        'Lomkit\Access\Decisions\Draft',
+        'Lomkit\Access\Integrations\RestApi\AccessControlExtension',
+        'Lomkit\Access\Perimeters\Levels',
+        'Lomkit\Access\Perimeters\Perimeter',
+        'Lomkit\Access\Perimeters\ThroughParent',
+        'Lomkit\Access\Policies\ControlledPolicy',
+        'Lomkit\Access\Search\ControlledSearchBuilder',
+        'Lomkit\Access\Search\ControlledSearchable',
+        'Lomkit\Access\Search\ReindexesSearch',
+        'Lomkit\Access\Search\SearchKeys',
+        'Lomkit\Access\Search\Tokens\SearchToken',
+        'Lomkit\Access\Search\Tokens\SearchTokenKey',
+        'Lomkit\Access\Testing\InteractsWithAccess',
+    ];
+
+    private const string EXCEPTIONS = 'Lomkit\Access\Exceptions\\';
+
+    #[Test]
+    public function it_marks_internal_every_class_outside_the_documented_surface(): void
+    {
+        $public = array_values(array_filter(
+            array_keys(array_filter($this->declarations(), fn (bool $internal): bool => ! $internal)),
+            fn (string $class): bool => ! str_starts_with($class, self::EXCEPTIONS),
+        ));
+        sort($public);
+
+        $this->assertSame(self::PUBLIC_CLASSES, $public);
+    }
+
+    #[Test]
+    public function it_keeps_every_exception_public(): void
+    {
+        $internalExceptions = array_filter(
+            array_keys(array_filter($this->declarations())),
+            fn (string $class): bool => str_starts_with($class, self::EXCEPTIONS),
+        );
+
+        $this->assertSame([], array_values($internalExceptions));
+    }
+
+    /** @return array<string, bool> */
+    private function declarations(): array
+    {
+        $declarations = [];
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(dirname(__DIR__, 2).'/src'));
+
+        foreach ($files as $file) {
+            if (! $file instanceof SplFileInfo || $file->getExtension() !== 'php') {
+                continue;
+            }
+
+            [$class, $internal] = $this->declarationIn((string) file_get_contents($file->getPathname()));
+            $declarations[$class] = $internal;
+        }
+
+        ksort($declarations);
+
+        return $declarations;
+    }
+
+    /** @return array{string, bool} */
+    private function declarationIn(string $source): array
+    {
+        $namespace = '';
+        $docComment = '';
+        $tokens = PhpToken::tokenize($source);
+
+        foreach ($tokens as $position => $token) {
+            if ($token->is(T_NAMESPACE)) {
+                $namespace = $this->nextName($tokens, $position);
+            } elseif ($token->is(';')) {
+                $docComment = '';
+            } elseif ($token->is(T_DOC_COMMENT)) {
+                $docComment = $token->text;
+            } elseif ($token->is([T_CLASS, T_INTERFACE, T_TRAIT, T_ENUM])) {
+                return [$namespace.'\\'.$this->nextName($tokens, $position), str_contains($docComment, '@internal')];
+            }
+        }
+
+        $this->fail('No class, interface, trait or enum is declared in a file of src.');
+    }
+
+    /** @param  list<PhpToken>  $tokens */
+    private function nextName(array $tokens, int $position): string
+    {
+        foreach (array_slice($tokens, $position + 1) as $token) {
+            if ($token->is([T_STRING, T_NAME_QUALIFIED])) {
+                return $token->text;
+            }
+        }
+
+        $this->fail('A declaration of src has no name.');
+    }
+}

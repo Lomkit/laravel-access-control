@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\AccessContext;
 
+/** @internal */
 final class NoBoundary extends Boundary
 {
     /** @param  Builder<covariant Model>  $query */

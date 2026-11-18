@@ -5,6 +5,7 @@ namespace Lomkit\Access\Registry;
 use Lomkit\Access\Controls\Control;
 use ReflectionClass;
 
+/** @internal */
 final class ConcreteControl
 {
     /** @phpstan-assert-if-true class-string<Control> $class */

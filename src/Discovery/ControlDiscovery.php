@@ -10,6 +10,7 @@ use Lomkit\Access\Registry\ConcreteControl;
 use Lomkit\Access\Registry\ControlMap;
 use Lomkit\Access\Registry\DeclaredModel;
 
+/** @internal */
 final class ControlDiscovery
 {
     private DiscoveryPaths $paths;

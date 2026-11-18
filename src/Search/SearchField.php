@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Search;
 
+/** @internal */
 enum SearchField: string
 {
     case Access = '_access';
