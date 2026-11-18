@@ -4,6 +4,7 @@ namespace Lomkit\Access\Search;
 
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
+use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Exceptions\UncombinableSearchFilterException;
 use Lomkit\Access\Search\Tokens\Syntax\TypesenseSyntax;
 
@@ -14,16 +15,15 @@ final class TypesenseAccessFilter
 
     private const string CURATED_HITS = 'filter_curated_hits';
 
-    private ?string $applied = null;
-
-    private ?TypesenseAppFilter $app = null;
+    /** @var array<string, TypesenseAppFilter|null> */
+    private array $options = [];
 
     /**
      * @param  Builder<covariant Model>  $search
      *
-     * @throws UncombinableSearchFilterException When the filter_by of the app cannot be ANDed with the access filter.
+     * @throws UncombinableSearchFilterException When the filter of the app cannot be ANDed with the access filter.
      */
-    public function apply(Builder $search, SearchFilter $filter): void
+    public function apply(Builder $search, SearchFilter $filter, TypesenseEngine $engine): void
     {
         $access = (new TypesenseSyntax)->render($filter);
 
@@ -31,16 +31,32 @@ final class TypesenseAccessFilter
             return;
         }
 
-        if ($this->applied === null || ($search->options[self::FILTER] ?? null) !== $this->applied) {
-            $this->app = TypesenseAppFilter::of($search);
-        }
+        $option = $this->optionOf($search);
+        $app = $option ?? TypesenseAppFilter::fromModel($search) ?? TypesenseAppFilter::fromClauses($search, $engine);
+        $applied = $app->and($access);
 
-        $this->applied = $this->app?->and($access);
-
-        if ($this->applied !== null) {
-            $search->options[self::FILTER] = $this->applied;
-        }
-
+        $this->options[$applied] = $option;
+        $search->options[self::FILTER] = $applied;
         $search->options[self::CURATED_HITS] = true;
+    }
+
+    /**
+     * @param  Builder<covariant Model>  $search
+     *
+     * @throws UncombinableSearchFilterException When the filter_by of the options is not a string, or does not end on its own.
+     */
+    private function optionOf(Builder $search): ?TypesenseAppFilter
+    {
+        if (! array_key_exists(self::FILTER, $search->options)) {
+            return null;
+        }
+
+        $current = $search->options[self::FILTER];
+
+        if (is_string($current) && array_key_exists($current, $this->options)) {
+            return $this->options[$current];
+        }
+
+        return TypesenseAppFilter::fromOptions($search->model, $current);
     }
 }

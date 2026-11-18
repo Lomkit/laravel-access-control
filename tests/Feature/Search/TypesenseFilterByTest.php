@@ -41,12 +41,12 @@ class TypesenseFilterByTest extends SearchTestCase
         config(['testing.article.typesense-search-parameters' => $parameters]);
     }
 
-    protected function accessFilter(?User $reader = null, bool $quoted = true): string
+    protected function accessFilter(?User $reader = null): string
     {
         $clauses = [];
 
         foreach (Access::controlFor(Article::class)->searchFilter($reader ?? $this->ada)->whereIns() as $field => $values) {
-            $clauses[] = sprintf('%s:=[%s]', $field, implode(', ', array_map(fn (string $value): string => $quoted ? "`{$value}`" : $value, $values)));
+            $clauses[] = sprintf('%s:=[%s]', $field, implode(', ', array_map(fn (string $value): string => "`{$value}`", $values)));
         }
 
         return implode(' && ', $clauses);
@@ -66,12 +66,12 @@ class TypesenseFilterByTest extends SearchTestCase
     }
 
     #[Test]
-    public function it_sends_the_access_filter_of_scout_when_the_app_passes_no_filter_by(): void
+    public function it_sends_the_access_filter_alone_when_the_app_passes_no_filter(): void
     {
         Article::search('Scout')->controlledFor($this->ada)->get();
 
         $request = $this->onlyRequest();
-        $this->assertSame($this->accessFilter(quoted: false), $request['filter_by']);
+        $this->assertSame($this->accessFilter(), $request['filter_by']);
         $this->assertTrue($request['filter_curated_hits']);
     }
 
@@ -217,7 +217,7 @@ class TypesenseFilterByTest extends SearchTestCase
             ->get();
 
         $request = $this->onlyRequest();
-        $this->assertSame($this->accessFilter(quoted: false), $request['filter_by']);
+        $this->assertSame($this->accessFilter(), $request['filter_by']);
         $this->assertTrue($request['filter_curated_hits']);
     }
 
@@ -422,5 +422,89 @@ class TypesenseFilterByTest extends SearchTestCase
             ->get();
 
         $this->assertSame($this->combined($filter), $this->onlyRequest()['filter_by']);
+    }
+
+    #[Test]
+    public function it_ands_the_filter_that_scout_renders_from_the_where_clauses(): void
+    {
+        Article::search('Scout')
+            ->controlledFor($this->ada)
+            ->where('featured', true)
+            ->whereIn('author_id', [1, 2])
+            ->whereNotIn('title', ['Draft'])
+            ->get();
+
+        $this->assertSame($this->combined('featured:=true && author_id:=[1, 2] && title:!=[Draft]'), $this->onlyRequest()['filter_by']);
+    }
+
+    #[Test]
+    public function it_ands_the_filter_by_of_the_options_in_place_of_the_where_clauses_as_scout_does(): void
+    {
+        Article::search('Scout')
+            ->where('featured', true)
+            ->controlledFor($this->ada)
+            ->options(['filter_by' => 'author_id:=7'])
+            ->get();
+
+        $this->assertSame($this->combined('author_id:=7'), $this->onlyRequest()['filter_by']);
+    }
+
+    #[Test]
+    public function it_combines_where_clauses_added_after_a_first_search(): void
+    {
+        $search = Article::search('Scout')->controlledFor($this->ada);
+
+        $search->get();
+        $search->where('featured', true);
+        $search->get();
+
+        $this->assertSame([$this->accessFilter(), $this->combined('featured:=true')], array_column($this->typesense->requests, 'filter_by'));
+    }
+
+    /** @return array<string, array{string}> */
+    public static function whereValuesThatDoNotEndOnTheirOwn(): array
+    {
+        return [
+            'a geo filter inside a quoted value' => ['a:(b'],
+            'a geo filter after a space inside a quoted value' => ['a: (b'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('whereValuesThatDoNotEndOnTheirOwn')]
+    public function it_refuses_where_clauses_that_scout_renders_to_a_filter_that_does_not_end_on_its_own(string $value): void
+    {
+        $search = Article::search('Scout')
+            ->controlledFor($this->ada)
+            ->where('title', $value);
+
+        $this->expectExceptionObject(UncombinableSearchFilterException::notSelfContained(new Article, 'the where() clauses', "title:=`{$value}`"));
+
+        try {
+            $search->get();
+        } finally {
+            $this->assertSame([], $this->typesense->requests);
+        }
+    }
+
+    #[Test]
+    public function it_combines_the_own_filter_of_each_clone_of_a_search(): void
+    {
+        $search = Article::search('Scout')
+            ->options(['filter_by' => 'featured:=true'])
+            ->controlledFor($this->ada);
+        $clone = (clone $search)->options(['filter_by' => 'author_id:=7']);
+
+        $search->get();
+        $clone->get();
+        $search->get();
+        (clone $search)->get();
+
+        $this->assertSame([
+            $this->combined('featured:=true'),
+            $this->combined('author_id:=7'),
+            $this->combined('featured:=true'),
+            $this->combined('featured:=true'),
+        ], array_column($this->typesense->requests, 'filter_by'));
     }
 }

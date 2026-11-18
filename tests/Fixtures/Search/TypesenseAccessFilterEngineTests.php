@@ -70,6 +70,21 @@ trait TypesenseAccessFilterEngineTests
     }
 
     #[Test]
+    public function it_narrows_the_rows_of_the_reader_with_the_where_clauses_of_the_app(): void
+    {
+        $this->allow(['view own articles', 'view featured articles']);
+
+        $titles = Article::search('Scout')
+            ->controlled()
+            ->where('featured', true)
+            ->get()
+            ->pluck('title')
+            ->all();
+
+        $this->assertSame(['Scout recipes'], $titles);
+    }
+
+    #[Test]
     public function it_finds_only_the_rows_of_the_reader_through_a_search_callback_with_a_filter_by(): void
     {
         $this->allow(['view own articles']);

@@ -4,6 +4,7 @@ namespace Lomkit\Access\Search;
 
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
+use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Exceptions\UncombinableSearchFilterException;
 
 /** @internal */
@@ -17,24 +18,41 @@ final readonly class TypesenseAppFilter
         private string $expression,
     ) {}
 
+    /** @throws UncombinableSearchFilterException When the filter is not a string, or does not end on its own. */
+    public static function fromOptions(Model $model, mixed $filter): self
+    {
+        return self::checked($model, 'options()', $filter);
+    }
+
     /**
      * @param  Builder<covariant Model>  $search
      *
-     * @throws UncombinableSearchFilterException When the filter_by of the app is not a string, or does not end on its own.
+     * @throws UncombinableSearchFilterException When the filter is not a string, or does not end on its own.
      */
-    public static function of(Builder $search): ?self
+    public static function fromModel(Builder $search): ?self
     {
-        if (array_key_exists(self::OPTION, $search->options)) {
-            return self::checked($search->model, 'options()', $search->options[self::OPTION]);
-        }
-
         $parameters = method_exists($search->model, 'typesenseSearchParameters') ? $search->model->typesenseSearchParameters() : [];
 
-        if (is_array($parameters) && array_key_exists(self::OPTION, $parameters)) {
-            return self::checked($search->model, 'typesenseSearchParameters()', $parameters[self::OPTION]);
+        if (! is_array($parameters) || ! array_key_exists(self::OPTION, $parameters)) {
+            return null;
         }
 
-        return null;
+        return self::checked($search->model, 'typesenseSearchParameters()', $parameters[self::OPTION]);
+    }
+
+    /**
+     * @param  Builder<covariant Model>  $search
+     *
+     * @throws UncombinableSearchFilterException When the clauses render to a filter that does not end on its own.
+     */
+    public static function fromClauses(Builder $search, TypesenseEngine $engine): self
+    {
+        $clauses = new Builder($search->model, $search->query);
+        $clauses->wheres = $search->wheres;
+        $clauses->whereIns = array_diff_key($search->whereIns, array_flip(SearchField::names()));
+        $clauses->whereNotIns = $search->whereNotIns;
+
+        return self::checked($search->model, 'the where() clauses', $engine->buildSearchParameters($clauses, 1, 1)[self::OPTION] ?? '');
     }
 
     /** @throws UncombinableSearchFilterException When the combined filter would not end with the access filter. */

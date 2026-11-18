@@ -68,7 +68,7 @@ final class ControlledScope implements SearchScope
         }
 
         if ($engine instanceof TypesenseEngine) {
-            ($this->typesense ??= new TypesenseAccessFilter)->apply($search, $filter);
+            ($this->typesense ??= new TypesenseAccessFilter)->apply($search, $filter, $engine);
         }
 
         return $engine;
