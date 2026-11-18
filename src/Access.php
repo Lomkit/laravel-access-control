@@ -12,6 +12,7 @@ use Lomkit\Access\Decisions\DecisionFlushes;
 use Lomkit\Access\Decisions\Preloader;
 use Lomkit\Access\Decisions\RowContextSwitch;
 use Lomkit\Access\Exceptions\AdminSearchTokenKeyException;
+use Lomkit\Access\Exceptions\ConflictingSearchTokensException;
 use Lomkit\Access\Exceptions\InvalidAbilityException;
 use Lomkit\Access\Exceptions\InvalidBatchRowException;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
@@ -20,6 +21,8 @@ use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\MissingSearchClientException;
 use Lomkit\Access\Exceptions\PastSearchTokenExpiryException;
+use Lomkit\Access\Exceptions\ProxiedSearchTokenException;
+use Lomkit\Access\Exceptions\UndeclaredSearchTokensException;
 use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsupportedSearchTokenEngineException;
@@ -27,6 +30,7 @@ use Lomkit\Access\Policies\AutomaticPolicies;
 use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Search\SearchField;
 use Lomkit\Access\Search\Tokens\SearchToken;
+use Lomkit\Access\Search\Tokens\SearchTokenDeclaration;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Search\Tokens\SearchTokens;
 use Lomkit\Access\Search\TrustedSearchEngines;
@@ -62,9 +66,19 @@ final class Access extends Facade
             ->trust($engine);
     }
 
+    /** @throws ConflictingSearchTokensException When the application already declared the other way. */
+    public static function searchTokens(bool $direct): void
+    {
+        Container::getInstance()
+            ->make(SearchTokenDeclaration::class)
+            ->declare($direct);
+    }
+
     /**
      * @param  class-string<Model>  $model
      *
+     * @throws UndeclaredSearchTokensException When the application did not declare how browsers reach the engine.
+     * @throws ProxiedSearchTokenException When the application declared that browsers go through its own route.
      * @throws PastSearchTokenExpiryException When the expiry is not in the future.
      * @throws MissingControlledSearchableException When the model does not use the ControlledSearchable trait.
      * @throws UnsupportedSearchTokenEngineException When the engine of the model has no browser search token.

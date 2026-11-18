@@ -934,7 +934,28 @@ The control of a searchable child watches its parent and the models its parent w
 
 #### Search from the browser
 
-A front end that queries Meilisearch, Typesense or Algolia directly needs a key that finds only what its reader may see. `Access::searchToken()` signs the reader's filter into a key derived from a search-only key, and the browser cannot widen it:
+A front end reaches Meilisearch, Typesense or Algolia in one of two ways: it queries the engine directly with a signed token, or it goes through a route of your application, which adds the reader's filter on the server. Declare which one, once, in the `boot()` method of a service provider:
+
+```php
+use Lomkit\Access\Access;
+
+Access::searchTokens(direct: true);  // browsers query the engine with a token from Access::searchToken()
+Access::searchTokens(direct: false); // browsers go through a route of the application that calls Access::guardSearch()
+```
+
+- `Access::searchToken()` throws `UndeclaredSearchTokensException` until one is declared.
+- With `direct: false`, `Access::searchToken()` throws `ProxiedSearchTokenException`. The route authenticates the reader itself and computes the reader's filter at each request, so the browser needs no key of the engine and a permission change applies at the next search.
+- An application makes one choice: a second declaration that differs from the first throws `ConflictingSearchTokensException`. The same declaration twice is accepted.
+
+`direct: true` is safe only on the engine versions below, which keep the filter of the token apart from the filter that the browser sends. The package cannot check the version of your servers: the declaration is your statement that every engine your browsers query meets this table.
+
+| Engine | `direct: true` needs | |
+|---|---|---|
+| Typesense | 31 or later | Older servers do not isolate the filter of the browser from the filter of a scoped key. Use `direct: false` with Typesense 30 and earlier. |
+| Meilisearch | 1.0 or later | The filter of a tenant token is applied apart from the filter of the browser (tested on 1.0 and 1.55). |
+| Algolia | not verified by the package | Algolia documents that the parameters of a secured API key cannot be changed by the browser. Algolia is a hosted service that the package cannot test: use `direct: false` if you need a guarantee that the package verifies. |
+
+A front end that queries the engine directly needs a key that finds only what its reader may see. `Access::searchToken()` signs the reader's filter into a key derived from a search-only key:
 
 ```php
 use Lomkit\Access\Access;
@@ -968,7 +989,7 @@ class PostSearchTokenController
 - The `database`, `collection` and `null` engines, Turbopuffer and the engines passed to `Access::trustSearchEngine()` have no browser token: `UnsupportedSearchTokenEngineException`. A model that does not use `ControlledSearchable` throws `MissingControlledSearchableException`, a boundary class without `searchKeys()` `UnsearchableBoundaryException`.
 - A Typesense token also embeds `filter_curated_hits: true`, which the browser cannot turn off, so pinned hits and the includes of curation sets go through the reader's filter too.
 - `SearchToken::filter()` returns the rendered filter, or `null` without one, for an application that proxies the search on its server. `toArray()` and the JSON form hold the token, the index and the expiry only.
-- The engine applies the token's filter with any filter the browser sends, joined with AND. The browser can narrow its search, never widen it, and the index's lag applies as on the server.
+- On the engine versions of the table above, the engine applies the token's filter with any filter the browser sends, joined with AND. The browser can narrow its search, never widen it, and the index's lag applies as on the server.
 
 #### Testing the search
 
@@ -2125,7 +2146,7 @@ If you extended `AccessControlExtension`, move the conditions of its `restrict()
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |
 | `UnsearchableBoundaryException` for every boundary | `Boundary::where()` searches; a boundary class declares `searchKeys()` |
 | The `collection` Scout engine with `controlled()` | The `database` engine |
-| A Meilisearch tenant token, a Typesense scoped key or an Algolia secured API key whose filter is written by hand | `Access::searchToken($user, Post::class, SearchTokenKey::meilisearch(uid: ..., key: ...), now()->addMinutes(15))` |
+| A Meilisearch tenant token, a Typesense scoped key or an Algolia secured API key whose filter is written by hand | `Access::searchTokens(direct: true)` once, then `Access::searchToken($user, Post::class, SearchTokenKey::meilisearch(uid: ..., key: ...), now()->addMinutes(15))` |
 | A `saved` listener on `Project` that calls `$project->posts()->searchable()` | `->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts())` |
 | A custom pivot whose `saved` / `deleted` listeners reindex the post | `use ReindexesSearch` on the pivot |
 | `->query(fn ($query) => $query->join('projects', ...)->where('projects.client_id', ...))` | `->query(fn ($query) => $query->whereHas('project', fn ($q) => $q->where('client_id', ...)))`: a join throws `JoinInPerimeterException` |

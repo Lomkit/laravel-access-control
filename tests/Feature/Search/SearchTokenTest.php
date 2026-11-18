@@ -51,6 +51,7 @@ class SearchTokenTest extends SearchTestCase
         $this->grace = $this->user('Grace');
         $this->freezeTime();
         $this->useEngine('algolia-stub', $this->createStub(AlgoliaEngine::class));
+        Access::searchTokens(direct: true);
     }
 
     protected function useEngine(string $driver, Engine $engine): void

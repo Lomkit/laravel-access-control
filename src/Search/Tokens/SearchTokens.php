@@ -4,6 +4,7 @@ namespace Lomkit\Access\Search\Tokens;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use Illuminate\Container\Container;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Lomkit\Access\Access;
@@ -13,6 +14,8 @@ use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\MissingSearchClientException;
 use Lomkit\Access\Exceptions\PastSearchTokenExpiryException;
+use Lomkit\Access\Exceptions\ProxiedSearchTokenException;
+use Lomkit\Access\Exceptions\UndeclaredSearchTokensException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsupportedSearchTokenEngineException;
 use Lomkit\Access\Search\Tokens\Signers\SearchTokenSigners;
@@ -22,6 +25,8 @@ use Lomkit\Access\Search\UsesControlledSearchable;
 final class SearchTokens
 {
     /**
+     * @throws UndeclaredSearchTokensException When the application did not declare how browsers reach the engine.
+     * @throws ProxiedSearchTokenException When the application declared that browsers go through its own route.
      * @throws PastSearchTokenExpiryException When the expiry is not in the future.
      * @throws MissingControlledSearchableException When the model does not use the ControlledSearchable trait.
      * @throws UnsupportedSearchTokenEngineException When the engine of the model has no browser search token.
@@ -33,6 +38,10 @@ final class SearchTokens
      */
     public static function issue(?Model $reader, string $model, SearchTokenKey $key, DateTimeInterface $expiresAt): SearchToken
     {
+        Container::getInstance()
+            ->make(SearchTokenDeclaration::class)
+            ->ensureDirect($model);
+
         $expiry = DateTimeImmutable::createFromInterface($expiresAt);
 
         if ($expiry <= Date::now()) {
