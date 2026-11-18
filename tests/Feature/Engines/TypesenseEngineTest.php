@@ -4,10 +4,15 @@ namespace Lomkit\Access\Tests\Feature\Engines;
 
 use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
+use Lomkit\Access\Tests\Fixtures\Blog\User;
+use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
+use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use Typesense\Client;
+use Typesense\Exceptions\RequestMalformed;
 use Typesense\Exceptions\RequestUnauthorized;
 
 #[Group('scout')]
@@ -87,5 +92,27 @@ class TypesenseEngineTest extends EngineTestCase
     protected function refusedSearch(): string
     {
         return RequestUnauthorized::class;
+    }
+
+    protected function assertLongFilterIsHandled(): void
+    {
+        $this->expectException(RequestMalformed::class);
+        $this->expectExceptionMessage('Query string exceeds max allowed length');
+
+        $this->searchedTitles();
+    }
+
+    #[Test]
+    public function it_handles_a_reader_with_more_keys_than_a_get_query_string_holds(): void
+    {
+        ConfiguredArticleControl::bind(
+            AuthorPerimeter::new()
+                ->allowed(fn (User $user): bool => true)
+                ->searchKeys('author', fn (Article $article): mixed => $article->author_id, fn (User $user): array => [...range(100000, 100199), $user->getKey()]),
+        );
+        Article::query()->get()->searchable();
+        $this->waitForDocuments(3);
+
+        $this->assertLongFilterIsHandled();
     }
 }
