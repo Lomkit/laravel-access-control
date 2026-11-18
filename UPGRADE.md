@@ -1098,6 +1098,16 @@ Accepted parameters of each search:
 - Meilisearch search rules that pin documents (Enterprise Edition, Meilisearch Cloud) are not verified by the package: it does not know whether a pinned document goes through the access filter, on a controlled search, a token or a guarded search. Do not pin the documents of a controlled model.
 - Do not declare Meilisearch `foreignKeys` from or to the index of a controlled model: Meilisearch replaces the keys with the documents of the other index, and the package does not know whether the filter of a token or of a guarded search applies to them.
 
+#### Your own search client
+
+A controlled search keeps the documents whose access keys meet the keys of the reader. An application that queries the engine with its own client keeps that filter in one of three ways:
+
+- **The index of a `ControlledSearchable` model, queried by your own client**, for a multi-search, a vector search or an option that Scout does not expose: pass a callback to the search, such as `Post::search('budget', fn ($client, $query, $options) => ...)->controlled()`. The options it receives hold the access filter of the reader: pass them on to your client, never rebuild them (see [Engines](#engines)).
+- **A search that your server proxies**: `Access::searchToken(...)->filter()` returns the filter of the reader in the syntax of the engine of the model, Meilisearch, Typesense or Algolia, the same filter as a browser token (see [Search from the browser](#search-from-the-browser)).
+- **One index per model, written by your own client**: wrap the client in a Scout engine of your application and trust it with `Access::trustSearchEngine()` (see [Engines](#engines)). The documents, their freshness, `access:check` and `assertSearchAgrees()` then follow as for any engine.
+
+An index that is not the index of one Scout model, such as a collection shared by several models, chunks of documents for a semantic search or an ingestion pipeline of your own, has no public route in 1.0: the classes that compute the keys of a row and the filter of a reader are internal (see [What is public in 1.x](#what-is-public-in-1x)), and may change in any release. A read-only way to get them is planned for 1.1. The freshness is what such an index would miss: the package reindexes the documents of a Scout model when the data its keys read changes (see [Keeping the keys fresh](#keeping-the-keys-fresh)), and a key that an index keeps after a change can show a row to a reader who lost access.
+
 #### Testing the search
 
 `assertSearchAgrees()`, in the `InteractsWithAccess` trait with `assertLevelsNest()` and `assertControlAgrees()`, checks for each reader that the rows the keys find, computed from the same metadata without any engine, are the rows of the controlled query:
