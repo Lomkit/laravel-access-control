@@ -2,10 +2,20 @@
 
 namespace Lomkit\Access\Tests\Feature\Parents;
 
+use BadMethodCallException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
+use Lomkit\Access\Ability;
+use Lomkit\Access\Access;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
+use Lomkit\Access\Tests\Fixtures\Blog\Comment;
+use Lomkit\Access\Tests\Fixtures\Blog\Post;
+use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
+use Lomkit\Access\Tests\Fixtures\Links\ConfiguredMemoControl;
+use Lomkit\Access\Tests\Fixtures\Links\LinkedSubjectsPerimeter;
 use Lomkit\Access\Tests\Fixtures\Links\Links;
 use Lomkit\Access\Tests\Fixtures\Links\Memo;
 use Lomkit\Access\Tests\Fixtures\Links\MemoControl;
@@ -100,8 +110,14 @@ class SeveralParentTypesTest extends ParentTestCase
         $memo = $this->memoNamed('Release notes memo');
 
         $this->assertTrue(Gate::forUser($this->ada)->allows('view', $memo));
-        $this->assertSame('no_perimeter', Gate::forUser($this->ada)->inspect('update', $memo)->code());
-        $this->assertSame([], Memo::controlledFor($this->ada, 'update')->pluck('body')->all());
+
+        foreach (['update', 'delete'] as $ability) {
+            $this->assertSame('no_perimeter', Gate::forUser($this->ada)->inspect($ability, $memo)->code());
+            $this->assertSame([], Memo::controlledFor($this->ada, $ability)->pluck('body')->all());
+        }
+
+        $this->assertFalse(Access::controlFor(Memo::class)->applies($this->ada, Ability::of('approve'), $memo));
+        $this->assertSame([], Memo::controlledFor($this->ada, 'approve')->pluck('body')->all());
     }
 
     #[Test]
@@ -110,5 +126,62 @@ class SeveralParentTypesTest extends ParentTestCase
         $this->assertTrue(Gate::forUser($this->root)->allows('viewAny', Memo::class));
         $this->assertSame([], $this->visibleMemos($this->root));
         $this->assertFalse(Gate::forUser($this->grace)->allows('viewAny', Memo::class));
+    }
+
+    #[Test]
+    public function it_opens_nothing_through_an_unlisted_type_a_missing_row_or_an_unknown_type(): void
+    {
+        $this->assertTrue(Gate::forUser($this->ada)->allows('view', Comment::query()->where('body', 'Ship it')->firstOrFail()));
+        $this->link($this->memo('Memo on a comment'), Comment::class, Comment::query()->where('body', 'Ship it')->firstOrFail()->getKey());
+        $this->link($this->memo('Memo on a deleted post'), Post::class, 99999);
+        $this->link($this->memo('Memo on an unknown type'), 'Nope\Missing', $this->releaseNotes->getKey());
+
+        $this->assertSame(['Release notes memo', 'Memo on Ada'], $this->visibleMemos($this->ada));
+
+        foreach ([$this->ada, $this->linus] as $reader) {
+            $this->assertControlAgrees(MemoControl::class, $reader, Memo::query()->orderBy('id')->get());
+        }
+    }
+
+    #[Test]
+    public function it_follows_the_morph_map_of_the_application(): void
+    {
+        Relation::morphMap(['post' => Post::class, 'user' => User::class]);
+
+        try {
+            $this->link($this->memo('Mapped release notes memo'), 'post', $this->releaseNotes->getKey());
+            $this->link($this->memo('Mapped roadmap memo'), 'post', $this->roadmap->getKey());
+
+            $this->assertContains('Mapped release notes memo', $this->visibleMemos($this->ada));
+            $this->assertNotContains('Mapped roadmap memo', $this->visibleMemos($this->ada));
+            $this->assertControlAgrees(MemoControl::class, $this->ada, Memo::query()->orderBy('id')->get());
+        } finally {
+            Relation::morphMap([], false);
+        }
+    }
+
+    #[Test]
+    public function it_throws_when_a_listed_type_has_no_controlled_for_scope(): void
+    {
+        ConfiguredMemoControl::bind(
+            LinkedSubjectsPerimeter::new()
+                ->allowed(fn (User $user, Ability $ability): bool => $ability->is('view'))
+                ->query(function (Builder $query, User $user): void {
+                    $query->whereHas('links', fn (Builder $links) => $links->whereHasMorph(
+                        'subject',
+                        [Post::class, Project::class],
+                        fn (Builder $subjects) => $subjects->controlledFor($user),
+                    ));
+                }),
+        );
+
+        $this->expectException(BadMethodCallException::class);
+
+        $this->visibleMemos($this->ada);
+    }
+
+    protected function link(Memo $memo, string $type, int $id): void
+    {
+        $memo->links()->create(['subject_type' => $type, 'subject_id' => $id]);
     }
 }

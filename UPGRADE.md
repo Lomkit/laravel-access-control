@@ -389,7 +389,7 @@ It is on purpose:
 | Mistake | Exception |
 | --- | --- |
 | The relation does not exist on the child model | `InvalidParentRelationException` |
-| The relation is not a `belongsTo` (`hasMany`, `morphTo`, `belongsToMany`...) | `InvalidParentRelationException`: other relations come in 1.1; until then, see [Several parents of different types](#several-parents-of-different-types) |
+| The relation is not a `belongsTo` (`hasMany`, `morphTo`, `belongsToMany`...) | `InvalidParentRelationException`: other relations come in 1.1; until then, see [Several parents, or parents of several types](#several-parents-or-parents-of-several-types) |
 | `inverse` is not the `hasMany` of the parent on the same keys | `InvalidParentRelationException` |
 | No control is registered for the parent model | `MissingParentControlException` |
 | The parents lead back to the child, directly or through several hops | `ParentCycleException`, naming the cycle |
@@ -402,9 +402,9 @@ It is on purpose:
 
 `php artisan make:control CommentControl --parent=post` writes the `ThroughParent::belongsTo('post')` entry, and refuses a relation that is not a `belongsTo` of the model.
 
-#### Several parents of different types
+#### Several parents, or parents of several types
 
-In 1.0, `ThroughParent` follows a `belongsTo` relation. A child readable through any of several parents of different types, such as a note linked to contracts and customers by a `note_links` table (`note_id`, `subject_type`, `subject_id`), has to wait for 1.1, which brings `ThroughParent` over a `morphTo` relation with listed types and over the relations to several parents. Until then, give the child a perimeter checked in SQL, for `view` only, whose `query()` reaches each type of parent through the control of that parent, for the reader the callback receives:
+In 1.0, `ThroughParent` follows a `belongsTo` relation. A child readable through any of several parents, such as a note linked to contracts and customers by a `note_links` table (`note_id`, `subject_type`, `subject_id`), has to wait for 1.1, which brings `ThroughParent` over a `morphTo` relation with listed types and over the relations to several parents. Until then, give the child a perimeter checked in SQL, for `view` only, whose `query()` reaches each type of parent through the control of that parent, for the reader the callback receives:
 
 ```php
 LinkedSubjectsPerimeter::new()
@@ -418,11 +418,12 @@ LinkedSubjectsPerimeter::new()
     }),
 ```
 
-`links` is the `hasMany` from the note to its links, and `subject` the `morphTo` of a link. A note is readable when the reader may view at least one of its subjects, each decided by its own control, boundary and levels included. The perimeter has no `should` callback, so the policy, `withAbilities()`, `Access::preload()` and `reachableKeys()` decide a note with this same query, and `assertControlAgrees()` checks that they agree. It is a recipe for the meantime, with limits that `ThroughParent` does not have:
+`links` is the `hasMany` from the note to its links, and `subject` the `morphTo` of a link. A note is readable when the reader may view at least one of its subjects, each decided by its own control, boundary and levels included. The same perimeter works over a `belongsToMany` of a single type (`whereHas('folders', fn (Builder $folders) => $folders->controlledFor($user))`) and over a `morphTo` of the child itself (`whereHasMorph('subject', [...], ...)` on the child's query). The perimeter has no `should` callback, so the policy, `withAbilities()`, `Access::preload()` and `reachableKeys()` decide a note with this same query, and `assertControlAgrees()` checks that they agree. It is a recipe for the meantime, with limits that `ThroughParent` does not have:
 
-- Call `controlledFor()` with the reader that the callback receives, never `controlled()`, which reads the signed-in user: a policy checked for another user, or a job, would reach the parents of someone else.
-- List the types: a type without a control throws `MissingControlException` when the query is built, and a link to a type missing from the list opens nothing.
-- `view` only, and nothing else follows the parents: no write is delegated, and a draft is refused, since a perimeter checked in SQL never grants one. Without a row, `viewAny` is granted to every reader whom `allowed()` accepts, whether they reach a parent or not, where a `ThroughParent` asks the control of the parent: keep a permission of the child in `allowed()`.
+- Keep `$ability->is('view')` in `allowed()`. `controlledFor($user)` checks each parent for `view`, whatever the ability decided on the note: without that guard, every reader of a parent may update and delete the note, and any business ability is granted the same way.
+- Call `controlledFor()` with the reader that the callback receives, and nothing else in that closure: never `controlled()`, which reads the signed-in user, so a policy checked for another user, or a job, would reach the parents of someone else.
+- List the types, never `'*'`: with `'*'`, Laravel reads the types from the link table, and any controlled type that a row names would open the note. A link to a type missing from the list, to a type that no model declares, or to a row that does not exist opens nothing. A listed type without a control throws `MissingControlException` when the query is built, and one whose model does not use `HasControl` throws a `BadMethodCallException` (no `controlledFor` scope).
+- Nothing else follows the parents: no write is delegated, and a draft is refused, since a perimeter checked in SQL never grants one. Without a row, `viewAny` is granted to every reader whom `allowed()` accepts, whether they reach a parent or not, where a `ThroughParent` asks the control of the parent: keep a permission of the child in `allowed()`.
 - No search: the perimeter declares no search keys, so a controlled search finds none of these rows, and `access:check` reports `perimeter_without_search_keys` on a searchable model. Keep the model out of the search engine, or search it with Scout's `database` driver, which applies the SQL of the control.
 - No check of cycles: a parent whose control leads back to the notes loops while the query is built, and fails with a fatal error rather than an exception.
 - The parents are decided under the decision context of the request, like a `ThroughParent` without `decidedInRowContext()` (see [Several brands in one list](#several-brands-in-one-list)).
