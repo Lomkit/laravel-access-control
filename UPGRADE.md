@@ -1417,6 +1417,19 @@ protected function perimeters(): array
 
 `Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one, as long as the rules read the brand of the row. A child read through `ThroughParent` is decided from its parent, never from its own brand (see below). Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
 
+**One level per brand.** These loose perimeters already give each brand its own level: the levels nest, so in each brand their union is the highest level the reader reaches there, every post of brand A and the own posts of brand B. Never wrap a group, or its levels, in a perimeter that picks the level brand by brand: that is not supported (see [Perimeter classes](#perimeter-classes)), and a `Levels::of()` group of wrapped levels still keeps the first level reached in any brand. To keep what a group saves, the lower levels left out of the SQL, filter each lower level by the brands where no higher level applies:
+
+```php
+OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability): bool => $user->brandsOnlyWhere("{$ability} own posts", above: "{$ability} brand posts") !== [])
+    ->should(fn (User $user, Post $post, Ability $ability): bool => $post->author_id === $user->id && in_array($post->brand_id, $user->brandsOnlyWhere("{$ability} own posts", above: "{$ability} brand posts"), true))
+    ->query(function (Builder $query, User $user, Ability $ability): void {
+        $query->whereBelongsTo($user, 'author')->whereIn('brand_id', $user->brandsOnlyWhere("{$ability} own posts", above: "{$ability} brand posts"));
+    }),
+```
+
+`brandsOnlyWhere()` stands for `brandsWhere()` of the first permission minus `brandsWhere()` of the permission above it, so each brand is read by one level only. The answers stay the same, and `assertControlAgrees()` on posts of several brands checks them. A child read through its parent gets the level of each brand with `decidedInRowContext()` on its `ThroughParent` (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)); 1.1 plans the same decision in the context of the row for `Levels::of()`.
+
 Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands where the reader holds the `view` right:
 
 ```php
@@ -1875,7 +1888,7 @@ In both forms:
 - The state is private and pure: build it from scalars, enums or readonly objects that come from a constant or a value that does not change in the process, never from the request, the tenant or the signed-in user (see [Pure perimeter lists](#pure-perimeter-lists)).
 - Every path reads it: `scope()` for the controlled queries and the row checks in SQL, `includes()` for the in-memory checks and the drafts, and the `row:` closure of the search keys, which returns no key for a row outside the variant. The policy, the controlled queries, the batches and the search then agree, which `assertControlAgrees()` and `assertSearchAgrees()` check.
 - Two variants of one class in one control are two perimeters: with search keys, give them distinct key names, or the control throws `DuplicateSearchKeyNameException`.
-- Do not wrap a perimeter in another one to narrow it: the package recognizes a `ThroughParent` and an unrestricted perimeter by their own class, which a wrapper hides.
+- Do not wrap a perimeter in another one to narrow it. The package reads what each perimeter of the list declares, never what a perimeter holds: a wrapped `ThroughParent` is never bound to its parent and throws `ThroughParentCallbackException` at its first use, a wrapped unrestricted perimeter is no longer unrestricted, and the search keys of the wrapped perimeter are lost, which `access:check` reports as `perimeter_without_search_keys`. Never call the hooks of another perimeter either: `allows()`, `includes()` and `scope()` skip the admission of the reader that the package does first, by the type of the callbacks and by the `reader:` closure of the search keys, so a callback typed `fn (User $user)` receives another reader and throws a `TypeError`. For a hierarchy decided brand by brand, see [Several brands in one list](#several-brands-in-one-list).
 
 `applyScoutQueryCallback()` has no hook in 1.0: a perimeter is searched through its search keys (see [Search](#search)). Remove the override and declare `searchKeys()` on the perimeter.
 
