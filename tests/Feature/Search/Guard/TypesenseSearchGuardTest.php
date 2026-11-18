@@ -79,9 +79,10 @@ class TypesenseSearchGuardTest extends GuardTestCase
     public static function unterminatedFilters(): array
     {
         return [
-            'a parenthesis that closes early' => ['featured:=true) || (featured:=false'],
-            'a parenthesis left open' => ['(featured:=true'],
             'a backtick left open' => ['title:=`Scout'],
+            'a backtick left open after a group' => ['id:*) || title:=`z'],
+            'a reference left open' => ['$authors(id:=1'],
+            'an operator that starts the filter' => ['& featured:=true'],
         ];
     }
 
@@ -93,6 +94,12 @@ class TypesenseSearchGuardTest extends GuardTestCase
         $this->expectExceptionMessage(sprintf('The [filter_by] [%s] of the Typesense search of the [%s] index is not a self-contained filter.', $filter, $this->index()));
 
         $this->guard(['filter_by' => $filter]);
+    }
+
+    #[Test]
+    public function it_ends_the_combined_filter_with_the_access_filter_for_a_filter_that_closes_and_opens_a_group(): void
+    {
+        $this->assertSame("(featured:=true) || (featured:=false) && ({$this->access()})", $this->guard(['filter_by' => 'featured:=true) || (featured:=false'])['filter_by']);
     }
 
     #[Test]

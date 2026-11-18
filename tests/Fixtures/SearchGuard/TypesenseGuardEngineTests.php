@@ -50,6 +50,7 @@ trait TypesenseGuardEngineTests
         $this->assertSame(['Scout primer'], $this->guardedTitles([], $this->ada));
         $this->assertSame(['Scout primer'], $this->guardedTitles(['filter_by' => 'featured:=true || featured:=false'], $this->ada));
         $this->assertSame(['Scout primer'], $this->guardedTitles(['filter_by' => '(featured:=true) || (featured:=false)'], $this->ada));
+        $this->assertSame(['Scout primer'], $this->guardedTitles(['filter_by' => 'featured:=true) || (featured:=false'], $this->ada));
         $this->assertSame([], $this->guardedTitles(['filter_by' => 'featured:=true'], $this->ada));
     }
 
@@ -68,7 +69,7 @@ trait TypesenseGuardEngineTests
         $this->allow(['view own articles']);
 
         try {
-            $this->guardedTitles(['filter_by' => 'featured:=true) || (featured:=false'], $this->ada);
+            $this->guardedTitles(['filter_by' => 'id:*) || title:=`z'], $this->ada);
             $this->fail('The guard accepted a filter that does not terminate on its own.');
         } catch (RefusedSearchFilterException) {
         }

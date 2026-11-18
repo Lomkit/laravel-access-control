@@ -9,6 +9,7 @@ use Lomkit\Access\Search\SearchFilter;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 use Lomkit\Access\Search\Tokens\Syntax\TypesenseSyntax;
 use Lomkit\Access\Search\TypesenseFilterBalance;
+use Lomkit\Access\Search\TypesenseFilterTokenizer;
 
 /** @internal */
 final readonly class TypesenseSearchGuard implements SearchGuard
@@ -30,8 +31,6 @@ final readonly class TypesenseSearchGuard implements SearchGuard
     private const string KEY_PREFIX = 'x-typesense-';
 
     private const string JOIN = '/\$[^\s(]*\s*\(/';
-
-    private const string QUOTED = '/`[^`]*`/';
 
     private SearchParameterRules $rules;
 
@@ -83,7 +82,7 @@ final readonly class TypesenseSearchGuard implements SearchGuard
         $this->refuseJoins($search, $index);
 
         $access = (new TypesenseSyntax)->render($filter);
-        $combined = $access === null || $client === null ? $client ?? $access : "({$client}) && ({$access})";
+        $combined = $access === null || $client === null ? $client ?? $access : $this->and($client, $access, $index);
 
         unset($search[self::FILTER]);
 
@@ -129,7 +128,7 @@ final readonly class TypesenseSearchGuard implements SearchGuard
     {
         $filter = $search[self::FILTER] ?? null;
 
-        if (is_string($filter) && preg_match(self::JOIN, (string) preg_replace(self::QUOTED, '', $filter)) === 1) {
+        if (is_string($filter) && $this->references($filter)) {
             throw RefusedSearchParameterException::joined($this->engine(), $index, self::FILTER);
         }
 
@@ -140,5 +139,24 @@ final readonly class TypesenseSearchGuard implements SearchGuard
                 throw RefusedSearchParameterException::joined($this->engine(), $index, $parameter);
             }
         }
+    }
+
+    /** @throws RefusedSearchFilterException When the combined filter would not end with the access filter. */
+    private function and(string $client, string $access, string $index): string
+    {
+        $combined = "({$client}) && ({$access})";
+
+        return TypesenseFilterBalance::endsWithGroup($combined, $access) ? $combined : throw RefusedSearchFilterException::notSelfContained($this->engine(), $index, self::FILTER, $client);
+    }
+
+    private function references(string $filter): bool
+    {
+        foreach (TypesenseFilterTokenizer::tokenize($filter) ?? [] as $token) {
+            if (str_starts_with(ltrim($token, '!'), '$')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
