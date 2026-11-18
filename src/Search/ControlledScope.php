@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
+use Laravel\Scout\Engines\AlgoliaEngine;
 use Laravel\Scout\Engines\NullEngine;
 use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Ability;
@@ -69,6 +70,10 @@ final class ControlledScope implements SearchScope
 
         if ($engine instanceof TypesenseEngine) {
             ($this->typesense ??= new TypesenseAccessFilter)->apply($search, $filter, $engine);
+        }
+
+        if ($engine instanceof AlgoliaEngine && $filter->whereIns() !== []) {
+            $search->options[AlgoliaRules::PARAMETER] = false;
         }
 
         return $engine;

@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Search\Tokens\Signers;
 
 use DateTimeImmutable;
+use Lomkit\Access\Search\AlgoliaRules;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Search\Tokens\Syntax\AlgoliaSyntax;
@@ -30,6 +31,7 @@ final readonly class AlgoliaSigner implements SearchTokenSigner
 
         if ($filter !== null) {
             $restrictions['filters'] = $filter;
+            $restrictions[AlgoliaRules::PARAMETER] = 'false';
         }
 
         ksort($restrictions);
