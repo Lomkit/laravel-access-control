@@ -349,22 +349,24 @@ class TypesenseFilterByTest extends SearchTestCase
     }
 
     /** @return array<string, array{string}> */
-    public static function filtersThatAreNotSelfContained(): array
+    public static function filtersThatDoNotEndOnTheirOwn(): array
     {
         return [
-            'a parenthesis closed before it opens' => ['status:=published) || (status:=draft'],
-            'a backtick left open' => ['id:*) || title:=`z'],
-            'a backtick left open alone' => ['title:=`Scout'],
-            'an opening parenthesis left open' => ['(featured:=true'],
-            'a closing parenthesis too many' => ['featured:=true)'],
-            'parentheses in the wrong order' => [')featured:=true('],
-            'a quoted parenthesis that leaves one open' => ['(title:=`)`'],
+            'a quoted value left open' => ['title:=`Scout'],
+            'a quoted value left open after a group' => ['id:*) || title:=`z'],
+            'a backtick that starts a token' => ['`)a`'],
+            'a quoted value inside an object filter' => ['o.{a:=`} ) && x:=`b'],
+            'a quoted value inside a reference' => ['$C(k:=`v) && y:=`w)'],
+            'a geo filter inside a quoted value' => ['title:=`a:(b`'],
+            'a geo filter left open' => ['loc:(1, 2, 3 km'],
+            'a reference left open' => ['$Authors(id:=1'],
+            'an object filter left open' => ['address.{city:=Paris'],
         ];
     }
 
     #[Test]
-    #[DataProvider('filtersThatAreNotSelfContained')]
-    public function it_refuses_an_options_filter_by_that_is_not_self_contained(string $filter): void
+    #[DataProvider('filtersThatDoNotEndOnTheirOwn')]
+    public function it_refuses_an_options_filter_by_that_does_not_end_on_its_own(string $filter): void
     {
         $this->expectExceptionObject(UncombinableSearchFilterException::notSelfContained(new Article, 'options()', $filter));
 
@@ -372,8 +374,8 @@ class TypesenseFilterByTest extends SearchTestCase
     }
 
     #[Test]
-    #[DataProvider('filtersThatAreNotSelfContained')]
-    public function it_refuses_a_filter_by_of_typesense_search_parameters_that_is_not_self_contained(string $filter): void
+    #[DataProvider('filtersThatDoNotEndOnTheirOwn')]
+    public function it_refuses_a_filter_by_of_typesense_search_parameters_that_does_not_end_on_its_own(string $filter): void
     {
         $this->typesenseSearchParameters(['filter_by' => $filter]);
         $this->expectExceptionObject(UncombinableSearchFilterException::notSelfContained(new Article, 'typesenseSearchParameters()', $filter));
@@ -382,7 +384,7 @@ class TypesenseFilterByTest extends SearchTestCase
     }
 
     #[Test]
-    public function it_refuses_a_filter_by_that_is_not_self_contained_when_the_search_runs(): void
+    public function it_refuses_a_filter_by_that_does_not_end_on_its_own_when_the_search_runs(): void
     {
         $search = Article::search('Scout')->controlledFor($this->ada)->options(['filter_by' => 'id:*) || title:=`z']);
 
@@ -403,6 +405,10 @@ class TypesenseFilterByTest extends SearchTestCase
             'parentheses in quoted values in any order' => ['title:=`a)b` || title:=`(c`'],
             'nested groups' => ['(featured:=true || author_id:=[1, 2]) && (title:=`x` || (author_id:>3))'],
             'a quoted value with operators' => ['title:=`a && b || c`'],
+            'a geo filter' => ['location:(48.85, 2.34, 5 km)'],
+            'a reference with a quoted value' => ['$Authors(name:=`Ada (Jr)`)'],
+            'an object filter' => ['address.{city:=`Paris`}'],
+            'a group closed and opened again' => ['status:=published) || (status:=draft'],
         ];
     }
 

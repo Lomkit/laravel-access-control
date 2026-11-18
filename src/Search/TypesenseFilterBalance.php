@@ -5,26 +5,24 @@ namespace Lomkit\Access\Search;
 /** @internal */
 final readonly class TypesenseFilterBalance
 {
-    private const string QUOTE = '`';
-
     public static function isSelfContained(string $filter): bool
     {
-        $depth = 0;
-        $quoted = false;
+        $tokens = TypesenseFilterTokenizer::tokenize("({$filter})");
 
-        foreach (str_split($filter) as $character) {
-            $quoted = $character === self::QUOTE ? ! $quoted : $quoted;
-            $depth += $quoted ? 0 : match ($character) {
-                '(' => 1,
-                ')' => -1,
-                default => 0,
-            };
+        return $tokens !== null && end($tokens) === ')';
+    }
 
-            if ($depth < 0) {
-                return false;
-            }
+    public static function endsWithGroup(string $filter, string $group): bool
+    {
+        $tokens = TypesenseFilterTokenizer::tokenize($filter);
+        $groupTokens = TypesenseFilterTokenizer::tokenize($group);
+
+        if ($tokens === null || $groupTokens === null) {
+            return false;
         }
 
-        return ! $quoted && $depth === 0;
+        $tail = ['&&', '(', ...$groupTokens, ')'];
+
+        return array_slice($tokens, -count($tail)) === $tail;
     }
 }
