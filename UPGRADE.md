@@ -1842,7 +1842,7 @@ Read request and tenant state in the callbacks, never in `perimeters()` or in th
   search ................................................................ not searchable
   policy ............................. Lomkit\Access\Policies\AutomaticPolicy, automatic
   problems .................................................................. 1 FAILED
-  ⇂ The [App\Access\Perimeters\SharedPerimeter] perimeter of the [App\Access\Controls\PostControl] control declares no search keys, so a reader that only this perimeter reaches finds none of its [App\Models\Post] rows in a controlled text search. Declare searchKeys() on the perimeter, or unrestricted() if it reaches every row
+  ⇂ The [App\Access\Perimeters\SharedPerimeter] perimeter at #2 of the [App\Access\Controls\PostControl] control declares no search keys, so a reader that only this perimeter reaches finds none of its [App\Models\Post] rows in a controlled text search. Declare searchKeys() on the perimeter, or unrestricted() if it reaches every row
   notes ........................................................................ none
 
    ERROR  1 problem found.
@@ -1864,7 +1864,7 @@ Problems:
 | `plain_searchable` | A controlled model uses Scout's `Searchable` instead of `ControlledSearchable`. |
 | `unsupported_search_engine` | The engine of a `ControlledSearchable` model cannot filter a controlled search: not trusted (`Access::trustSearchEngine()`), the `collection` engine, or an engine that throws when it is built. |
 | `unsearchable_boundary` | On an engine that stores documents, the boundary has no search form. |
-| `perimeter_without_search_keys` | On an engine that stores documents, a perimeter that is neither unrestricted nor a `ThroughParent` declares no `searchKeys()`: the readers it reaches find none of its rows. |
+| `perimeter_without_search_keys` | On an engine that stores documents, a perimeter that is neither unrestricted nor a `ThroughParent` declares no `searchKeys()`: the readers it reaches find none of its rows. The problem names the position of the perimeter in the list above (`#2`, `#1.2`), so each perimeter of one class is reported on its own. |
 | `search_freshness` | What would leave documents stale: Scout's `after_commit` off, `makeSearchableUsing()` overridden without `withAccessKeys()`, a relation the search keys read that nothing reindexes. |
 | `pivot_without_using` | A `BelongsToMany` relation reaches the table of a pivot that uses `ReindexesSearch` without `->using()` it: attaching or detaching through it fires no event. |
 | `unreadable_relation` | A relation that the command reads throws when it is read without a database connection: a scanned `BelongsToMany` relation, or a relation that the search keys load. It is reported instead of skipped, since the command cannot check it. |
@@ -1890,7 +1890,7 @@ Problems are never grouped, and `--json` always lists every note. A problem that
 
 Options:
 
-- `--json` prints the same report as one JSON document: `passed`, `discovery` (`paths`, `cached`, `models`, `scanned`, the number of models found there, `scout_driver`), `controls` (each with `control`, `model`, `perimeters` as `position`, `perimeter`, `mode`, `unrestricted`, `search_keys`, `parent` with `relation`, `delegates` and `allowed`, then `boundary` with `boundary`, `mode`, `searchable`, `search` with `searchable` and `engine`, and `policy` with `policy`, the class or `null`, and `form`), `pivots` (`relations`), and `problems` and `notes`, each a list of `kind`, `subject` and `message`.
+- `--json` prints the same report as one JSON document: `passed`, `discovery` (`paths`, `cached`, `models`, `scanned`, the number of models found there, `scout_driver`), `controls` (each with `control`, `model`, `perimeters` as `position`, `perimeter`, `mode`, `unrestricted`, `search_keys`, `parent` with `relation`, `delegates` and `allowed`, then `boundary` with `boundary`, `mode`, `searchable`, `search` with `searchable` and `engine`, and `policy` with `policy`, the class or `null`, and `form`), `pivots` (`relations`), `problems`, a list of `kind`, `subject`, `position` (the position of the perimeter, such as `#1.2`, for a problem about a perimeter, `null` otherwise) and `message`, and `notes`, a list of `kind`, `subject` and `message`.
 - `--only=App\Models\Post` (repeatable, a model or a control class) checks only these controls: their declaration, policy and search. The discovery, the cache and the pivots are always checked. A name that matches no control exits with `2`.
 - `--models=app/Domain/Models` (repeatable) sets the directories scanned for models that use `HasControl` or `#[ControlledBy]`, `app/Models` by default. It accepts globs: `--models='modules/*/src/Models'`, resolved from the working directory. The models of the discovered controls are always checked, wherever they live; the header prints how many models the scan found and where (`0 scanned in app/Models`). The scan adds what discovery cannot see:
   - `uncontrolled_model`: a scanned model that uses `HasControl` without a control;

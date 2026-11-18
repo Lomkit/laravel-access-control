@@ -48,8 +48,8 @@ class WatchCacheCheckTest extends SearchCheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'stale_watch_cache', 'subject' => 'bootstrap/cache/access-reindex.php', 'message' => self::STALE],
-            ['kind' => 'control_failure', 'subject' => ShelvedDocumentControl::class, 'message' => 'The ['.ShelvedDocumentControl::class.'] control throws while it is built or verified: '.UnwatchableReindexException::staleCache(ShelvedDocumentControl::class)->getMessage()],
+            ['kind' => 'stale_watch_cache', 'subject' => 'bootstrap/cache/access-reindex.php', 'position' => null, 'message' => self::STALE],
+            ['kind' => 'control_failure', 'subject' => ShelvedDocumentControl::class, 'position' => null, 'message' => 'The ['.ShelvedDocumentControl::class.'] control throws while it is built or verified: '.UnwatchableReindexException::staleCache(ShelvedDocumentControl::class)->getMessage()],
         ], $report['problems']);
     }
 
@@ -62,7 +62,7 @@ class WatchCacheCheckTest extends SearchCheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'stale_watch_cache', 'subject' => 'bootstrap/cache/access-reindex.php', 'message' => self::STALE],
+            ['kind' => 'stale_watch_cache', 'subject' => 'bootstrap/cache/access-reindex.php', 'position' => null, 'message' => self::STALE],
         ], $report['problems']);
     }
 
@@ -75,7 +75,7 @@ class WatchCacheCheckTest extends SearchCheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'stale_watch_cache', 'subject' => 'bootstrap/cache/access-reindex.php', 'message' => 'The controls are cached, but the [bootstrap/cache/access-reindex.php] cache of the watched models is missing or unreadable, so no reindexWhen() rule reindexes a document when the model it watches changes. Run "php artisan access:cache" again.'],
+            ['kind' => 'stale_watch_cache', 'subject' => 'bootstrap/cache/access-reindex.php', 'position' => null, 'message' => 'The controls are cached, but the [bootstrap/cache/access-reindex.php] cache of the watched models is missing or unreadable, so no reindexWhen() rule reindexes a document when the model it watches changes. Run "php artisan access:cache" again.'],
         ], $report['problems']);
     }
 

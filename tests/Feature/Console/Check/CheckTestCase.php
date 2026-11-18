@@ -54,7 +54,7 @@ abstract class CheckTestCase extends PackageTestCase
 
     /**
      * @param  array<string, mixed>  $report
-     * @return list<array{kind: string, subject: string, message: string}>
+     * @return list<array{kind: string, subject: string, position: string|null, message: string}>
      */
     protected function problems(array $report): array
     {

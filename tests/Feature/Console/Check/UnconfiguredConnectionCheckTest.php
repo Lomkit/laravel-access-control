@@ -95,7 +95,7 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
         $this->assertSame(1, $code);
         $this->assertSame(2, $report['pivots']['relations']);
         $this->assertSame([
-            ['kind' => 'pivot_without_using', 'subject' => Embassy::class, 'message' => 'The [allies] relation of the ['.Embassy::class.'] model reaches the [embassy_country] table without ->using(EmbassyCountry::class), so attach(), detach() and sync() through it fire no pivot event and the documents that ['.EmbassyCountry::class.'] reindexes keep their former keys. Add ->using(EmbassyCountry::class) to the relation.'],
+            ['kind' => 'pivot_without_using', 'subject' => Embassy::class, 'position' => null, 'message' => 'The [allies] relation of the ['.Embassy::class.'] model reaches the [embassy_country] table without ->using(EmbassyCountry::class), so attach(), detach() and sync() through it fire no pivot event and the documents that ['.EmbassyCountry::class.'] reindexes keep their former keys. Add ->using(EmbassyCountry::class) to the relation.'],
         ], $report['problems']);
     }
 
@@ -106,7 +106,7 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'unreadable_relation', 'subject' => Consulate::class, 'message' => 'The [countries] relation of the ['.Consulate::class.'] model throws when the package reads it without a database connection, so access:check cannot verify it: The countries relation is not wired yet. Fix the ['.Consulate::class.'::countries()] method.'],
+            ['kind' => 'unreadable_relation', 'subject' => Consulate::class, 'position' => null, 'message' => 'The [countries] relation of the ['.Consulate::class.'] model throws when the package reads it without a database connection, so access:check cannot verify it: The countries relation is not wired yet. Fix the ['.Consulate::class.'::countries()] method.'],
         ], $report['problems']);
     }
 
@@ -130,8 +130,8 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'search_freshness', 'subject' => Branch::class, 'message' => 'The [country] search keys of the ['.Branch::class.'] model read the [country] relation, but nothing reindexes the documents when ['.Country::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Country::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
-            ['kind' => 'unreadable_relation', 'subject' => Branch::class, 'message' => 'The [ministry] relation of the ['.Branch::class.'] model, read by the [ministry] search keys of the ['.Branch::class.'] model, throws when the package reads it without a database connection, so access:check cannot verify it: The ministry relation is not wired yet. Fix the ['.Branch::class.'::ministry()] method.'],
+            ['kind' => 'search_freshness', 'subject' => Branch::class, 'position' => null, 'message' => 'The [country] search keys of the ['.Branch::class.'] model read the [country] relation, but nothing reindexes the documents when ['.Country::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Country::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
+            ['kind' => 'unreadable_relation', 'subject' => Branch::class, 'position' => null, 'message' => 'The [ministry] relation of the ['.Branch::class.'] model, read by the [ministry] search keys of the ['.Branch::class.'] model, throws when the package reads it without a database connection, so access:check cannot verify it: The ministry relation is not wired yet. Fix the ['.Branch::class.'::ministry()] method.'],
         ], $report['problems']);
     }
 
@@ -155,8 +155,8 @@ class UnconfiguredConnectionCheckTest extends SearchCheckTestCase
         $this->assertNotNull($watched);
         $cache->writeWatched($watched);
         $failures = [
-            ['kind' => 'control_failure', 'subject' => KioskControl::class, 'message' => 'The ['.KioskControl::class.'] control throws while it is built or verified: The country relation is not wired yet.'],
-            ['kind' => 'control_failure', 'subject' => StallControl::class, 'message' => 'The ['.StallControl::class.'] control throws while it is built or verified: The country relation of the stall is not wired yet.'],
+            ['kind' => 'control_failure', 'subject' => KioskControl::class, 'position' => null, 'message' => 'The ['.KioskControl::class.'] control throws while it is built or verified: The country relation is not wired yet.'],
+            ['kind' => 'control_failure', 'subject' => StallControl::class, 'position' => null, 'message' => 'The ['.StallControl::class.'] control throws while it is built or verified: The country relation of the stall is not wired yet.'],
         ];
 
         [$onlyCode, $only] = $this->checkJson(['--only' => [Office::class]]);

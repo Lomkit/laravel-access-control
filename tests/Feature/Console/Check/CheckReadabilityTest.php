@@ -258,6 +258,7 @@ class CheckReadabilityTest extends CheckTestCase
         $this->assertSame([[
             'kind' => 'uncontrolled_model',
             'subject' => Orphan::class,
+            'position' => null,
             'message' => (new UncontrolledModel(Orphan::class))->message(),
         ]], $report['problems']);
     }

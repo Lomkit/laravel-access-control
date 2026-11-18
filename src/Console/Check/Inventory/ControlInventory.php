@@ -3,8 +3,8 @@
 namespace Lomkit\Access\Console\Check\Inventory;
 
 use Lomkit\Access\Boundaries\NoBoundary;
+use Lomkit\Access\Console\Check\PerimeterPositions;
 use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Search\UsesControlledSearchable;
 
 /** @internal */
@@ -47,18 +47,8 @@ final readonly class ControlInventory
     {
         $perimeters = [];
 
-        foreach ($control->declaration()->perimeters()->entries() as $index => $entry) {
-            $position = '#'.($index + 1);
-
-            if (! $entry instanceof Levels) {
-                $perimeters[] = PerimeterInventory::of($entry, $position);
-
-                continue;
-            }
-
-            foreach ($entry->all() as $level => $perimeter) {
-                $perimeters[] = PerimeterInventory::of($perimeter, "{$position}.".($level + 1));
-            }
+        foreach (PerimeterPositions::of($control) as $position => $perimeter) {
+            $perimeters[] = PerimeterInventory::of($perimeter, $position);
         }
 
         return $perimeters;

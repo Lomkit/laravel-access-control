@@ -5,6 +5,7 @@ namespace Lomkit\Access\Console\Check\Checks;
 use Laravel\Scout\Engines\NullEngine;
 use Laravel\Scout\Searchable;
 use Lomkit\Access\Console\Check\Findings;
+use Lomkit\Access\Console\Check\PerimeterPositions;
 use Lomkit\Access\Console\Check\Problems\PerimeterWithoutSearchKeys;
 use Lomkit\Access\Console\Check\Problems\PlainSearchable;
 use Lomkit\Access\Console\Check\Problems\Problem;
@@ -15,8 +16,6 @@ use Lomkit\Access\Console\Check\Problems\UnsupportedSearchEngine;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
-use Lomkit\Access\Perimeters\Levels;
-use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessInspector;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessIssue;
@@ -63,9 +62,9 @@ final class SearchCheck
             $findings->problem(new UnsearchableBoundary($control::class, UnsearchableBoundaryException::for($control)->getMessage()));
         }
 
-        foreach ($this->perimeters($control) as $perimeter) {
+        foreach (PerimeterPositions::of($control) as $position => $perimeter) {
             if (! $perimeter->isUnrestricted() && ! $perimeter instanceof ThroughParent && $perimeter->declaredSearchKeys() === null) {
-                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $perimeter::class, $model));
+                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $position, $perimeter::class, $model));
             }
         }
 
@@ -81,17 +80,5 @@ final class SearchCheck
         }
 
         return new UnreadableRelation($issue->owner(), $issue->relation(), $issue->reason(), sprintf('the [%s] search keys of the [%s] model', $issue->keys(), $issue->model()));
-    }
-
-    /** @return list<Perimeter> */
-    private function perimeters(Control $control): array
-    {
-        $perimeters = [];
-
-        foreach ($control->declaration()->perimeters()->entries() as $entry) {
-            array_push($perimeters, ...($entry instanceof Levels ? $entry->all() : [$entry]));
-        }
-
-        return $perimeters;
     }
 }

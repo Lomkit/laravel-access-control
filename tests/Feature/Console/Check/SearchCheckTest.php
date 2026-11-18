@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Tests\Feature\Console\Check;
 
+use Illuminate\Support\Facades\Artisan;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
@@ -14,11 +15,13 @@ use Lomkit\Access\Tests\Fixtures\Check\Search\Clean\Models\TaggedDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Pivot\Models\LooseTag;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Controls\BoundedDocumentControl;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Controls\KeylessDocumentControl;
+use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Controls\RepeatedDocumentControl;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\BoundedDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\Folder;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\KeylessDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\PlainDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\RelatedDocument;
+use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\RepeatedDocument;
 use Lomkit\Access\Tests\Fixtures\Check\Search\Problems\Models\RewrittenDocument;
 use Lomkit\Access\Tests\Fixtures\Search\MemoryEngine;
 use Orchestra\Testbench\Attributes\WithConfig;
@@ -64,7 +67,7 @@ class SearchCheckTest extends SearchCheckTestCase
     public function it_reports_scout_indexing_before_the_commit(): void
     {
         $this->assertSame([
-            ['kind' => 'search_freshness', 'subject' => Document::class, 'message' => 'Scout\'s after_commit option is off, so Scout indexes a ['.Document::class.'] saved inside a transaction before it commits: a rolled back change can leave keys in the index that the database never kept. Set \'after_commit\' => true in config/scout.php.'],
+            ['kind' => 'search_freshness', 'subject' => Document::class, 'position' => null, 'message' => 'Scout\'s after_commit option is off, so Scout indexes a ['.Document::class.'] saved inside a transaction before it commits: a rolled back change can leave keys in the index that the database never kept. Set \'after_commit\' => true in config/scout.php.'],
         ], $this->problemsOf(Document::class));
     }
 
@@ -74,7 +77,7 @@ class SearchCheckTest extends SearchCheckTestCase
         $this->app->forgetInstance(TrustedSearchEngines::class);
 
         $this->assertSame([
-            ['kind' => 'unsupported_search_engine', 'subject' => Document::class, 'message' => UnsupportedSearchEngineException::untrusted(new Document, new MemoryEngine)->getMessage()],
+            ['kind' => 'unsupported_search_engine', 'subject' => Document::class, 'position' => null, 'message' => UnsupportedSearchEngineException::untrusted(new Document, new MemoryEngine)->getMessage()],
         ], $this->problemsOf(Document::class));
     }
 
@@ -82,15 +85,36 @@ class SearchCheckTest extends SearchCheckTestCase
     public function it_reports_a_perimeter_without_search_keys(): void
     {
         $this->assertSame([
-            ['kind' => 'perimeter_without_search_keys', 'subject' => KeylessDocumentControl::class, 'message' => 'The ['.OwnPerimeter::class.'] perimeter of the ['.KeylessDocumentControl::class.'] control declares no search keys, so a reader that only this perimeter reaches finds none of its ['.KeylessDocument::class.'] rows in a controlled text search. Declare searchKeys() on the perimeter, or unrestricted() if it reaches every row.'],
+            ['kind' => 'perimeter_without_search_keys', 'subject' => KeylessDocumentControl::class, 'position' => '#1', 'message' => 'The ['.OwnPerimeter::class.'] perimeter at #1 of the ['.KeylessDocumentControl::class.'] control declares no search keys, so a reader that only this perimeter reaches finds none of its ['.KeylessDocument::class.'] rows in a controlled text search. Declare searchKeys() on the perimeter, or unrestricted() if it reaches every row.'],
         ], $this->problemsOf(KeylessDocument::class));
+    }
+
+    #[Test]
+    public function it_reports_each_position_of_a_perimeter_class_without_search_keys(): void
+    {
+        $this->assertSame([
+            ['kind' => 'perimeter_without_search_keys', 'subject' => RepeatedDocumentControl::class, 'position' => '#1', 'message' => $this->keylessAt('#1')],
+            ['kind' => 'perimeter_without_search_keys', 'subject' => RepeatedDocumentControl::class, 'position' => '#2.2', 'message' => $this->keylessAt('#2.2')],
+        ], $this->problemsOf(RepeatedDocument::class));
+    }
+
+    #[Test]
+    public function it_prints_the_position_of_the_perimeter_in_the_problem(): void
+    {
+        $code = Artisan::call('access:check', ['--only' => [RepeatedDocument::class]]);
+        $output = Artisan::output();
+
+        $this->assertSame(1, $code);
+        $this->assertStringContainsString('The ['.OwnPerimeter::class.'] perimeter at #1 of the ['.RepeatedDocumentControl::class.'] control declares no search keys', $output);
+        $this->assertStringContainsString('The ['.OwnPerimeter::class.'] perimeter at #2.2 of the ['.RepeatedDocumentControl::class.'] control declares no search keys', $output);
+        $this->assertStringContainsString('2 problems found.', $output);
     }
 
     #[Test]
     public function it_reports_a_boundary_without_a_search_form(): void
     {
         $this->assertSame([
-            ['kind' => 'unsearchable_boundary', 'subject' => BoundedDocumentControl::class, 'message' => UnsearchableBoundaryException::for(Access::controlFor(BoundedDocument::class))->getMessage()],
+            ['kind' => 'unsearchable_boundary', 'subject' => BoundedDocumentControl::class, 'position' => null, 'message' => UnsearchableBoundaryException::for(Access::controlFor(BoundedDocument::class))->getMessage()],
         ], $this->problemsOf(BoundedDocument::class));
     }
 
@@ -98,7 +122,7 @@ class SearchCheckTest extends SearchCheckTestCase
     public function it_reports_a_make_searchable_using_that_writes_no_access_keys(): void
     {
         $this->assertSame([
-            ['kind' => 'search_freshness', 'subject' => RewrittenDocument::class, 'message' => 'The ['.RewrittenDocument::class.'] model overrides makeSearchableUsing() and its body never calls withAccessKeys(), so its documents carry no access keys and no controlled search finds them. Return $this->withAccessKeys($models) from it.'],
+            ['kind' => 'search_freshness', 'subject' => RewrittenDocument::class, 'position' => null, 'message' => 'The ['.RewrittenDocument::class.'] model overrides makeSearchableUsing() and its body never calls withAccessKeys(), so its documents carry no access keys and no controlled search finds them. Return $this->withAccessKeys($models) from it.'],
         ], $this->problemsOf(RewrittenDocument::class));
     }
 
@@ -106,7 +130,7 @@ class SearchCheckTest extends SearchCheckTestCase
     public function it_reports_a_relation_read_by_the_keys_that_nothing_reindexes(): void
     {
         $this->assertSame([
-            ['kind' => 'search_freshness', 'subject' => RelatedDocument::class, 'message' => 'The [client] search keys of the ['.RelatedDocument::class.'] model read the [folder] relation, but nothing reindexes the documents when ['.Folder::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Folder::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
+            ['kind' => 'search_freshness', 'subject' => RelatedDocument::class, 'position' => null, 'message' => 'The [client] search keys of the ['.RelatedDocument::class.'] model read the [folder] relation, but nothing reindexes the documents when ['.Folder::class.'] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(Folder::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.'],
         ], $this->problemsOf(RelatedDocument::class));
     }
 
@@ -114,7 +138,7 @@ class SearchCheckTest extends SearchCheckTestCase
     public function it_reports_a_controlled_model_that_uses_scout_searchable(): void
     {
         $this->assertSame([
-            ['kind' => 'plain_searchable', 'subject' => PlainDocument::class, 'message' => MissingControlledSearchableException::for(new PlainDocument)->getMessage()],
+            ['kind' => 'plain_searchable', 'subject' => PlainDocument::class, 'position' => null, 'message' => MissingControlledSearchableException::for(new PlainDocument)->getMessage()],
         ], $this->problemsOf(PlainDocument::class));
     }
 
@@ -126,13 +150,18 @@ class SearchCheckTest extends SearchCheckTestCase
         $this->assertSame(1, $code);
         $this->assertSame(2, $report['pivots']['relations']);
         $this->assertSame([
-            ['kind' => 'pivot_without_using', 'subject' => LooseTag::class, 'message' => 'The [documents] relation of the ['.LooseTag::class.'] model reaches the [document_tag] table without ->using(DocumentTag::class), so attach(), detach() and sync() through it fire no pivot event and the documents that ['.DocumentTag::class.'] reindexes keep their former keys. Add ->using(DocumentTag::class) to the relation.'],
+            ['kind' => 'pivot_without_using', 'subject' => LooseTag::class, 'position' => null, 'message' => 'The [documents] relation of the ['.LooseTag::class.'] model reaches the [document_tag] table without ->using(DocumentTag::class), so attach(), detach() and sync() through it fire no pivot event and the documents that ['.DocumentTag::class.'] reindexes keep their former keys. Add ->using(DocumentTag::class) to the relation.'],
         ], $report['problems']);
+    }
+
+    private function keylessAt(string $position): string
+    {
+        return 'The ['.OwnPerimeter::class."] perimeter at {$position} of the [".RepeatedDocumentControl::class.'] control declares no search keys, so a reader that only this perimeter reaches finds none of its ['.RepeatedDocument::class.'] rows in a controlled text search. Declare searchKeys() on the perimeter, or unrestricted() if it reaches every row.';
     }
 
     /**
      * @param  class-string  $model
-     * @return list<array{kind: string, subject: string, message: string}>
+     * @return list<array{kind: string, subject: string, position: string|null, message: string}>
      */
     private function problemsOf(string $model): array
     {
