@@ -99,15 +99,16 @@ class MeilisearchSearchGuardTest extends GuardTestCase
             'the network' => ['useNetwork', true],
             'the filter in another case' => ['Filter', 'featured = true'],
             'the index in another case' => ['IndexUid', 'other'],
+            'a parameter the guard does not know' => ['pinnedDocuments', ['1']],
         ];
     }
 
     #[Test]
     #[DataProvider('refusedParameters')]
-    public function it_refuses_a_parameter_that_could_bypass_the_access_filter(string $parameter, mixed $value): void
+    public function it_refuses_a_parameter_that_is_not_one_it_accepts(string $parameter, mixed $value): void
     {
         $this->expectException(RefusedSearchParameterException::class);
-        $this->expectExceptionMessage(sprintf('The Meilisearch search of the [%s] index sends [%s], which a guarded search refuses', $this->index(), $parameter));
+        $this->expectExceptionMessage(sprintf('The Meilisearch search of the [%s] index sends [%s], which is not one of the parameters that a guarded search accepts', $this->index(), $parameter));
 
         $this->guard([$parameter => $value]);
     }
@@ -160,5 +161,13 @@ class MeilisearchSearchGuardTest extends GuardTestCase
         $this->expectExceptionMessage("The Meilisearch search body holds the field [{$field}], which a guarded search does not accept.");
 
         Access::guardSearch([...$fields, 'queries' => [['indexUid' => $this->index()]]], $this->ada);
+    }
+
+    #[Test]
+    public function it_accepts_the_parameters_of_the_instantsearch_client(): void
+    {
+        $parameters = ['q' => 'Scout', 'facets' => ['featured'], 'attributesToHighlight' => ['*'], 'highlightPreTag' => '__ais-highlight__', 'highlightPostTag' => '__/ais-highlight__', 'limit' => 21, 'offset' => 0, 'attributesToCrop' => ['title:20'], 'cropMarker' => '...', 'sort' => ['title:asc']];
+
+        $this->assertSame(['indexUid' => $this->index(), ...$parameters, 'filter' => [$this->access(), ['featured = true']]], $this->guard([...$parameters, 'filter' => [['featured = true']]]));
     }
 }

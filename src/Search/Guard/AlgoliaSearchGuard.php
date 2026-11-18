@@ -25,15 +25,24 @@ final readonly class AlgoliaSearchGuard implements SearchGuard
 
     private const array REQUEST = [self::INDEX => true, 'type' => true, 'facet' => true];
 
-    private const array REFUSED = [AlgoliaRules::CONTEXTS, self::INDEX, self::PARAMS, 'restrictIndices', 'restrictSources', 'referers', 'validUntil'];
-
-    private const string KEY_PREFIX = 'x-algolia-';
+    private const array ALLOWED = [
+        'query', 'similarQuery', self::FILTER, 'facetFilters', 'optionalFilters', 'numericFilters', 'tagFilters', 'sumOrFiltersScores',
+        'restrictSearchableAttributes', 'facets', 'facetingAfterDistinct', 'maxValuesPerFacet', 'sortFacetValuesBy', 'facetQuery', 'maxFacetHits',
+        'page', 'hitsPerPage', 'offset', 'length', 'aroundLatLng', 'aroundLatLngViaIP', 'aroundRadius', 'aroundPrecision', 'minimumAroundRadius',
+        'insideBoundingBox', 'insidePolygon', 'naturalLanguages', 'queryLanguages', 'ignorePlurals', 'removeStopWords', 'decompoundQuery',
+        'attributesToRetrieve', 'attributesToHighlight', 'attributesToSnippet', 'highlightPreTag', 'highlightPostTag', 'snippetEllipsisText',
+        'restrictHighlightAndSnippetArrays', 'minWordSizefor1Typo', 'minWordSizefor2Typos', 'typoTolerance', 'allowTyposOnNumericTokens',
+        'disableTypoToleranceOnAttributes', 'queryType', 'removeWordsIfNoResults', 'advancedSyntax', 'advancedSyntaxFeatures', 'optionalWords',
+        'disableExactOnAttributes', 'exactOnSingleWordQuery', 'alternativesAsExact', 'distinct', 'getRankingInfo', 'synonyms',
+        'replaceSynonymsInHighlight', 'minProximity', 'responseFields', 'percentileComputation', 'attributeCriteriaComputedByMinProximity',
+        'relevancyStrictness', 'analytics', 'analyticsTags', 'clickAnalytics', 'userToken', AlgoliaRules::PARAMETER, AlgoliaRules::AB_TESTS,
+    ];
 
     private SearchParameterRules $rules;
 
     public function __construct()
     {
-        $this->rules = new SearchParameterRules($this->engine(), self::REFUSED, [self::FILTER, AlgoliaRules::PARAMETER, AlgoliaRules::AB_TESTS], self::KEY_PREFIX);
+        $this->rules = new SearchParameterRules($this->engine(), self::ALLOWED);
     }
 
     #[\Override]

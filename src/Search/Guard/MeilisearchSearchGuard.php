@@ -24,15 +24,20 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
 
     private const string FEDERATION_OPTIONS = 'federationOptions';
 
-    private const string REMOTE = 'remote';
+    private const array FEDERATION_OPTIONS_FIELDS = ['weight', 'queryPosition'];
 
-    private const array REFUSED = ['inlineRule', 'useNetwork'];
+    private const array ALLOWED = [
+        self::INDEX, 'q', 'offset', 'limit', 'page', 'hitsPerPage', 'attributesToRetrieve', 'attributesToCrop', 'cropLength', 'cropMarker',
+        'attributesToHighlight', 'highlightPreTag', 'highlightPostTag', 'showMatchesPosition', self::FILTER, 'sort', 'distinct', 'facets',
+        'matchingStrategy', 'attributesToSearchOn', 'rankingScoreThreshold', 'locales', 'hybrid', 'vector', 'retrieveVectors', 'media',
+        'personalize', 'showRankingScore', 'showRankingScoreDetails', 'showPerformanceDetails', self::FEDERATION_OPTIONS,
+    ];
 
     private SearchParameterRules $rules;
 
     public function __construct()
     {
-        $this->rules = new SearchParameterRules($this->engine(), self::REFUSED, [self::INDEX, self::FILTER, self::FEDERATION_OPTIONS]);
+        $this->rules = new SearchParameterRules($this->engine(), self::ALLOWED);
     }
 
     #[\Override]
@@ -80,7 +85,7 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
     public function guard(array $search, string $index, SearchFilter $filter): array
     {
         $this->rules->check($search, $index);
-        $this->refuseRemote($search, $index);
+        $this->checkFederationOptions($search, $index);
 
         $client = $this->clientFilter($search, $index);
         $access = (new MeilisearchSyntax)->render($filter);
@@ -147,9 +152,9 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
      * @param  array<array-key, mixed>  $search
      *
      * @throws InvalidSearchBodyException When the federation options are not an object.
-     * @throws RefusedSearchParameterException When the federation options send the search to a remote instance.
+     * @throws RefusedSearchParameterException When the federation options hold another field than the weight and the position of the query.
      */
-    private function refuseRemote(array $search, string $index): void
+    private function checkFederationOptions(array $search, string $index): void
     {
         $options = $search[self::FEDERATION_OPTIONS] ?? null;
 
@@ -157,8 +162,10 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
             throw InvalidSearchBodyException::invalidField($this->engine(), $index, self::FEDERATION_OPTIONS);
         }
 
-        if (is_array($options) && array_key_exists(self::REMOTE, $options)) {
-            throw RefusedSearchParameterException::named($this->engine(), $index, self::FEDERATION_OPTIONS.'.'.self::REMOTE);
+        foreach (is_array($options) ? array_keys($options) : [] as $option) {
+            if (! in_array($option, self::FEDERATION_OPTIONS_FIELDS, true)) {
+                throw RefusedSearchParameterException::named($this->engine(), $index, self::FEDERATION_OPTIONS.'.'.$option);
+            }
         }
     }
 }

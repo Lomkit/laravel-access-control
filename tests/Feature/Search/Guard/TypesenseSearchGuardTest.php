@@ -128,15 +128,26 @@ class TypesenseSearchGuardTest extends GuardTestCase
             'the filter in another case' => ['Filter_By', 'featured:=true'],
             'the curated hits in another case' => ['FILTER_CURATED_HITS', false],
             'the collection in another case' => ['Collection', 'other'],
+            'natural-language search' => ['nl_query', true],
+            'a natural-language model' => ['nl_model_id', 'model'],
+            'a natural-language debug' => ['nl_query_debug', true],
+            'a natural-language prompt cache' => ['nl_query_prompt_cache_ttl', 0],
+            'the personalization of another user' => ['personalization_user_id', 'grace'],
+            'a personalization model' => ['personalization_model_id', 'model'],
+            'a conversation' => ['conversation', true],
+            'a conversation model' => ['conversation_model_id', 'model'],
+            'analytics' => ['enable_analytics', true],
+            'an analytics tag' => ['analytics_tag', 'tag'],
+            'a parameter the guard does not know' => ['future_parameter', true],
         ];
     }
 
     #[Test]
     #[DataProvider('refusedParameters')]
-    public function it_refuses_a_parameter_that_could_bypass_the_access_filter(string $parameter, mixed $value): void
+    public function it_refuses_a_parameter_that_is_not_one_it_accepts(string $parameter, mixed $value): void
     {
         $this->expectException(RefusedSearchParameterException::class);
-        $this->expectExceptionMessage(sprintf('The Typesense search of the [%s] index sends [%s], which a guarded search refuses', $this->index(), $parameter));
+        $this->expectExceptionMessage(sprintf('The Typesense search of the [%s] index sends [%s], which is not one of the parameters that a guarded search accepts', $this->index(), $parameter));
 
         $this->guard([$parameter => $value]);
     }
@@ -152,6 +163,8 @@ class TypesenseSearchGuardTest extends GuardTestCase
             'a sort on another collection' => ['sort_by', '$authors(name:asc)'],
             'the facets of another collection' => ['facet_by', '$authors(name)'],
             'the groups of another collection' => ['group_by', '$authors(name)'],
+            'the fields of another collection after a space' => ['include_fields', '$ authors(*)'],
+            'a filter on another collection after a space' => ['filter_by', '$ authors(id:*)'],
         ];
     }
 
@@ -172,5 +185,39 @@ class TypesenseSearchGuardTest extends GuardTestCase
         $this->expectExceptionMessage('The Typesense search body holds the field [preset], which a guarded search does not accept.');
 
         Access::guardSearch(['preset' => 'everything', 'searches' => [['collection' => $this->index()]]], $this->ada);
+    }
+
+    /** @return array<string, array{string}> */
+    public static function documentVectors(): array
+    {
+        return [
+            'an id' => ['embedding:([], id: 42)'],
+            'an id after another parameter' => ['embedding:([], k: 10, id: 42)'],
+            'an id in capitals' => ['embedding:([], ID:42)'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('documentVectors')]
+    public function it_refuses_a_vector_query_on_the_vector_of_a_stored_document(string $vector): void
+    {
+        $this->expectException(RefusedSearchParameterException::class);
+        $this->expectExceptionMessage('searches with the vector of a stored document (id)');
+
+        $this->guard(['vector_query' => $vector]);
+    }
+
+    #[Test]
+    public function it_accepts_a_vector_query_with_its_values(): void
+    {
+        $this->assertSame('embedding:([0.1, 0.2], k: 10, distance_threshold: 0.5)', $this->guard(['vector_query' => 'embedding:([0.1, 0.2], k: 10, distance_threshold: 0.5)'])['vector_query']);
+    }
+
+    #[Test]
+    public function it_accepts_the_parameters_of_the_instantsearch_adapter(): void
+    {
+        $parameters = ['q' => 'Scout', 'query_by' => 'title', 'facet_by' => 'featured', 'sort_by' => '_text_match:desc', 'max_facet_values' => 10, 'page' => 1, 'per_page' => 20, 'highlight_full_fields' => 'title', 'facet_query' => 'featured:tr'];
+
+        $this->assertSame(['collection' => $this->index(), ...$parameters, 'filter_by' => $this->access(), 'filter_curated_hits' => true], $this->guard($parameters));
     }
 }

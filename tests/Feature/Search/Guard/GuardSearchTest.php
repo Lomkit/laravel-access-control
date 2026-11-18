@@ -237,7 +237,7 @@ class GuardSearchTest extends GuardTestCase
 
         $this->postJson('/search', ['searches' => [['collection' => $this->index(), 'pinned_hits' => '1:1']]])
             ->assertUnprocessable()
-            ->assertJsonPath('message', fn (string $message): bool => str_contains($message, 'sends [pinned_hits], which a guarded search refuses'));
+            ->assertJsonPath('message', fn (string $message): bool => str_contains($message, 'sends [pinned_hits], which is not one of the parameters that a guarded search accepts'));
         $this->postJson('/search', ['searches' => [['collection' => $this->index()]]])
             ->assertOk()
             ->assertJsonPath('searches.0.filter_curated_hits', true);

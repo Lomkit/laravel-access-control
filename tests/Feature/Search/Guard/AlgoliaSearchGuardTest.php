@@ -172,15 +172,18 @@ class AlgoliaSearchGuardTest extends GuardTestCase
             'the filters in another case' => ['Filters', 'featured:true'],
             'the rules in another case' => ['EnableRules', true],
             'the A/B tests in another case' => ['enableAbTest', true],
+            'personalization' => ['enablePersonalization', true],
+            'the impact of personalization' => ['personalizationImpact', 100],
+            'a parameter the guard does not know' => ['futureParameter', true],
         ];
     }
 
     #[Test]
     #[DataProvider('refusedParameters')]
-    public function it_refuses_a_parameter_that_could_bypass_the_access_filter(string $parameter, mixed $value): void
+    public function it_refuses_a_parameter_that_is_not_one_it_accepts(string $parameter, mixed $value): void
     {
         $this->expectException(RefusedSearchParameterException::class);
-        $this->expectExceptionMessage(sprintf('The Algolia search of the [%s] index sends [%s], which a guarded search refuses', $this->index(), $parameter));
+        $this->expectExceptionMessage(sprintf('The Algolia search of the [%s] index sends [%s], which is not one of the parameters that a guarded search accepts', $this->index(), $parameter));
 
         $this->guard([$parameter => $value]);
     }
@@ -192,6 +195,8 @@ class AlgoliaSearchGuardTest extends GuardTestCase
             'rule contexts' => ['ruleContexts=staff'],
             'another index' => ['indexName=other'],
             'nested parameters' => ['params=query%3DScout'],
+            'a parameter with brackets' => ['filters%5B%5D=featured%3Atrue'],
+            'rules by brackets' => ['enableRules%5B0%5D=true'],
         ];
     }
 
@@ -260,5 +265,15 @@ class AlgoliaSearchGuardTest extends GuardTestCase
         $this->expectExceptionMessage('The Algolia search body holds the field [apiKey], which a guarded search does not accept.');
 
         Access::guardSearch(['apiKey' => 'key', 'requests' => [['indexName' => $this->index()]]], $this->ada);
+    }
+
+    #[Test]
+    public function it_accepts_the_parameters_of_the_instantsearch_client(): void
+    {
+        $parameters = $this->parameters('query=Scout&hitsPerPage=20&page=0&maxValuesPerFacet=10&facets=%5B%22featured%22%5D&tagFilters=&facetFilters=%5B%5B%22featured%3Atrue%22%5D%5D&highlightPreTag=%3Cmark%3E&highlightPostTag=%3C%2Fmark%3E&clickAnalytics=true&userToken=anonymous-1');
+
+        $this->assertSame($this->access(), $parameters['filters']);
+        $this->assertSame('[["featured:true"]]', $parameters['facetFilters']);
+        $this->assertSame('anonymous-1', $parameters['userToken']);
     }
 }

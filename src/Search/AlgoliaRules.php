@@ -9,8 +9,6 @@ final class AlgoliaRules
 
     public const string AB_TESTS = 'enableABTest';
 
-    public const string CONTEXTS = 'ruleContexts';
-
     /** @return array{enableRules: false, enableABTest: false} */
     public static function off(): array
     {
