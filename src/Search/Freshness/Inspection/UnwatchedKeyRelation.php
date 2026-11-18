@@ -3,9 +3,10 @@
 namespace Lomkit\Access\Search\Freshness\Inspection;
 
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Search\SearchKeys;
 
 /** @internal */
-final readonly class UnwatchedKeyRelation implements FreshnessIssue
+final readonly class UnwatchedKeyRelation implements KeyRelationIssue
 {
     /**
      * @param  class-string<Model>  $model
@@ -13,7 +14,7 @@ final readonly class UnwatchedKeyRelation implements FreshnessIssue
      */
     public function __construct(
         private string $model,
-        private string $keys,
+        private SearchKeys $keys,
         private string $relation,
         private ?string $related,
     ) {}
@@ -24,7 +25,14 @@ final readonly class UnwatchedKeyRelation implements FreshnessIssue
         return $this->model;
     }
 
+    #[\Override]
     public function keys(): string
+    {
+        return $this->keys->name();
+    }
+
+    #[\Override]
+    public function declaredKeys(): SearchKeys
     {
         return $this->keys;
     }
@@ -45,7 +53,7 @@ final readonly class UnwatchedKeyRelation implements FreshnessIssue
     {
         return sprintf(
             'The [%s] search keys of the [%s] model read the [%s] relation, but nothing reindexes the documents when [%s] changes, so they keep their former keys until they are reindexed. Declare reindexWhen(%s::class, ...) on the perimeter, use ReindexesSearch on the pivot, or call searchable() after the change.',
-            $this->keys,
+            $this->keys->name(),
             $this->model,
             $this->relation,
             $this->related ?? $this->relation,

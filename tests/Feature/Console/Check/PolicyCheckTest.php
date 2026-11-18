@@ -33,7 +33,7 @@ class PolicyCheckTest extends CheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'policy_without_control', 'subject' => TicketPolicyWithoutControl::class, 'message' => 'The ['.TicketPolicyWithoutControl::class.'] policy of the ['.Ticket::class.'] model extends ControlledPolicy without a $control, so viewAny() and create() without a draft throw MissingPolicyControlException. Declare protected string $control = TicketControl::class, or remove the policy and call Access::registerPolicies().'],
+            ['kind' => 'policy_without_control', 'subject' => TicketPolicyWithoutControl::class, 'position' => null, 'message' => 'The ['.TicketPolicyWithoutControl::class.'] policy of the ['.Ticket::class.'] model extends ControlledPolicy without a $control, so viewAny() and create() without a draft throw MissingPolicyControlException. Declare protected string $control = TicketControl::class, or remove the policy and call Access::registerPolicies().'],
         ], $report['problems']);
     }
 
@@ -46,7 +46,7 @@ class PolicyCheckTest extends CheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'policy_for_another_control', 'subject' => TicketPolicyNamingReplies::class, 'message' => PolicyControlMismatchException::for(TicketPolicyNamingReplies::class, TicketReplyControl::class, Ticket::class, TicketControl::class)->getMessage()],
+            ['kind' => 'policy_for_another_control', 'subject' => TicketPolicyNamingReplies::class, 'position' => null, 'message' => PolicyControlMismatchException::for(TicketPolicyNamingReplies::class, TicketReplyControl::class, Ticket::class, TicketControl::class)->getMessage()],
         ], $report['problems']);
     }
 
@@ -59,7 +59,7 @@ class PolicyCheckTest extends CheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'unresolvable_policy', 'subject' => Ticket::class, 'message' => 'The policy of the ['.Ticket::class.'] model throws when the Gate resolves it: The ticket policy needs a tenant.'],
+            ['kind' => 'unresolvable_policy', 'subject' => Ticket::class, 'position' => null, 'message' => 'The policy of the ['.Ticket::class.'] model throws when the Gate resolves it: The ticket policy needs a tenant.'],
         ], $report['problems']);
     }
 

@@ -149,8 +149,8 @@ class AccessCheckCommandTest extends CheckTestCase
         $this->assertSame(1, $code);
         $this->assertSame([WidgetControl::class], array_column($report['controls'], 'control'));
         $this->assertSame([
-            ['kind' => 'control_failure', 'subject' => GadgetControl::class, 'message' => 'The ['.GadgetControl::class.'] control throws while it is built or verified: Lomkit\Access\Perimeters\Levels::of() received no level. A group lists its levels widest first, such as Levels::of(GlobalPerimeter::new()->...->unrestricted(), OwnPerimeter::new()->...), and only the highest level the reader reaches applies.'],
-            ['kind' => 'control_failure', 'subject' => GizmoControl::class, 'message' => 'The ['.GizmoControl::class.'] control throws while it is built or verified: The perimeters() or boundary() method of the ['.GizmoControl::class.'] control built a different declaration twice. The control keeps the perimeters and the boundary it builds first for the whole process, a queue worker or an Octane worker included, so perimeters() and boundary() must not read the signed-in user, the request, the tenant or the clock while they build them. Read them inside the callbacks, from the reader they receive. The state of a perimeter class is compared too: its constructor and its withers must set it from pure values while perimeters() builds the perimeter, and a hook must never change it.'],
+            ['kind' => 'control_failure', 'subject' => GadgetControl::class, 'position' => null, 'message' => 'The ['.GadgetControl::class.'] control throws while it is built or verified: Lomkit\Access\Perimeters\Levels::of() received no level. A group lists its levels widest first, such as Levels::of(GlobalPerimeter::new()->...->unrestricted(), OwnPerimeter::new()->...), and only the highest level the reader reaches applies.'],
+            ['kind' => 'control_failure', 'subject' => GizmoControl::class, 'position' => null, 'message' => 'The ['.GizmoControl::class.'] control throws while it is built or verified: The perimeters() or boundary() method of the ['.GizmoControl::class.'] control built a different declaration twice. The control keeps the perimeters and the boundary it builds first for the whole process, a queue worker or an Octane worker included, so perimeters() and boundary() must not read the signed-in user, the request, the tenant or the clock while they build them. Read them inside the callbacks, from the reader they receive. The state of a perimeter class is compared too: its constructor and its withers must set it from pure values while perimeters() builds the perimeter, and a hook must never change it.'],
         ], $report['problems']);
     }
 
@@ -163,7 +163,7 @@ class AccessCheckCommandTest extends CheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'duplicate_control', 'subject' => Note::class, 'message' => DuplicateControlException::forModel(Note::class, FirstNoteControl::class, SecondNoteControl::class)->getMessage()],
+            ['kind' => 'duplicate_control', 'subject' => Note::class, 'position' => null, 'message' => DuplicateControlException::forModel(Note::class, FirstNoteControl::class, SecondNoteControl::class)->getMessage()],
         ], $report['problems']);
     }
 
@@ -176,7 +176,7 @@ class AccessCheckCommandTest extends CheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'duplicate_control', 'subject' => Claimed::class, 'message' => DuplicateControlException::forModel(Claimed::class, ClaimedControl::class, RivalClaimedControl::class)->getMessage()],
+            ['kind' => 'duplicate_control', 'subject' => Claimed::class, 'position' => null, 'message' => DuplicateControlException::forModel(Claimed::class, ClaimedControl::class, RivalClaimedControl::class)->getMessage()],
         ], $report['problems']);
     }
 
@@ -202,7 +202,7 @@ class AccessCheckCommandTest extends CheckTestCase
 
         $this->assertSame(1, $code);
         $this->assertSame([
-            ['kind' => 'invalid_controlled_by', 'subject' => Stray::class, 'message' => 'The #[ControlledBy] attribute of the ['.Stray::class.'] model names the ['.TicketControl::class.'] control, which controls the ['.Ticket::class.'] model. Name the control whose $model is ['.Stray::class.'].'],
+            ['kind' => 'invalid_controlled_by', 'subject' => Stray::class, 'position' => null, 'message' => 'The #[ControlledBy] attribute of the ['.Stray::class.'] model names the ['.TicketControl::class.'] control, which controls the ['.Ticket::class.'] model. Name the control whose $model is ['.Stray::class.'].'],
         ], $report['problems']);
     }
 
@@ -220,7 +220,7 @@ class AccessCheckCommandTest extends CheckTestCase
         $this->assertSame(1, $code);
         $this->assertTrue($report['discovery']['cached']);
         $this->assertSame([
-            ['kind' => 'stale_control_cache', 'subject' => 'bootstrap/cache/access-controls.php', 'message' => 'The [bootstrap/cache/access-controls.php] cache maps the models to other controls than the ones discovered now, so the application uses the cached ones. Run "php artisan access:cache" again, or "php artisan access:clear".'],
+            ['kind' => 'stale_control_cache', 'subject' => 'bootstrap/cache/access-controls.php', 'position' => null, 'message' => 'The [bootstrap/cache/access-controls.php] cache maps the models to other controls than the ones discovered now, so the application uses the cached ones. Run "php artisan access:cache" again, or "php artisan access:clear".'],
         ], $report['problems']);
     }
 

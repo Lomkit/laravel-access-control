@@ -5,6 +5,7 @@ namespace Lomkit\Access\Console\Check\Checks;
 use Laravel\Scout\Engines\NullEngine;
 use Laravel\Scout\Searchable;
 use Lomkit\Access\Console\Check\Findings;
+use Lomkit\Access\Console\Check\PerimeterPositions;
 use Lomkit\Access\Console\Check\Problems\PerimeterWithoutSearchKeys;
 use Lomkit\Access\Console\Check\Problems\PlainSearchable;
 use Lomkit\Access\Console\Check\Problems\Problem;
@@ -15,13 +16,14 @@ use Lomkit\Access\Console\Check\Problems\UnsupportedSearchEngine;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
-use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessInspector;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessIssue;
+use Lomkit\Access\Search\Freshness\Inspection\KeyRelationIssue;
 use Lomkit\Access\Search\Freshness\Inspection\UnreadableKeyRelation;
 use Lomkit\Access\Search\SearchEngineKind;
+use Lomkit\Access\Search\SearchKeys;
 use Lomkit\Access\Search\UsesControlledSearchable;
 use Throwable;
 
@@ -63,35 +65,37 @@ final class SearchCheck
             $findings->problem(new UnsearchableBoundary($control::class, UnsearchableBoundaryException::for($control)->getMessage()));
         }
 
-        foreach ($this->perimeters($control) as $perimeter) {
+        $positions = PerimeterPositions::of($control);
+
+        foreach ($positions as $position => $perimeter) {
             if (! $perimeter->isUnrestricted() && ! $perimeter instanceof ThroughParent && $perimeter->declaredSearchKeys() === null) {
-                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $perimeter::class, $model));
+                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $position, $perimeter::class, $model, HeldPerimeters::in($perimeter)));
             }
         }
 
         foreach (FreshnessInspector::inspect($model)->issues() as $issue) {
-            $findings->problem($this->problemOf($issue));
+            $findings->problem($this->problemOf($issue, $issue instanceof KeyRelationIssue ? $this->positionOf($issue->declaredKeys(), $positions) : null));
         }
     }
 
-    private function problemOf(FreshnessIssue $issue): Problem
+    private function problemOf(FreshnessIssue $issue, ?string $position): Problem
     {
         if (! $issue instanceof UnreadableKeyRelation) {
-            return new SearchFreshness($issue);
+            return new SearchFreshness($issue, $position);
         }
 
-        return new UnreadableRelation($issue->owner(), $issue->relation(), $issue->reason(), sprintf('the [%s] search keys of the [%s] model', $issue->keys(), $issue->model()));
+        return new UnreadableRelation($issue->owner(), $issue->relation(), $issue->reason(), sprintf('the [%s] search keys of the [%s] model', $issue->keys(), $issue->model()), $position);
     }
 
-    /** @return list<Perimeter> */
-    private function perimeters(Control $control): array
+    /** @param  array<string, Perimeter>  $positions */
+    private function positionOf(SearchKeys $keys, array $positions): ?string
     {
-        $perimeters = [];
-
-        foreach ($control->declaration()->perimeters()->entries() as $entry) {
-            array_push($perimeters, ...($entry instanceof Levels ? $entry->all() : [$entry]));
+        foreach ($positions as $position => $perimeter) {
+            if ($perimeter->declaredSearchKeys() === $keys) {
+                return $position;
+            }
         }
 
-        return $perimeters;
+        return null;
     }
 }

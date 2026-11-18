@@ -3,9 +3,10 @@
 namespace Lomkit\Access\Search\Freshness\Inspection;
 
 use Illuminate\Database\Eloquent\Model;
+use Lomkit\Access\Search\SearchKeys;
 
 /** @internal */
-final readonly class UnreadableKeyRelation implements FreshnessIssue
+final readonly class UnreadableKeyRelation implements KeyRelationIssue
 {
     /**
      * @param  class-string<Model>  $model
@@ -13,7 +14,7 @@ final readonly class UnreadableKeyRelation implements FreshnessIssue
      */
     public function __construct(
         private string $model,
-        private string $keys,
+        private SearchKeys $keys,
         private string $owner,
         private string $relation,
         private string $reason,
@@ -25,7 +26,14 @@ final readonly class UnreadableKeyRelation implements FreshnessIssue
         return $this->model;
     }
 
+    #[\Override]
     public function keys(): string
+    {
+        return $this->keys->name();
+    }
+
+    #[\Override]
+    public function declaredKeys(): SearchKeys
     {
         return $this->keys;
     }
@@ -51,7 +59,7 @@ final readonly class UnreadableKeyRelation implements FreshnessIssue
     {
         return sprintf(
             'The [%s] search keys of the [%s] model read the [%s] relation of the [%s] model, which throws when it is read without a database connection, so its freshness cannot be checked: %s',
-            $this->keys,
+            $this->keys->name(),
             $this->model,
             $this->relation,
             $this->owner,

@@ -187,7 +187,7 @@ class Perimeter
 
     private function callbacks(): PerimeterCallbacks
     {
-        return $this->callbacks ??= PerimeterCallbacks::none();
+        return $this->callbacks ?? PerimeterCallbacks::none();
     }
 
     /** @throws MissingPerimeterCallbackException If the perimeter does not declare the callback. */

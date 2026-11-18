@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Exceptions\InvalidSearchKeyReaderException;
 use Lomkit\Access\Exceptions\JoinInPerimeterException;
+use Lomkit\Access\Perimeters\ClosureShape;
+use Lomkit\Access\Perimeters\ObjectProperties;
 use Lomkit\Access\Search\SearchKeys;
 use ReflectionMethod;
 
@@ -85,7 +87,9 @@ abstract class Boundary
     /** @internal */
     final public function matches(self $other): bool
     {
-        return $other::class === static::class && $this->sameDeclarationAs($other);
+        return $other::class === static::class
+            && ClosureShape::sameValues(ObjectProperties::of($this), ObjectProperties::of($other))
+            && $this->sameDeclarationAs($other);
     }
 
     protected function admits(AccessContext $context): bool
