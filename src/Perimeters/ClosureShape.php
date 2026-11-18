@@ -71,21 +71,43 @@ final readonly class ClosureShape
             $value instanceof Model && $other instanceof Model => $value->is($other),
             $value instanceof UnitEnum => $value === $other,
             $value instanceof DateTimeInterface && $other instanceof DateTimeInterface => $value->format(self::INSTANT) === $other->format(self::INSTANT),
+            $value instanceof Perimeter && $other instanceof Perimeter => self::samePerimeters($value, $other, $depth, $comparing),
             (new ReflectionClass($value))->isReadOnly() => self::sameReadonlyObjects($value, $other, $depth, $comparing),
             default => true,
         };
     }
 
     /** @param  array<string, true>  $comparing */
+    private static function samePerimeters(Perimeter $value, Perimeter $other, int $depth, array $comparing): bool
+    {
+        $pair = self::pair($value, $other);
+
+        if (isset($comparing[$pair])) {
+            return true;
+        }
+
+        if ($value instanceof ThroughParent && $other instanceof ThroughParent && ! $value->sameDeclarationAs($other)) {
+            return false;
+        }
+
+        return self::sameReadonlyObjects($value->shape(), $other->shape(), $depth, [...$comparing, $pair => true]);
+    }
+
+    /** @param  array<string, true>  $comparing */
     private static function sameReadonlyObjects(object $value, object $other, int $depth, array $comparing): bool
     {
-        $pair = spl_object_id($value).':'.spl_object_id($other);
+        $pair = self::pair($value, $other);
 
         if (isset($comparing[$pair])) {
             return true;
         }
 
         return self::sameArrays(ObjectProperties::of($value), ObjectProperties::of($other), $depth, [...$comparing, $pair => true]);
+    }
+
+    private static function pair(object $value, object $other): string
+    {
+        return spl_object_id($value).':'.spl_object_id($other);
     }
 
     /**
