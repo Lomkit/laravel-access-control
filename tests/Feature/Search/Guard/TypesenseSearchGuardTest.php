@@ -195,6 +195,13 @@ class TypesenseSearchGuardTest extends GuardTestCase
             'an id' => ['embedding:([], id: 42)'],
             'an id after another parameter' => ['embedding:([], k: 10, id: 42)'],
             'an id in capitals' => ['embedding:([], ID:42)'],
+            'an id right after the vector' => ['embedding:([]id: 42)'],
+            'an id after a space' => ['embedding:([] id: 42)'],
+            'an id after a tab' => ["embedding:([]\tid:42)"],
+            'an id with spaces around its colon' => ['embedding:([] , iD : 42 )'],
+            'an id after values' => ['embedding:([0.1, 0.2] Id:42)'],
+            'an id after a list parameter' => ['embedding:([], queries:[a, b], id:42)'],
+            'an id after a space in the field' => ['embedding :  ( [ ] id:42)'],
         ];
     }
 
@@ -212,6 +219,8 @@ class TypesenseSearchGuardTest extends GuardTestCase
     public function it_accepts_a_vector_query_with_its_values(): void
     {
         $this->assertSame('embedding:([0.1, 0.2], k: 10, distance_threshold: 0.5)', $this->guard(['vector_query' => 'embedding:([0.1, 0.2], k: 10, distance_threshold: 0.5)'])['vector_query']);
+        $this->assertSame('embedding:([], queries:["red identity"], k: 5)', $this->guard(['vector_query' => 'embedding:([], queries:["red identity"], k: 5)'])['vector_query']);
+        $this->assertSame('embedding:([0.1] ,ids_hint:1)', $this->guard(['vector_query' => 'embedding:([0.1] ,ids_hint:1)'])['vector_query']);
     }
 
     #[Test]

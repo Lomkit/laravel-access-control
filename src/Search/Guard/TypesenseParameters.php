@@ -29,7 +29,9 @@ final readonly class TypesenseParameters
 
     private const string VECTOR = 'vector_query';
 
-    private const string DOCUMENT_VECTOR = '/(?:^|,)\s*id\s*:/i';
+    private const string DOCUMENT = 'id';
+
+    private const string BLANKS = " \t\n\r\0\x0B\f";
 
     /**
      * @param  array<array-key, mixed>  $search
@@ -54,7 +56,7 @@ final readonly class TypesenseParameters
 
         $vector = $search[self::VECTOR] ?? null;
 
-        if (is_string($vector) && preg_match(self::DOCUMENT_VECTOR, (string) strstr($vector, ']')) === 1) {
+        if (is_string($vector) && self::readsDocument($vector)) {
             throw RefusedSearchParameterException::documentVector(SearchTokenEngine::Typesense, $index);
         }
     }
@@ -63,6 +65,28 @@ final readonly class TypesenseParameters
     {
         foreach (TypesenseFilterTokenizer::tokenize($filter) ?? [] as $token) {
             if (str_starts_with(ltrim($token, '!'), self::REFERENCE)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function readsDocument(string $vector): bool
+    {
+        $colon = strpos($vector, ':');
+        $open = $colon === false ? false : strpos($vector, '(', $colon);
+        $values = $open === false ? false : strpos($vector, '[', $open);
+        $close = $values === false ? false : strpos($vector, ']', $values);
+
+        if ($close === false) {
+            return false;
+        }
+
+        foreach (explode(',', substr($vector, $close + 1)) as $parameter) {
+            $name = strstr(rtrim(trim($parameter, self::BLANKS), ')'), ':', true);
+
+            if ($name !== false && strcasecmp(trim($name, self::BLANKS), self::DOCUMENT) === 0) {
                 return true;
             }
         }
