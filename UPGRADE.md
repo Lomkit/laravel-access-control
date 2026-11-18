@@ -389,7 +389,7 @@ It is on purpose:
 | Mistake | Exception |
 | --- | --- |
 | The relation does not exist on the child model | `InvalidParentRelationException` |
-| The relation is not a `belongsTo` (`hasMany`, `morphTo`, `belongsToMany`...) | `InvalidParentRelationException`: other relations come in 1.1 |
+| The relation is not a `belongsTo` (`hasMany`, `morphTo`, `belongsToMany`...) | `InvalidParentRelationException`: other relations come in 1.1; until then, see [Several parents of different types](#several-parents-of-different-types) |
 | `inverse` is not the `hasMany` of the parent on the same keys | `InvalidParentRelationException` |
 | No control is registered for the parent model | `MissingParentControlException` |
 | The parents lead back to the child, directly or through several hops | `ParentCycleException`, naming the cycle |
@@ -401,6 +401,33 @@ It is on purpose:
 **A model on a connection configured later.** The control reads the relation of a `ThroughParent`, and its `inverse`, without resolving a database connection: Eloquent gets a connection without PDO for the call of the relation method, and the control keeps only the related model and the key names. So a model on a connection configured at runtime, such as a tenant connection before the tenant is initialized or a connection opened with `DB::connectUsing()`, is validated outside that context, the same way: by `access:check`, `access:cache` (so `php artisan optimize`) and `make:control --parent`, and when the listeners that keep the search keys fresh build the controls on the save of a model of another connection. The decisions still use the real relation on the real connection, so the declaration is the same inside and outside that context. A relation method that runs a query while it builds the relation throws `RelationInspectionQueryException`, which names the model, the relation and the connection: build the relation from its keys alone, and move the query out of the method. The connection resolver is swapped for the call of the relation method only, which is safe under Octane since a worker serves one request at a time; a relation method that reads `getConnection()->getDriverName()` gets a placeholder name during that call, and a related model that the call instantiates for the first time boots against the same placeholder connection: a `booted()` that runs a query throws `RelationInspectionQueryException`.
 
 `php artisan make:control CommentControl --parent=post` writes the `ThroughParent::belongsTo('post')` entry, and refuses a relation that is not a `belongsTo` of the model.
+
+#### Several parents of different types
+
+In 1.0, `ThroughParent` follows a `belongsTo` relation. A child readable through any of several parents of different types, such as a note linked to contracts and customers by a `note_links` table (`note_id`, `subject_type`, `subject_id`), has to wait for 1.1, which brings `ThroughParent` over a `morphTo` relation with listed types and over the relations to several parents. Until then, give the child a perimeter checked in SQL, for `view` only, whose `query()` reaches each type of parent through the control of that parent, for the reader the callback receives:
+
+```php
+LinkedSubjectsPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability): bool => $ability->is('view') && $user->can('view notes'))
+    ->query(function (Builder $query, User $user): void {
+        $query->whereHas('links', fn (Builder $links) => $links->whereHasMorph(
+            'subject',
+            [Contract::class, Customer::class],
+            fn (Builder $subjects) => $subjects->controlledFor($user),
+        ));
+    }),
+```
+
+`links` is the `hasMany` from the note to its links, and `subject` the `morphTo` of a link. A note is readable when the reader may view at least one of its subjects, each decided by its own control, boundary and levels included. The perimeter has no `should` callback, so the policy, `withAbilities()`, `Access::preload()` and `reachableKeys()` decide a note with this same query, and `assertControlAgrees()` checks that they agree. It is a recipe for the meantime, with limits that `ThroughParent` does not have:
+
+- Call `controlledFor()` with the reader that the callback receives, never `controlled()`, which reads the signed-in user: a policy checked for another user, or a job, would reach the parents of someone else.
+- List the types: a type without a control throws `MissingControlException` when the query is built, and a link to a type missing from the list opens nothing.
+- `view` only, and nothing else follows the parents: no write is delegated, and a draft is refused, since a perimeter checked in SQL never grants one. Without a row, `viewAny` is granted to every reader whom `allowed()` accepts, whether they reach a parent or not, where a `ThroughParent` asks the control of the parent: keep a permission of the child in `allowed()`.
+- No search: the perimeter declares no search keys, so a controlled search finds none of these rows, and `access:check` reports `perimeter_without_search_keys` on a searchable model. Keep the model out of the search engine, or search it with Scout's `database` driver, which applies the SQL of the control.
+- No check of cycles: a parent whose control leads back to the notes loops while the query is built, and fails with a fatal error rather than an exception.
+- The parents are decided under the decision context of the request, like a `ThroughParent` without `decidedInRowContext()` (see [Several brands in one list](#several-brands-in-one-list)).
+
+Replace the perimeter with `ThroughParent` once 1.1 supports the relation.
 
 #### Deciding the parent in the context of the child row
 
