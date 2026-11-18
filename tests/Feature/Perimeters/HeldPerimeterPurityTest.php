@@ -3,6 +3,7 @@
 namespace Lomkit\Access\Tests\Feature\Perimeters;
 
 use Lomkit\Access\Exceptions\ImpurePerimetersException;
+use Lomkit\Access\Exceptions\ThroughParentCallbackException;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
@@ -101,12 +102,20 @@ class HeldPerimeterPurityTest extends PackageTestCase
     }
 
     #[Test]
-    public function it_compares_a_parent_perimeter_held_by_another_one_by_its_declaration(): void
+    public function it_still_compares_a_parent_perimeter_that_another_one_holds_although_it_is_never_bound(): void
     {
         config(['posts.parent' => 'project']);
         $this->app->instance(PostControl::class, $control = new WrappedParentPostControl);
         $control->verifyPerimeters();
         $control->verifyPerimeters();
+
+        try {
+            Post::controlledFor($this->ada)->get();
+
+            $this->fail('A ThroughParent held by another perimeter was used without being bound to the control.');
+        } catch (ThroughParentCallbackException) {
+            $this->addToAssertionCount(1);
+        }
 
         config(['posts.parent' => 'author']);
 
