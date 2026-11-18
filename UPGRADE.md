@@ -1176,7 +1176,7 @@ The paths accept glob patterns (`app_path('Domain/*/Controls')`), and a missing 
 
 `addControl()`, `addControls()` and `discoverControls()` are removed: declare the control on its model with `#[ControlledBy]`. `Access::flush()` is removed with every other static state: each container, so each test, gets a new registry. Remove the `Access::flush()` calls from your tests. `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` and `discoverControlsWithin()` are removed: run `php artisan access:cache` and `php artisan access:clear`.
 
-`Control::new()` and `Access::control(PostControl::class)` return the control instance of the registry, resolved through the container: one instance per control class and per container. A control can take constructor dependencies, and a test can swap one with `$this->app->instance(PostControl::class, $control)`.
+`Control::new()` and `Access::control(PostControl::class)` return the control instance of the registry, resolved through the container: one instance per control class and per container. A control can take constructor dependencies, and a test can swap one with `$this->app->instance(PostControl::class, $control)` before the registry first resolves that control: the registry keeps the instance it resolved, and the first Eloquent write of the test may already have resolved it (see [Pure perimeter lists](#pure-perimeter-lists)).
 
 `access:cache` now writes the control of each model instead of a list of controls. Run `php artisan access:cache` again after upgrading, or `php artisan optimize` in your deployment. A cached control class that was deleted since is skipped instead of failing.
 
@@ -1994,6 +1994,8 @@ The check only sees what changes between two builds of the same process. It cann
 - what the callbacks read when they run: that is not a purity problem, since the callbacks are where the reader, the request and the tenant belong.
 
 Read request and tenant state in the callbacks, never in `perimeters()` or in the constructor of a service it captures.
+
+**When the controls are built.** A control is built at its first use, which can come earlier than a test expects. With Scout installed and without `php artisan access:cache`, the first Eloquent write of any model in a process, a factory in a test included, builds the control of every discovered model that uses `ControlledSearchable`, to learn which writes reindex which documents; with the cache, a write builds the controls that watch its model. Set what `perimeters()` and `boundary()` read before that write, in `setUp()` or in the environment of the test, or read it in the callbacks. A test that sets it after that write gets `ImpurePerimetersException` at the next lookup of the control, since the control kept the perimeters built with the former value. There is no way to reset the registry, on purpose: when the value can change within one process in production, such as the domain of a queue worker that serves several, the control built for the first value would serve the next ones, so the value belongs in the callbacks or in the decision context.
 
 ### Checking the controls
 
