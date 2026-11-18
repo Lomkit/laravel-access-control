@@ -20,6 +20,7 @@ return new class extends Migration
             $table->boolean('featured')->default(false);
             $table->text('body');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 };

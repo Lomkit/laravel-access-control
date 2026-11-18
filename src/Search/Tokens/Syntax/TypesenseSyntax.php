@@ -22,4 +22,10 @@ final class TypesenseSyntax extends FilterSyntax
     {
         return ' && ';
     }
+
+    #[\Override]
+    protected function notDeleted(): string
+    {
+        return '__soft_deleted:=0';
+    }
 }

@@ -6,7 +6,7 @@ use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\RefusedSearchFilterException;
 use Lomkit\Access\Exceptions\RefusedSearchParameterException;
 use Lomkit\Access\Search\AlgoliaRules;
-use Lomkit\Access\Search\SearchFilter;
+use Lomkit\Access\Search\SearchAccess;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 use Lomkit\Access\Search\Tokens\Syntax\AlgoliaSyntax;
 
@@ -81,12 +81,12 @@ final readonly class AlgoliaSearchGuard implements SearchGuard
 
     /** @param  array<array-key, mixed>  $search */
     #[\Override]
-    public function guard(array $search, string $index, SearchFilter $filter): array
+    public function guard(array $search, string $index, SearchAccess $reader): array
     {
         $request = array_intersect_key($search, self::REQUEST);
 
         if (! array_key_exists(self::PARAMS, $search)) {
-            return [...$request, ...$this->guardParameters(array_diff_key($search, self::REQUEST), $index, $filter, false)];
+            return [...$request, ...$this->guardParameters(array_diff_key($search, self::REQUEST), $index, $reader, false)];
         }
 
         $query = $search[self::PARAMS];
@@ -99,7 +99,7 @@ final readonly class AlgoliaSearchGuard implements SearchGuard
             throw InvalidSearchBodyException::mixedParameters($this->engine(), $index);
         }
 
-        $parameters = $this->guardParameters(AlgoliaParameters::parse($query, $index), $index, $filter, 'false');
+        $parameters = $this->guardParameters(AlgoliaParameters::parse($query, $index), $index, $reader, 'false');
 
         return [...$request, self::PARAMS => AlgoliaParameters::build($parameters)];
     }
@@ -111,12 +111,12 @@ final readonly class AlgoliaSearchGuard implements SearchGuard
      * @throws RefusedSearchParameterException When a parameter is refused.
      * @throws RefusedSearchFilterException When the filters cannot be ANDed with the access filter.
      */
-    private function guardParameters(array $parameters, string $index, SearchFilter $filter, bool|string $disabled): array
+    private function guardParameters(array $parameters, string $index, SearchAccess $reader, bool|string $disabled): array
     {
         $this->rules->check($parameters, $index);
 
         $client = $this->clientFilter($parameters, $index);
-        $access = (new AlgoliaSyntax)->render($filter);
+        $access = $reader->render(new AlgoliaSyntax);
 
         if ($access !== null) {
             $parameters[self::FILTER] = $client === null ? $access : $client->and($access);

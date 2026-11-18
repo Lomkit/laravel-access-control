@@ -18,6 +18,7 @@ use Lomkit\Access\Exceptions\ProxiedSearchTokenException;
 use Lomkit\Access\Exceptions\UndeclaredSearchTokensException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsupportedSearchTokenEngineException;
+use Lomkit\Access\Search\SearchAccess;
 use Lomkit\Access\Search\Tokens\Signers\SearchTokenSigners;
 use Lomkit\Access\Search\UsesControlledSearchable;
 
@@ -70,7 +71,7 @@ final class SearchTokens
             throw UnsearchableBoundaryException::for($control);
         }
 
-        $filter = $signer->syntax()->render($control->searchFilter($reader));
+        $filter = SearchAccess::of($instance, $control->searchFilter($reader))->render($signer->syntax());
         $index = $instance->searchableAs();
 
         if (! is_string($index)) {

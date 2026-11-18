@@ -13,7 +13,7 @@ use Lomkit\Access\Exceptions\UnguardableSearchEngineException;
 use Lomkit\Access\Exceptions\UnknownSearchIndexException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Registry\ControlRegistry;
-use Lomkit\Access\Search\SearchFilter;
+use Lomkit\Access\Search\SearchAccess;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 
 /** @internal */
@@ -97,7 +97,7 @@ final readonly class SearchGuards
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      */
-    private function filterFor(SearchGuard $guard, Model $model, string $index, ?Model $reader): SearchFilter
+    private function filterFor(SearchGuard $guard, Model $model, string $index, ?Model $reader): SearchAccess
     {
         $engine = method_exists($model, 'searchableUsing') ? $model->searchableUsing() : null;
         $kind = SearchTokenEngine::of($engine) ?? throw UnguardableSearchEngineException::for($model, $engine);
@@ -112,6 +112,6 @@ final readonly class SearchGuards
             throw UnsearchableBoundaryException::for($control);
         }
 
-        return $control->searchFilter($reader);
+        return SearchAccess::of($model, $control->searchFilter($reader));
     }
 }

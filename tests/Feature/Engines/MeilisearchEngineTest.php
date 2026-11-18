@@ -44,7 +44,7 @@ class MeilisearchEngineTest extends EngineTestCase
     {
         $client = $this->app->make(Client::class);
 
-        $task = $client->index($index)->updateFilterableAttributes(Access::searchFilterables());
+        $task = $client->index($index)->updateFilterableAttributes([...Access::searchFilterables(), '__soft_deleted']);
 
         $client->waitForTask($task['taskUid']);
     }

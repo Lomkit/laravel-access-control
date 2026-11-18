@@ -5,7 +5,7 @@ namespace Lomkit\Access\Search\Guard;
 use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\RefusedSearchFilterException;
 use Lomkit\Access\Exceptions\RefusedSearchParameterException;
-use Lomkit\Access\Search\SearchFilter;
+use Lomkit\Access\Search\SearchAccess;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 use Lomkit\Access\Search\Tokens\Syntax\MeilisearchSyntax;
 
@@ -82,13 +82,13 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
 
     /** @param  array<array-key, mixed>  $search */
     #[\Override]
-    public function guard(array $search, string $index, SearchFilter $filter): array
+    public function guard(array $search, string $index, SearchAccess $reader): array
     {
         $this->rules->check($search, $index);
         $this->checkFederationOptions($search, $index);
 
         $client = $this->clientFilter($search, $index);
-        $access = (new MeilisearchSyntax)->render($filter);
+        $access = $reader->render(new MeilisearchSyntax);
 
         if ($access !== null) {
             $search[self::FILTER] = [$access, ...$client];

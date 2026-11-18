@@ -5,7 +5,7 @@ namespace Lomkit\Access\Search\Guard;
 use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\RefusedSearchFilterException;
 use Lomkit\Access\Exceptions\RefusedSearchParameterException;
-use Lomkit\Access\Search\SearchFilter;
+use Lomkit\Access\Search\SearchAccess;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 
 /** @internal */
@@ -38,5 +38,5 @@ interface SearchGuard
      * @throws RefusedSearchParameterException When the search sends a parameter that a guarded search refuses.
      * @throws RefusedSearchFilterException When the filter of the search cannot be ANDed with the access filter.
      */
-    public function guard(array $search, string $index, SearchFilter $filter): array;
+    public function guard(array $search, string $index, SearchAccess $reader): array;
 }

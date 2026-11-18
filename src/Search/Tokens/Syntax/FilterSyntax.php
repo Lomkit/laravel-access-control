@@ -12,21 +12,23 @@ abstract class FilterSyntax
     private const string UNMATCHABLE_KEY = '#closed';
 
     /** @throws UndigestedSearchValueException When a value of the filter is not the digest of a search key. */
-    final public function render(SearchFilter $filter): ?string
+    final public function render(SearchFilter $filter, bool $hidesDeleted = false): ?string
     {
-        $whereIns = $filter->isClosed() ? [SearchField::Access->value => [self::UNMATCHABLE_KEY]] : $filter->whereIns();
-
-        if ($whereIns === []) {
-            return null;
+        if ($filter->isClosed()) {
+            return $this->clause(SearchField::Access->value, [$this->quote(self::UNMATCHABLE_KEY)]);
         }
 
         $clauses = [];
 
-        foreach ($whereIns as $field => $values) {
+        foreach ($filter->whereIns() as $field => $values) {
             $clauses[] = $this->clause($field, array_map(fn (string $value): string => $this->quote(self::checked($field, $value)), $values));
         }
 
-        return implode($this->conjunction(), $clauses);
+        if ($hidesDeleted) {
+            $clauses[] = $this->notDeleted();
+        }
+
+        return $clauses === [] ? null : implode($this->conjunction(), $clauses);
     }
 
     /** @throws UndigestedSearchValueException When the value is neither a digest nor the key that no document carries. */
@@ -45,4 +47,6 @@ abstract class FilterSyntax
     abstract protected function quote(string $value): string;
 
     abstract protected function conjunction(): string;
+
+    abstract protected function notDeleted(): string;
 }

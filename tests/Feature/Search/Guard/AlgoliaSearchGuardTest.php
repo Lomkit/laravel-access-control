@@ -276,4 +276,12 @@ class AlgoliaSearchGuardTest extends GuardTestCase
         $this->assertSame('[["featured:true"]]', $parameters['facetFilters']);
         $this->assertSame('anonymous-1', $parameters['userToken']);
     }
+
+    #[Test]
+    public function it_hides_the_soft_deleted_documents_when_scout_keeps_them(): void
+    {
+        config(['scout.soft_delete' => true]);
+
+        $this->assertSame("featured:true AND (_access:'author.{$this->ada->getKey()}') AND __soft_deleted:'0'", $this->guard(['filters' => 'featured:true'])['filters']);
+    }
 }

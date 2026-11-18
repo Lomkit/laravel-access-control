@@ -59,6 +59,7 @@ class TypesenseEngineTest extends EngineTestCase
                         ['name' => 'featured', 'type' => 'bool'],
                         ['name' => '_access', 'type' => 'string[]'],
                         ['name' => '_boundary', 'type' => 'string[]'],
+                        ['name' => '__soft_deleted', 'type' => 'int32', 'optional' => true],
                     ],
                 ],
                 'search-parameters' => ['query_by' => 'title'],

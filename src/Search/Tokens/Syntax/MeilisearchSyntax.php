@@ -22,4 +22,10 @@ final class MeilisearchSyntax extends FilterSyntax
     {
         return ' AND ';
     }
+
+    #[\Override]
+    protected function notDeleted(): string
+    {
+        return '__soft_deleted = 0';
+    }
 }

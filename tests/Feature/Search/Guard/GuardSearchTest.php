@@ -251,4 +251,19 @@ class GuardSearchTest extends GuardTestCase
         $this->assertFalse(is_subclass_of(UnguardableSearchEngineException::class, UnprocessableEntityHttpException::class));
         $this->assertFalse(is_subclass_of(AmbiguousSearchIndexException::class, UnprocessableEntityHttpException::class));
     }
+
+    #[Test]
+    public function it_hides_the_soft_deleted_documents_when_scout_keeps_them(): void
+    {
+        config(['scout.soft_delete' => true]);
+        $access = "_access:=[`author.{$this->ada->getKey()}`] && __soft_deleted:=0";
+
+        $this->assertSame($access, $this->guarded([], $this->ada));
+        $this->assertSame("(featured:=true) && ({$access})", $this->guarded(['filter_by' => 'featured:=true'], $this->ada));
+
+        $this->allow(['view global articles']);
+        Access::forgetDecisions();
+
+        $this->assertSame('__soft_deleted:=0', $this->guarded([], $this->ada));
+    }
 }

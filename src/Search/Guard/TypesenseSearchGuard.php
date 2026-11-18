@@ -4,7 +4,7 @@ namespace Lomkit\Access\Search\Guard;
 
 use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\RefusedSearchFilterException;
-use Lomkit\Access\Search\SearchFilter;
+use Lomkit\Access\Search\SearchAccess;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 use Lomkit\Access\Search\Tokens\Syntax\TypesenseSyntax;
 use Lomkit\Access\Search\TypesenseFilterBalance;
@@ -65,13 +65,13 @@ final readonly class TypesenseSearchGuard implements SearchGuard
 
     /** @param  array<array-key, mixed>  $search */
     #[\Override]
-    public function guard(array $search, string $index, SearchFilter $filter): array
+    public function guard(array $search, string $index, SearchAccess $reader): array
     {
         $this->rules->check($search, $index);
         $client = $this->clientFilter($search, $index);
         TypesenseParameters::check($search, $index);
 
-        $access = (new TypesenseSyntax)->render($filter);
+        $access = $reader->render(new TypesenseSyntax);
         $combined = $access === null || $client === null ? $client ?? $access : $this->and($client, $access, $index);
 
         unset($search[self::FILTER]);

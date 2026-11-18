@@ -4,9 +4,11 @@ namespace Lomkit\Access\Tests\Fixtures\SearchGuard;
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
+use Laravel\Scout\EngineManager;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\RefusedSearchFilterException;
 use Lomkit\Access\Exceptions\RefusedSearchParameterException;
+use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,6 +18,11 @@ trait TypesenseGuardEngineTests
     private ?SearchTokenKey $guardedSearchKey = null;
 
     abstract protected function searchOnlyKey(string $index): SearchTokenKey;
+
+    /** @return list<string> */
+    abstract protected function titlesFoundWith(SearchToken $token, string $index): array;
+
+    abstract protected function waitForIndexing(string $index): void;
 
     abstract protected function curateInternalsFirst(): void;
 
@@ -89,5 +96,25 @@ trait TypesenseGuardEngineTests
         Access::forgetDecisions();
 
         $this->assertSame(['Scout internals', 'Scout primer', 'Scout recipes'], $this->guardedTitles([], $this->ada));
+    }
+
+    #[Test]
+    public function it_hides_through_the_guard_and_a_token_a_document_that_scout_keeps_after_a_soft_delete(): void
+    {
+        config(['scout.soft_delete' => true]);
+        $this->app->make(EngineManager::class)->forgetDrivers();
+        Access::discoverControlsIn([__DIR__]);
+        $this->allow(['view own articles']);
+        GuardedArticle::query()->get()->searchable();
+        GuardedArticle::query()->forceCreate(['author_id' => $this->ada->getKey(), 'title' => 'Scout trash', 'body' => 'Trash', 'featured' => false])->delete();
+        $this->waitForIndexing((new GuardedArticle)->searchableAs());
+
+        $this->assertSame(['Scout primer'], $this->guardedTitles([], $this->ada));
+
+        $token = Access::searchToken($this->ada, GuardedArticle::class, $this->guardedSearchKey ??= $this->searchOnlyKey((new GuardedArticle)->searchableAs()), now()->addMinutes(10));
+        $titles = $this->titlesFoundWith($token, $token->index());
+        sort($titles);
+
+        $this->assertSame(['Scout primer'], $titles);
     }
 }

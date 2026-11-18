@@ -170,4 +170,12 @@ class MeilisearchSearchGuardTest extends GuardTestCase
 
         $this->assertSame(['indexUid' => $this->index(), ...$parameters, 'filter' => [$this->access(), ['featured = true']]], $this->guard([...$parameters, 'filter' => [['featured = true']]]));
     }
+
+    #[Test]
+    public function it_hides_the_soft_deleted_documents_when_scout_keeps_them(): void
+    {
+        config(['scout.soft_delete' => true]);
+
+        $this->assertSame(["{$this->access()} AND __soft_deleted = 0", 'featured = true'], $this->guard(['filter' => 'featured = true'])['filter']);
+    }
 }

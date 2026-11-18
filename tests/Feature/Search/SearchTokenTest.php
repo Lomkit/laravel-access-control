@@ -29,6 +29,7 @@ use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
+use Lomkit\Access\Tests\Fixtures\SearchGuard\GuardedArticle;
 use Meilisearch\Client as MeilisearchClient;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
@@ -335,5 +336,33 @@ class SearchTokenTest extends SearchTestCase
 
         $this->assertStringContainsString('key-uid', $dump);
         $this->assertStringNotContainsString('search-only-key', $dump);
+    }
+
+    #[Test]
+    public function it_hides_the_soft_deleted_documents_from_a_token_when_scout_keeps_them(): void
+    {
+        Access::discoverControlsIn([dirname(__DIR__, 2).'/Fixtures/SearchGuard']);
+        config(['scout.soft_delete' => true]);
+        $this->allow(['view own articles']);
+        $key = SearchTokenKey::algolia('search-only-key');
+
+        $token = Access::searchToken($this->ada, GuardedArticle::class, $key, now()->addMinutes(15));
+
+        $this->assertSame("(_access:'author.{$this->ada->getKey()}') AND __soft_deleted:'0'", $token->filter());
+        $this->assertSame("(_access:'author.{$this->ada->getKey()}')", $this->token($this->ada)->filter());
+
+        $this->allow(['view global articles']);
+        Access::forgetDecisions();
+
+        $this->assertSame("__soft_deleted:'0'", Access::searchToken($this->ada, GuardedArticle::class, $key, now()->addMinutes(15))->filter());
+    }
+
+    #[Test]
+    public function it_leaves_the_soft_deleted_documents_to_scout_when_scout_removes_them(): void
+    {
+        Access::discoverControlsIn([dirname(__DIR__, 2).'/Fixtures/SearchGuard']);
+        $this->allow(['view own articles']);
+
+        $this->assertSame("(_access:'author.{$this->ada->getKey()}')", Access::searchToken($this->ada, GuardedArticle::class, SearchTokenKey::algolia('search-only-key'), now()->addMinutes(15))->filter());
     }
 }
