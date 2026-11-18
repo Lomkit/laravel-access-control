@@ -8,6 +8,7 @@ use Lomkit\Access\Exceptions\RefusedSearchParameterException;
 use Lomkit\Access\Search\SearchAccess;
 use Lomkit\Access\Search\Tokens\SearchTokenEngine;
 use Lomkit\Access\Search\Tokens\Syntax\MeilisearchSyntax;
+use stdClass;
 
 /** @internal */
 final readonly class MeilisearchSearchGuard implements SearchGuard
@@ -23,6 +24,8 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
     private const array FEDERATION_FIELDS = ['limit', 'offset', 'page', 'hitsPerPage', 'facetsByIndex', 'mergeFacets', 'distinct', 'showPerformanceDetails', 'personalize'];
 
     private const string FEDERATION_OPTIONS = 'federationOptions';
+
+    private const string MERGE_FACETS = 'mergeFacets';
 
     private const array FEDERATION_OPTIONS_FIELDS = ['weight', 'queryPosition'];
 
@@ -68,7 +71,7 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
             }
         }
 
-        return $fields;
+        return array_map($this->objects(...), $fields);
     }
 
     /** @param  array<array-key, mixed>  $search */
@@ -167,5 +170,18 @@ final readonly class MeilisearchSearchGuard implements SearchGuard
                 throw RefusedSearchParameterException::named($this->engine(), $index, self::FEDERATION_OPTIONS.'.'.$option);
             }
         }
+    }
+
+    private function objects(mixed $federation): mixed
+    {
+        if ($federation === []) {
+            return new stdClass;
+        }
+
+        if (is_array($federation) && ($federation[self::MERGE_FACETS] ?? null) === []) {
+            $federation[self::MERGE_FACETS] = new stdClass;
+        }
+
+        return $federation;
     }
 }

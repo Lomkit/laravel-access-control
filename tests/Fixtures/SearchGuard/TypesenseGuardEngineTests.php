@@ -35,12 +35,7 @@ trait TypesenseGuardEngineTests
         Access::discoverControlsIn([__DIR__]);
         $index = (new GuardedArticle)->searchableAs();
         $body = Access::guardSearch(['searches' => [['collection' => $index, 'q' => 'Scout', 'query_by' => 'title', 'per_page' => 100, ...$search]]], $reader);
-        $node = config('scout.typesense.client-settings.nodes.0');
-        $result = Http::baseUrl("{$node['protocol']}://{$node['host']}:{$node['port']}")
-            ->withHeaders(['X-TYPESENSE-API-KEY' => ($this->guardedSearchKey ??= $this->searchOnlyKey($index))->key()])
-            ->post('/multi_search', $body)
-            ->throw()
-            ->json('results.0');
+        $result = $this->multiSearch($body)['results'][0];
 
         $this->assertArrayNotHasKey('error', $result);
         $titles = array_map(fn (array $hit): string => $hit['document']['title'], $result['hits']);
@@ -116,5 +111,38 @@ trait TypesenseGuardEngineTests
         sort($titles);
 
         $this->assertSame(['Scout primer'], $titles);
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $body
+     * @return array<string, mixed>
+     */
+    protected function multiSearch(array $body, string $query = ''): array
+    {
+        $node = config('scout.typesense.client-settings.nodes.0');
+
+        return Http::baseUrl("{$node['protocol']}://{$node['host']}:{$node['port']}")
+            ->withHeaders(['X-TYPESENSE-API-KEY' => ($this->guardedSearchKey ??= $this->searchOnlyKey((new GuardedArticle)->searchableAs()))->key()])
+            ->post("/multi_search{$query}", $body)
+            ->throw()
+            ->json();
+    }
+
+    #[Test]
+    public function it_finds_through_a_guarded_union_only_the_rows_of_the_reader(): void
+    {
+        $this->allow(['view own articles']);
+        $this->curateInternalsFirst();
+        Access::discoverControlsIn([__DIR__]);
+        $index = (new GuardedArticle)->searchableAs();
+
+        $body = Access::guardSearch(['union' => true, 'remove_duplicates' => true, 'searches' => [
+            ['collection' => $index, 'q' => 'Scout', 'query_by' => 'title', 'filter_curated_hits' => false],
+            ['collection' => $index, 'q' => 'Scout', 'query_by' => 'title', 'filter_by' => 'featured:=true || featured:=false'],
+        ]], $this->ada);
+        $result = $this->multiSearch($body, '?page=1&per_page=100');
+
+        $this->assertArrayNotHasKey('error', $result);
+        $this->assertSame(['Scout primer'], array_values(array_unique(array_map(fn (array $hit): string => $hit['document']['title'], $result['hits']))));
     }
 }

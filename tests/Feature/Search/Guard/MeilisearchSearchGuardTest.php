@@ -12,6 +12,7 @@ use Lomkit\Access\Tests\Fixtures\SearchGuard\GuardTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
+use stdClass;
 
 #[Group('scout')]
 class MeilisearchSearchGuardTest extends GuardTestCase
@@ -130,7 +131,8 @@ class MeilisearchSearchGuardTest extends GuardTestCase
             'queries' => [['indexUid' => $this->index(), 'federationOptions' => ['weight' => 2]]],
         ], $this->ada);
 
-        $this->assertSame(['limit' => 10, 'facetsByIndex' => [$this->index() => ['featured']], 'mergeFacets' => []], $body['federation']);
+        $this->assertEquals(['limit' => 10, 'facetsByIndex' => [$this->index() => ['featured']], 'mergeFacets' => new stdClass], $body['federation']);
+        $this->assertEquals(new stdClass, Access::guardSearch(['federation' => [], 'queries' => []], $this->ada)['federation']);
         $this->assertSame(['indexUid' => $this->index(), 'federationOptions' => ['weight' => 2], 'filter' => [$this->access()]], $body['queries'][0]);
     }
 

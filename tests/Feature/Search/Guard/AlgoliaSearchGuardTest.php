@@ -77,6 +77,7 @@ class AlgoliaSearchGuardTest extends GuardTestCase
     {
         $this->assertSame($this->access(), $this->guard([])['filters']);
         $this->assertSame($this->access(), $this->guard(['filters' => ''])['filters']);
+        $this->assertSame($this->access(), $this->guard(['filters' => null])['filters']);
     }
 
     #[Test]
@@ -219,6 +220,10 @@ class AlgoliaSearchGuardTest extends GuardTestCase
             'a single quote left open' => ["title:'Scout"],
             'a parenthesis that a single quote hides from one reading only' => ["title:'(' AND featured:true"],
             'a parenthesis that closes early inside double quotes' => ['title:"(" OR featured:true) OR (featured:"x)"'],
+            'an operator that ends the filter' => ['featured:true AND NOT'],
+            'a negation alone' => ['NOT'],
+            'an operator that starts the filter' => ['OR featured:true'],
+            'a conjunction that ends the filter' => ['featured:true and'],
         ];
     }
 
@@ -283,5 +288,11 @@ class AlgoliaSearchGuardTest extends GuardTestCase
         config(['scout.soft_delete' => true]);
 
         $this->assertSame("featured:true AND (_access:'author.{$this->ada->getKey()}') AND __soft_deleted:'0'", $this->guard(['filters' => 'featured:true'])['filters']);
+    }
+
+    #[Test]
+    public function it_accepts_a_negation_that_starts_the_filters(): void
+    {
+        $this->assertSame("NOT featured:true AND {$this->access()}", $this->guard(['filters' => 'NOT featured:true'])['filters']);
     }
 }

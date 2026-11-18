@@ -58,6 +58,7 @@ class TypesenseSearchGuardTest extends GuardTestCase
     {
         $this->assertSame($this->access(), $this->guard([])['filter_by']);
         $this->assertSame($this->access(), $this->guard(['filter_by' => ' '])['filter_by']);
+        $this->assertSame($this->access(), $this->guard(['filter_by' => null])['filter_by']);
     }
 
     #[Test]

@@ -953,7 +953,7 @@ Access::searchTokens(direct: false); // browsers go through a route of the appli
 
 | Engine | `direct: true` needs | |
 |---|---|---|
-| Typesense | 31 or later | Older servers do not isolate the filter of the browser from the filter of a scoped key. Use `direct: false` with Typesense 30 and earlier. |
+| Typesense | the first release that includes typesense/typesense#3111 (expected 31.0) | Older servers do not isolate the filter of the browser from the filter of a scoped key. Use `direct: false` with the releases before it. |
 | Meilisearch | 1.0 or later | The filter of a tenant token is applied apart from the filter of the browser (tested on 1.0 and 1.55). |
 | Algolia | not verified by the package | Algolia documents that the parameters of a secured API key cannot be changed by the browser. Algolia is a hosted service that the package cannot test: use `direct: false` if you need a guarantee that the package verifies. |
 
@@ -999,21 +999,23 @@ class PostSearchTokenController
 **Through a route of the application.** With `direct: false`, the front end sends the body of its multi-search to a route of your application. The route authenticates the reader, passes the body to `Access::guardSearch()`, and forwards the body it returns to the engine with a search-only key that stays on the server:
 
 ```php
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Lomkit\Access\Access;
 
 class SearchController
 {
-    public function __invoke(Request $request): array
+    public function __invoke(Request $request): JsonResponse
     {
-        $body = Access::guardSearch($request->json()->all(), $request->user());
+        $body = json_decode($request->getContent(), true);
+        $guarded = Access::guardSearch(is_array($body) ? $body : [], $request->user());
 
-        return Http::baseUrl(config('services.typesense.url'))
+        $response = Http::baseUrl(config('services.typesense.url'))
             ->withHeaders(['X-TYPESENSE-API-KEY' => config('services.typesense.search_key')])
-            ->post('/multi_search', $body)
-            ->throw()
-            ->json();
+            ->post('/multi_search', $guarded);
+
+        return response()->json($response->json(), $response->status());
     }
 }
 
@@ -1021,7 +1023,10 @@ class SearchController
 Route::post('/search', SearchController::class)->middleware('auth');
 ```
 
-Give the search client of the front end (the InstantSearch adapter of your engine) the URL of that route instead of the engine's; the route ignores the key the client sends. Forward the guarded body only, never the query string or the headers of the browser: a Typesense `preset` in the query string, for instance, replaces the whole body.
+Read the raw body, as above: Laravel's `TrimStrings` and `ConvertEmptyStringsToNull` middlewares also rewrite `$request->json()`, so an empty `q` would reach the engine as `null`. The guard treats a `null` or empty filter as no filter on every engine, and turns an empty `federation` or `mergeFacets` of Meilisearch back into an object. Return the status of the engine, so that a search the engine rejects stays a client error.
+
+Give the search client of the front end (the InstantSearch adapter of your engine) the URL of that route instead of the engine's; the route ignores the key the client sends. Forward the guarded body only, never the query string or the headers of the browser: a Typesense `preset` in the query string, for instance, replaces the whole body. One exception: with `union: true`, Typesense reads the pagination of the union (`page`, `per_page`, `offset`, `limit` and `limit_hits`) from the query string, where its InstantSearch adapter sends it. Forward those five, as integers, and nothing else of the query string.
+
 
 | Engine | Body | Forward to | Key |
 |---|---|---|---|
@@ -1056,6 +1061,7 @@ Accepted parameters of each search:
 - With `scout.soft_delete` on, the access filter of a model that uses `SoftDeletes` also leaves out its deleted rows, as for a token.
 - The filter is computed at each request, so a permission change applies at the next search; the index's lag applies as on the server.
 - Meilisearch search rules that pin documents (Enterprise Edition, Meilisearch Cloud) are not verified by the package: it does not know whether a pinned document goes through the access filter, on a controlled search, a token or a guarded search. Do not pin the documents of a controlled model.
+- Do not declare Meilisearch `foreignKeys` from or to the index of a controlled model: Meilisearch replaces the keys with the documents of the other index, and the package does not know whether the filter of a token or of a guarded search applies to them.
 
 #### Testing the search
 
@@ -2212,7 +2218,7 @@ If you extended `AccessControlExtension`, move the conditions of its `restrict()
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |
 | `UnsearchableBoundaryException` for every boundary | `Boundary::where()` searches; a boundary class declares `searchKeys()` |
 | The `collection` Scout engine with `controlled()` | The `database` engine |
-| A Meilisearch tenant token, a Typesense scoped key or an Algolia secured API key whose filter is written by hand | `Access::searchTokens(direct: true)` once, then `Access::searchToken($user, Post::class, SearchTokenKey::meilisearch(uid: ..., key: ...), now()->addMinutes(15))`; or `Access::searchTokens(direct: false)` and a route that calls `Access::guardSearch($request->json()->all(), $request->user())` |
+| A Meilisearch tenant token, a Typesense scoped key or an Algolia secured API key whose filter is written by hand | `Access::searchTokens(direct: true)` once, then `Access::searchToken($user, Post::class, SearchTokenKey::meilisearch(uid: ..., key: ...), now()->addMinutes(15))`; or `Access::searchTokens(direct: false)` and a route that calls `Access::guardSearch(json_decode($request->getContent(), true), $request->user())` |
 | A `saved` listener on `Project` that calls `$project->posts()->searchable()` | `->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts())` |
 | A custom pivot whose `saved` / `deleted` listeners reindex the post | `use ReindexesSearch` on the pivot |
 | `->query(fn ($query) => $query->join('projects', ...)->where('projects.client_id', ...))` | `->query(fn ($query) => $query->whereHas('project', fn ($q) => $q->where('client_id', ...)))`: a join throws `JoinInPerimeterException` |

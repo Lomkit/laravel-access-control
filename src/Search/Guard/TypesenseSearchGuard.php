@@ -92,11 +92,11 @@ final readonly class TypesenseSearchGuard implements SearchGuard
      */
     private function clientFilter(array $search, string $index): ?string
     {
-        if (! array_key_exists(self::FILTER, $search)) {
+        $filter = $search[self::FILTER] ?? null;
+
+        if ($filter === null) {
             return null;
         }
-
-        $filter = $search[self::FILTER];
 
         if (! is_string($filter)) {
             throw RefusedSearchFilterException::invalidType($this->engine(), $index, self::FILTER, 'a string');

@@ -9,11 +9,13 @@ final readonly class AlgoliaFilter
 
     private const array READINGS = ['"\'', '"'];
 
+    private const string DANGLING_OPERATOR = '/^\s*(AND|OR)(?![A-Za-z0-9_])|(?<![A-Za-z0-9_])(AND|OR|NOT)\s*$/i';
+
     private function __construct(private string $expression, private bool $disjunctive) {}
 
     public static function of(string $filter): ?self
     {
-        if (str_contains($filter, self::ESCAPE)) {
+        if (str_contains($filter, self::ESCAPE) || preg_match(self::DANGLING_OPERATOR, $filter) === 1) {
             return null;
         }
 
