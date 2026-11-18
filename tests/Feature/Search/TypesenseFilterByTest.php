@@ -478,7 +478,8 @@ class TypesenseFilterByTest extends SearchTestCase
             ->controlledFor($this->ada)
             ->where('title', $value);
 
-        $this->expectExceptionObject(UncombinableSearchFilterException::notSelfContained(new Article, 'the where() clauses', "title:=`{$value}`"));
+        $this->expectException(UncombinableSearchFilterException::class);
+        $this->expectExceptionMessageMatches('/^The filter \[title:=`?'.preg_quote($value, '/').'`?\] that the where\(\) clauses gives to a controlled Typesense search .* does not end on its own/');
 
         try {
             $search->get();
