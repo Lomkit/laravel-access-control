@@ -20,7 +20,7 @@ abstract class Boundary
         return ColumnBoundary::of($column, $readerValue);
     }
 
-    public static function none(): NoBoundary
+    public static function none(): Boundary
     {
         return new NoBoundary;
     }
@@ -110,6 +110,7 @@ abstract class Boundary
         return null;
     }
 
+    /** @internal */
     protected function sameDeclarationAs(self $other): bool
     {
         return true;

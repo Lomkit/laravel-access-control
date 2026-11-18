@@ -91,6 +91,7 @@ final class ColumnBoundary extends Boundary
         return SearchKeys::ofColumn($this->column, $this->readerValue);
     }
 
+    /** @internal */
     #[\Override]
     protected function sameDeclarationAs(Boundary $other): bool
     {

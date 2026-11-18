@@ -2,11 +2,18 @@
 
 namespace Lomkit\Access\Tests\Unit;
 
+use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Perimeters\Perimeter;
+use Lomkit\Access\Policies\ControlledPolicy;
 use Lomkit\Access\Tests\PackageTestCase;
 use PhpToken;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use ReflectionClass;
+use ReflectionMethod;
 use SplFileInfo;
 
 class PublicSurfaceTest extends PackageTestCase
@@ -20,8 +27,6 @@ class PublicSurfaceTest extends PackageTestCase
         'Lomkit\Access\Boundaries\Boundary',
         'Lomkit\Access\Boundaries\ColumnBoundary',
         'Lomkit\Access\Controls\Control',
-        'Lomkit\Access\Controls\ControlsQueries',
-        'Lomkit\Access\Controls\ControlsSearches',
         'Lomkit\Access\Controls\DecidesRows',
         'Lomkit\Access\Controls\HasControl',
         'Lomkit\Access\Controls\ReachesKeys',
@@ -63,6 +68,51 @@ class PublicSurfaceTest extends PackageTestCase
         );
 
         $this->assertSame([], array_values($internalExceptions));
+    }
+
+    /** @return array<string, array{class-string, list<string>}> */
+    public static function extendedClasses(): array
+    {
+        return [
+            'Perimeter' => [Perimeter::class, [
+                'protected allows', 'protected includes', 'protected scope',
+                'public admits', 'public allowed', 'public checksInMemory', 'public query', 'public reindexWhen',
+                'public searchKeys', 'public should', 'public static new', 'public unrestricted',
+            ]],
+            'Control' => [Control::class, [
+                'protected applicablePerimeters', 'protected boundary', 'protected perimeters',
+                'public abilityFor', 'public applies', 'public decide', 'public reachableKeys', 'public static new',
+            ]],
+            'Boundary' => [Boundary::class, [
+                'protected admits', 'protected includes', 'protected scope', 'protected searchKeys',
+                'public checksInMemory', 'public static none', 'public static where',
+            ]],
+            'ControlledPolicy' => [ControlledPolicy::class, [
+                'protected decideByControl', 'protected declaredControl',
+                'public create', 'public delete', 'public forceDelete', 'public restore', 'public update', 'public view', 'public viewAny',
+            ]],
+        ];
+    }
+
+    /**
+     * @param  class-string  $class
+     * @param  list<string>  $members
+     */
+    #[Test]
+    #[DataProvider('extendedClasses')]
+    public function it_keeps_the_documented_members_of_the_classes_applications_extend(string $class, array $members): void
+    {
+        $declared = [];
+
+        foreach ((new ReflectionClass($class))->getMethods(ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_PROTECTED) as $method) {
+            if (! str_contains((string) $method->getDocComment(), '@internal')) {
+                $declared[] = ($method->isPublic() ? 'public ' : 'protected ').($method->isStatic() ? 'static ' : '').$method->getName();
+            }
+        }
+
+        sort($declared);
+
+        $this->assertSame($members, $declared);
     }
 
     /** @return array<string, bool> */

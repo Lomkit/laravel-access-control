@@ -8,7 +8,11 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Search\SearchFilter;
 use Lomkit\Access\Search\SearchRules;
 
-/** @phpstan-require-extends Control */
+/**
+ * @internal
+ *
+ * @phpstan-require-extends Control
+ */
 trait ControlsSearches
 {
     /** @internal */

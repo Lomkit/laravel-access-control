@@ -11,7 +11,11 @@ use Lomkit\Access\Exceptions\JoinInPerimeterException;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 use Lomkit\Access\Exceptions\UnlistableAbilityException;
 
-/** @phpstan-require-extends Control */
+/**
+ * @internal
+ *
+ * @phpstan-require-extends Control
+ */
 trait ControlsQueries
 {
     /**
