@@ -71,4 +71,18 @@ class SearchKeyDigestTest extends TestCase
         );
         $this->assertSame([SearchKeyDigest::of('a'), SearchKeyDigest::of('b')], SearchKeyDigest::all(['a', 'b']));
     }
+
+    #[Test]
+    public function it_recognises_a_digest_and_nothing_else(): void
+    {
+        $digest = SearchKeyDigest::of('client.7');
+
+        $this->assertTrue(SearchKeyDigest::isDigest($digest));
+        $this->assertFalse(SearchKeyDigest::isDigest('#closed'));
+        $this->assertFalse(SearchKeyDigest::isDigest('client.7'));
+        $this->assertFalse(SearchKeyDigest::isDigest(strtoupper($digest)));
+        $this->assertFalse(SearchKeyDigest::isDigest(substr($digest, 0, 31)));
+        $this->assertFalse(SearchKeyDigest::isDigest($digest.'a'));
+        $this->assertFalse(SearchKeyDigest::isDigest($digest."\n"));
+    }
 }

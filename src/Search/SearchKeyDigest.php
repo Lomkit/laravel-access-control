@@ -16,6 +16,11 @@ final class SearchKeyDigest
         return substr(hash(self::ALGORITHM, self::VERSION.$key), 0, self::LENGTH);
     }
 
+    public static function isDigest(string $value): bool
+    {
+        return preg_match(sprintf('/^[0-9a-f]{%d}\z/', self::LENGTH), $value) === 1;
+    }
+
     /**
      * @param  list<string>  $keys
      * @return list<string>

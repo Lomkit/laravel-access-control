@@ -2,6 +2,8 @@
 
 namespace Lomkit\Access\Tests\Unit\Search\Tokens;
 
+use Closure;
+use Lomkit\Access\Exceptions\UndigestedSearchValueException;
 use Lomkit\Access\Search\SearchFilter;
 use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Search\Tokens\Syntax\AlgoliaSyntax;
@@ -11,6 +13,7 @@ use Lomkit\Access\Search\Tokens\Syntax\TypesenseSyntax;
 use Lomkit\Access\Tests\PackageTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionClass;
 
 class FilterSyntaxTest extends PackageTestCase
 {
@@ -31,7 +34,6 @@ class FilterSyntaxTest extends PackageTestCase
         $this->assertSame($expected, $syntax->render(SearchFilter::closed()));
         $this->assertSame($expected, $syntax->render(SearchFilter::of(null, [])));
         $this->assertSame($expected, $syntax->render(SearchFilter::of([], null)));
-        $this->assertDoesNotMatchRegularExpression('/^[0-9a-f]{32}$/', '#closed');
     }
 
     /** @return array<string, array{FilterSyntax}> */
@@ -120,6 +122,47 @@ class FilterSyntaxTest extends PackageTestCase
 
         foreach (SearchKeyDigest::all(['a"b\\c', 'x, y) || (z', 'it\'s', 'a`b']) as $digest) {
             $this->assertStringContainsString($digest, $filter);
+        }
+    }
+
+    /** @param  array<string, list<string>>  $whereIns */
+    private static function filterSending(array $whereIns): SearchFilter
+    {
+        $filter = (new ReflectionClass(SearchFilter::class))->newInstanceWithoutConstructor();
+
+        Closure::bind(function () use ($whereIns): void {
+            $this->closed = false;
+            $this->boundary = null;
+            $this->access = null;
+            $this->whereIns = $whereIns;
+        }, $filter, SearchFilter::class)();
+
+        return $filter;
+    }
+
+    /** @return array<string, array{string}> */
+    public static function undigestedValues(): array
+    {
+        return [
+            'a readable key' => ['client.7'],
+            'a value that would widen an Algolia filter' => ["x' OR _access:'y"],
+            'an uppercase digest' => [strtoupper(SearchKeyDigest::of('client.7'))],
+            'a digest cut short' => [substr(SearchKeyDigest::of('client.7'), 0, 31)],
+            'a digest followed by a line break' => [SearchKeyDigest::of('client.7')."\n"],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('undigestedValues')]
+    public function it_refuses_to_render_a_value_that_is_not_a_digest(string $value): void
+    {
+        foreach (self::syntaxes() as [$syntax]) {
+            try {
+                $syntax->render(self::filterSending(['_boundary' => [SearchKeyDigest::of('workspace.1')], '_access' => [$value]]));
+                $this->fail(sprintf('%s rendered an undigested value.', $syntax::class));
+            } catch (UndigestedSearchValueException $exception) {
+                $this->assertStringStartsWith('The [_access] filter received the value [', $exception->getMessage());
+            }
         }
     }
 }
