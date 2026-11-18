@@ -72,6 +72,7 @@ class TypesenseFilterByTest extends SearchTestCase
 
         $request = $this->onlyRequest();
         $this->assertSame($this->accessFilter(quoted: false), $request['filter_by']);
+        $this->assertTrue($request['filter_curated_hits']);
     }
 
     #[Test]
@@ -156,6 +157,7 @@ class TypesenseFilterByTest extends SearchTestCase
 
         foreach ($this->typesense->requests as $request) {
             $this->assertSame($this->combined('featured:=true'), $request['filter_by']);
+            $this->assertTrue($request['filter_curated_hits']);
         }
     }
 
@@ -175,6 +177,7 @@ class TypesenseFilterByTest extends SearchTestCase
 
         $this->assertIsArray($received);
         $this->assertSame($this->combined('featured:=true'), $received['filter_by']);
+        $this->assertTrue($received['filter_curated_hits']);
     }
 
     #[Test]
@@ -215,12 +218,35 @@ class TypesenseFilterByTest extends SearchTestCase
 
         $request = $this->onlyRequest();
         $this->assertSame($this->accessFilter(quoted: false), $request['filter_by']);
+        $this->assertTrue($request['filter_curated_hits']);
+    }
+
+    #[Test]
+    public function it_filters_the_curated_hits_whatever_the_app_passes(): void
+    {
+        $this->typesenseSearchParameters(['filter_curated_hits' => false]);
+
+        Article::search('Scout')
+            ->options(['pinned_hits' => '2:1', 'filter_curated_hits' => false])
+            ->controlledFor($this->ada)
+            ->get();
+        Article::search('Scout')
+            ->controlledFor($this->ada)
+            ->options(['pinned_hits' => '2:1', 'filter_curated_hits' => 'false', 'preset' => 'open'])
+            ->get();
+        Article::search('Scout')
+            ->controlledFor($this->ada)
+            ->get();
+
+        $this->assertSame([true, true, true], array_column($this->typesense->requests, 'filter_curated_hits'));
+        $this->assertSame(['2:1', '2:1'], array_column($this->typesense->requests, 'pinned_hits'));
     }
 
     #[Test]
     public function it_leaves_the_filter_by_of_the_app_alone_for_an_unrestricted_reader(): void
     {
         $this->allow(['view global articles']);
+        $this->typesenseSearchParameters(['filter_curated_hits' => false]);
 
         Article::search('Scout')
             ->options(['filter_by' => 'featured:=true'])
@@ -229,6 +255,7 @@ class TypesenseFilterByTest extends SearchTestCase
 
         $request = $this->onlyRequest();
         $this->assertSame('featured:=true', $request['filter_by']);
+        $this->assertFalse($request['filter_curated_hits']);
     }
 
     #[Test]
@@ -281,6 +308,7 @@ class TypesenseFilterByTest extends SearchTestCase
 
         $request = $this->onlyRequest();
         $this->assertSame('featured:=true', $request['filter_by']);
+        $this->assertArrayNotHasKey('filter_curated_hits', $request);
     }
 
     /** @return array<string, array{mixed}> */

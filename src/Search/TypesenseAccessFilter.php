@@ -11,6 +11,8 @@ final class TypesenseAccessFilter
 {
     private const string FILTER = 'filter_by';
 
+    private const string CURATED_HITS = 'filter_curated_hits';
+
     private ?string $applied = null;
 
     private ?TypesenseAppFilter $app = null;
@@ -37,5 +39,7 @@ final class TypesenseAccessFilter
         if ($this->applied !== null) {
             $search->options[self::FILTER] = $this->applied;
         }
+
+        $search->options[self::CURATED_HITS] = true;
     }
 }
