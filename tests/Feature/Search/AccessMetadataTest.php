@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Feature\Search;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\InvalidSearchKeyValueException;
 use Lomkit\Access\Perimeters\Levels;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -35,7 +36,7 @@ class AccessMetadataTest extends SearchTestCase
         );
         $this->assertSame([
             ...$article->toSearchableArray(),
-            '_access' => ["author.{$ada->getKey()}", 'featured.yes'],
+            '_access' => SearchKeyDigest::all(["author.{$ada->getKey()}", 'featured.yes']),
             '_boundary' => [],
         ], $this->document($article));
     }
@@ -62,7 +63,7 @@ class AccessMetadataTest extends SearchTestCase
 
         $article = Article::factory()->createOne(['author_id' => 7, 'title' => 'Scout primer']);
 
-        $this->assertSame(['author.7', 'editor.7'], $this->document($article)['_access']);
+        $this->assertSame(SearchKeyDigest::all(['author.7', 'editor.7']), $this->document($article)['_access']);
     }
 
     #[Test]
@@ -79,7 +80,7 @@ class AccessMetadataTest extends SearchTestCase
 
         $article = Article::factory()->createOne(['author_id' => 7, 'title' => 'Scout primer']);
 
-        $this->assertSame(['brand.fr.7', 'shared.3', 'shared._612e37', 'shared._416461'], $this->document($article)['_access']);
+        $this->assertSame(SearchKeyDigest::all(['brand.fr.7', 'shared.3', 'shared._612e37', 'shared._416461']), $this->document($article)['_access']);
     }
 
     #[Test]
@@ -93,7 +94,7 @@ class AccessMetadataTest extends SearchTestCase
         $article = Article::factory()->createOne(['workspace_id' => 3, 'title' => 'Scout primer']);
         $orphan = Article::factory()->createOne(['workspace_id' => null, 'title' => 'Scout internals']);
 
-        $this->assertSame(['workspace_id.3'], $this->document($article)['_boundary']);
+        $this->assertSame(SearchKeyDigest::all(['workspace_id.3']), $this->document($article)['_boundary']);
         $this->assertSame([], $this->document($orphan)['_boundary']);
         $this->assertSame([], $this->document($article)['_access']);
     }
@@ -128,7 +129,7 @@ class AccessMetadataTest extends SearchTestCase
 
         $this->assertCount(1, $queries);
         $this->assertSame(
-            [["client.{$acme->getKey()}"], ["client.{$globex->getKey()}"], ["client.{$acme->getKey()}"]],
+            array_map(SearchKeyDigest::all(...), [["client.{$acme->getKey()}"], ["client.{$globex->getKey()}"], ["client.{$acme->getKey()}"]]),
             $articles->map(fn (Article $article): mixed => $this->document($article)['_access'])->all(),
         );
         $this->assertFalse($articles->first()?->relationLoaded('project'));
@@ -175,7 +176,7 @@ class AccessMetadataTest extends SearchTestCase
     {
         $notice = Notice::query()->create(['title' => 'release']);
 
-        $this->assertSame(['titled.release'], $notice->scoutMetadata()['_access']);
-        $this->assertSame(['titled.release'], $this->engine->documents[$notice->searchableAs()][(string) $notice->getKey()]['_access']);
+        $this->assertSame(SearchKeyDigest::all(['titled.release']), $notice->scoutMetadata()['_access']);
+        $this->assertSame(SearchKeyDigest::all(['titled.release']), $this->engine->documents[$notice->searchableAs()][(string) $notice->getKey()]['_access']);
     }
 }

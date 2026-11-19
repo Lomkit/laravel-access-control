@@ -5,6 +5,8 @@ namespace Lomkit\Access\Tests\Feature\Search\Parents;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Access;
+use Lomkit\Access\Search\SearchDocuments;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
@@ -105,6 +107,35 @@ abstract class ParentSearchTestCase extends SearchTestCase
         sort($keys);
 
         return $keys;
+    }
+
+    /**
+     * @param  list<string>  $readable
+     * @return list<string>
+     */
+    protected function digestsOf(array $readable): array
+    {
+        $digests = SearchKeyDigest::all($readable);
+        sort($digests);
+
+        return $digests;
+    }
+
+    /** @return list<string> */
+    protected function readableKeysOf(string $body): array
+    {
+        $rules = Access::controlFor(Reply::class)->searchRules();
+        $keys = (new SearchDocuments($rules))->keysFor([$this->replyNamed($body)])[0]['_access'];
+        sort($keys);
+
+        return $keys;
+    }
+
+    /** @param  list<string>  $readable */
+    protected function assertRowKeys(array $readable, string $body): void
+    {
+        $this->assertSame($readable, $this->readableKeysOf($body));
+        $this->assertSame($this->digestsOf($readable), $this->accessKeysOf($body));
     }
 
     /** @return list<string> */

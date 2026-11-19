@@ -87,11 +87,13 @@ trait InteractsWithAccess
         Assert::assertNotSame([], $readers, sprintf('assertSearchAgrees() received no reader for the [%s] control: the search agrees with the SQL only for the readers it compares.', $control));
 
         $agreement = new SearchAgreement($instance);
+        $agreed = ['searchOnly' => [], 'sqlOnly' => []];
 
         foreach ($readers as $reader) {
             $disagreements = $agreement->disagreementsFor($reader);
+            $failure = $disagreements === $agreed ? '' : $this->searchAgreesFailure($control, $reader, $agreement->readerKeys($reader), $disagreements);
 
-            Assert::assertSame(['searchOnly' => [], 'sqlOnly' => []], $disagreements, $this->searchAgreesFailure($control, $reader, $disagreements));
+            Assert::assertSame($agreed, $disagreements, $failure);
         }
     }
 
@@ -151,17 +153,18 @@ trait InteractsWithAccess
      * @param  class-string<Control>  $control
      * @param  array{searchOnly: list<string>, sqlOnly: list<string>}  $disagreements
      */
-    private function searchAgreesFailure(string $control, Model $reader, array $disagreements): string
+    private function searchAgreesFailure(string $control, Model $reader, string $readerKeys, array $disagreements): string
     {
         $key = $reader->getKey();
 
         return sprintf(
-            'The search keys of the [%s] control do not agree with its SQL for the [%s] reader with key [%s]: the keys find the rows [%s] that the SQL does not, and miss the rows [%s] that the SQL finds. Make the searchKeys() of each perimeter, and of the boundary, describe the same rows as its query().',
+            'The search keys of the [%s] control do not agree with its SQL for the [%s] reader with key [%s], whose search holds [%s]: the keys find the rows [%s] that the SQL does not, and miss the rows [%s] that the SQL finds. Make the searchKeys() of each perimeter, and of the boundary, describe the same rows as its query().',
             $control,
             $reader::class,
             is_int($key) || is_string($key) ? $key : get_debug_type($key),
-            implode(', ', $disagreements['searchOnly']),
-            implode(', ', $disagreements['sqlOnly']),
+            $readerKeys,
+            implode('; ', $disagreements['searchOnly']),
+            implode('; ', $disagreements['sqlOnly']),
         );
     }
 

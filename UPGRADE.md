@@ -572,8 +572,10 @@ class Post extends Model
 
 Each document then carries two more attributes:
 
-- `_access`: the keys of every perimeter that declares search keys, such as `["client.7", "author.42"]`;
-- `_boundary`: the keys of the boundary, such as `["workspace_id.3"]`.
+- `_access`: the digests of the keys of every perimeter that declares search keys, such as the keys `client.7` and `author.42`;
+- `_boundary`: the digests of the keys of the boundary, such as the key `workspace_id.3`.
+
+The engine never receives a key as you declare it. Each key leaves the application as a digest of 32 lowercase hexadecimal characters, in the documents, in the search filters and in the browser search tokens alike. Search engines do not compare the strings they index verbatim: Typesense drops symbols such as `.` and `_`, and cuts each value at 100 characters, before it compares, so `author.1.23` would match `author.12.3`, `team._41` would match `team.41`, and two long keys sharing their first 100 characters would match each other; Meilisearch cuts a stored value at 468 bytes. A digest has a fixed length and no symbol, so every engine compares it exactly. The keys you declare stay readable everywhere else: `assertSearchAgrees()` shows them, and the keys through a parent are built from them before they are digested.
 
 Remove from `toSearchableArray()` the attributes you added only for the `scoutQuery` callbacks. A model that overrides `makeSearchableUsing()` must return `$this->withAccessKeys($models)`, or its documents carry no keys and no controlled search finds them:
 
@@ -709,6 +711,8 @@ Declare the two attributes as filterable in the settings of each searchable mode
 ],
 ```
 
+The values are digests of the keys, so the engines need no setting for them: no `symbols_to_index` or `token_separators` on Typesense.
+
 - Algolia, Meilisearch and Typesense filter the documents with `whereIn`. Scout's `null` engine is accepted too, since it finds nothing.
 - Any other engine is refused with `UnsupportedSearchEngineException`: an engine that ignored `whereIn` would return every document. If your engine renders `whereIn` on an array attribute as "at least one element in common", trust it in a service provider:
 
@@ -719,6 +723,7 @@ Access::trustSearchEngine(ElasticsearchEngine::class);
 A trusted engine must:
 
 - render `whereIn` on an array attribute as "at least one element in common", and AND the fields together, `_boundary` with `_access`;
+- compare each value as a whole string: the values are opaque strings of 32 lowercase hexadecimal characters, the digests of the keys;
 - apply the `whereIns` of the search on every read path: `get()`, `paginate()`, `simplePaginate()`, `keys()`, `raw()` and `cursor()`;
 - write `scoutMetadata()` with the document, as the Meilisearch and Typesense engines do: otherwise no key is indexed and a controlled search finds nothing;
 - for laravel-rest-api, have an engine profile that implements `MatchesStringLists`, or the search throws `UnsupportedRestSearchException` (see [laravel-rest-api](#laravel-rest-api)).
@@ -728,6 +733,43 @@ It needs nothing for a closed reader, since the package never calls the engine f
 - The `database` engine searches with SQL: a controlled search applies the control's SQL inside the search query, through Scout's `query()` callback, which still runs the callback you pass to `query()`. No keys are computed for it.
 - The `collection` engine paginates before it filters: a controlled search throws `UnsupportedSearchEngineException`. Use the `database` engine, in tests too.
 - Turbopuffer is filtered with its native `ContainsAny` operator, since Scout renders `whereIn` as `In`, which compares the whole array. A controlled search adds `['_access', 'ContainsAny', [...]]` (and the same for `_boundary`) to the native filters in `options['filters']`, joined with `And` to the filters you pass there, before or after `controlled()`; the filter is applied again when the search runs, so a later `options()` or `whereIn()` cannot remove or widen it. Declare the schema above before the first write: Turbopuffer sets the type of an attribute on its first write and cannot change it, so a namespace written without it must be deleted (`scout:flush`) and imported again.
+
+A reader with many keys sends a long filter. Scout's `TypesenseEngine` searches with a GET request, and Typesense refuses a query string longer than 4,000 encoded characters with HTTP 400, which the Typesense client throws as `RequestMalformed`: the search fails, it never shows a row too many. Each key costs about 36 encoded characters, so a search holds about 100 keys, `_boundary` and `_access` together, less the parameters of your own search. The keys through a parent multiply: the boundary keys of the parent times its access keys. If your readers hold more, search through Typesense's `multi_search` endpoint, which takes the filter in a POST body, with a subclass of Scout's engine registered under the `typesense` driver. It needs Scout 11.7 or later, where `TypesenseEngine::executeSearch()` exists:
+
+```php
+use Laravel\Scout\Builder;
+use Laravel\Scout\EngineManager;
+use Laravel\Scout\Engines\TypesenseEngine;
+use Typesense\Client;
+use Typesense\Documents;
+
+class MultiSearchTypesenseEngine extends TypesenseEngine
+{
+    protected function executeSearch(Builder $builder, Documents $documents, array $options): mixed
+    {
+        $results = $this->typesense->getMultiSearch()->perform([
+            'searches' => [[...$options, 'collection' => $builder->index ?? $builder->model->searchableAs()]],
+        ]);
+
+        $result = $results['results'][0] ?? [];
+
+        if (isset($result['error'])) {
+            throw $this->marshalMultiSearchException($result);
+        }
+
+        return $result;
+    }
+}
+
+// In the boot() method of a service provider
+resolve(EngineManager::class)->extend('typesense', fn () => new MultiSearchTypesenseEngine(
+    new Client(config('scout.typesense.client-settings')),
+    config('scout.typesense.max_total_results', 1000),
+    config('scout.typesense'),
+));
+```
+
+The package checks engines with `instanceof`, so a subclass of `TypesenseEngine` is trusted without `Access::trustSearchEngine()`, and its browser search tokens keep working. laravel-rest-api searches through the `paginate()` method of the engine, which calls `executeSearch()`, so the same subclass covers its searches. Algolia accepts at most 1,000 filters in a query, so a reader with more keys than that cannot search an Algolia index.
 
 The search engine is the only barrier: an index that lags behind can show a row that just left the reader's perimeters until it is indexed again. The same holds when a key rule changes: documents keep the keys of the former rule until they are indexed again. Declare what reindexes the documents when a key reads another model in [Keeping the keys fresh](#keeping-the-keys-fresh).
 
@@ -740,7 +782,7 @@ php artisan scout:sync-index-settings
 php artisan scout:import "App\Models\Post"
 ```
 
-With Typesense, delete the collection first (`php artisan scout:delete-index posts`), so that it is created again with the new fields. Reindex the same way each time the `row` side of a search key rule or the boundary changes, as you would after changing `toSearchableArray()`: `scout:import` updates the documents in place, and until it has run they keep the keys of the former rule. When you narrow a rule to close an access, run it right away; to close it at once, run `scout:flush` before `scout:import`. A change of the `reader` side needs no reindex: the reader keys are computed at each search.
+With Typesense, delete the collection first (`php artisan scout:delete-index posts`), so that it is created again with the new fields. An index written by a 1.0 pre-release must be imported again too: its documents carry the keys as declared, not their digests, and no controlled search finds them until then. Reindex the same way each time the `row` side of a search key rule or the boundary changes, as you would after changing `toSearchableArray()`: `scout:import` updates the documents in place, and until it has run they keep the keys of the former rule. When you narrow a rule to close an access, run it right away; to close it at once, run `scout:flush` before `scout:import`. A change of the `reader` side needs no reindex: the reader keys are computed at each search.
 
 #### Keeping the keys fresh
 
@@ -935,7 +977,7 @@ public function test_its_search_says_what_its_sql_says(): void
 }
 ```
 
-It proves the agreement on the rows of the test only: seed the rows each perimeter reaches.
+It proves the agreement on the rows of the test only: seed the rows each perimeter reaches. It compares the digests of the keys, as the engine receives them, so it proves the logic of your keys, not the behaviour of the engine. A failure lists the readable keys of the reader and of each row in disagreement, the first ten of each list.
 
 ### Linking a model to its control
 

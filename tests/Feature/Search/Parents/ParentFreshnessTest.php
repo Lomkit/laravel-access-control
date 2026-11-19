@@ -8,6 +8,7 @@ use Lomkit\Access\Access;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Freshness\ReindexWatchedRows;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Threads\ConfiguredThreadControl;
 use Lomkit\Access\Tests\Fixtures\Threads\Controls\ReplyControl;
 use Lomkit\Access\Tests\Fixtures\Threads\Controls\ThreadControl;
@@ -29,9 +30,8 @@ class ParentFreshnessTest extends ParentSearchTestCase
             "through.thread.2.workspace_id.{$workspace}.author.{$author}",
             "through.thread.2.workspace_id.{$workspace}.client.{$client}",
         ];
-        sort($keys);
 
-        return $keys;
+        return $this->digestsOf($keys);
     }
 
     /** @return list<string> */
@@ -142,7 +142,7 @@ class ParentFreshnessTest extends ParentSearchTestCase
 
         $this->roadmap->delete();
 
-        $this->assertSame(["author.{$this->grace->getKey()}"], $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->digestsOf(["author.{$this->grace->getKey()}"]), $this->accessKeysOf('Ship it'));
         $this->assertSame([], $this->searchedReplies($this->ada));
         $this->assertSearchAgrees(ReplyControl::class, [$this->ada]);
 
@@ -157,8 +157,8 @@ class ParentFreshnessTest extends ParentSearchTestCase
     {
         $this->replyNamed('Ship it')->update(['thread_id' => $this->pricing->getKey()]);
 
-        $this->assertContains("through.thread.2.workspace_id.1.author.{$this->linus->getKey()}", $this->accessKeysOf('Ship it'));
-        $this->assertNotContains("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}", $this->accessKeysOf('Ship it'));
+        $this->assertContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->linus->getKey()}"), $this->accessKeysOf('Ship it'));
+        $this->assertNotContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"), $this->accessKeysOf('Ship it'));
     }
 
     #[Test]

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Auth;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\ConflictingSearchScopeException;
 use Lomkit\Access\Perimeters\Levels;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Agencies\Member;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
@@ -55,7 +56,7 @@ class ControlledSearchTest extends SearchTestCase
 
         $this->assertSame(['Scout primer', 'Scout recipes'], $this->searchedTitles());
         $this->assertSame([
-            '_access' => ["author.{$this->ada->getKey()}", 'featured.yes'],
+            '_access' => SearchKeyDigest::all(["author.{$this->ada->getKey()}", 'featured.yes']),
         ], $this->filterOf());
     }
 
@@ -107,7 +108,7 @@ class ControlledSearchTest extends SearchTestCase
         );
         $this->reindex();
 
-        $this->assertSame(["client.{$this->ada->client_id}"], $this->filterOf()['_access']);
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->ada->client_id}"]), $this->filterOf()['_access']);
     }
 
     #[Test]

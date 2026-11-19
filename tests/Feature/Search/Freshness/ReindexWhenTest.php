@@ -12,6 +12,7 @@ use Lomkit\Access\Exceptions\MissingReindexDeclarationException;
 use Lomkit\Access\Search\Freshness\ReindexWatchedRows;
 use Lomkit\Access\Search\Freshness\WatchedChange;
 use Lomkit\Access\Search\Freshness\WatchedEvent;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
@@ -61,11 +62,11 @@ class ReindexWhenTest extends FreshnessTestCase
     {
         $folder = $this->folder($this->acme);
         $article = $this->article($folder);
-        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
 
         $folder->update(['client_id' => $this->globex->getKey()]);
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -112,7 +113,7 @@ class ReindexWhenTest extends FreshnessTestCase
         $this->assertSame([], $this->accessOf($article));
 
         $folder->restore();
-        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -123,7 +124,7 @@ class ReindexWhenTest extends FreshnessTestCase
 
         Folder::query()->create(['id' => 99, 'client_id' => $this->acme->getKey(), 'name' => 'Handbook']);
 
-        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -133,12 +134,12 @@ class ReindexWhenTest extends FreshnessTestCase
         $first = Article::factory()->createOne(['title' => 'Scout primer']);
         $second = Article::factory()->createOne(['title' => 'Scout recipes']);
         $assignment = Assignment::query()->create(['article_id' => $first->getKey(), 'user_id' => $this->ada->getKey()]);
-        $this->assertSame(["assignee.{$this->ada->getKey()}"], $this->accessOf($first));
+        $this->assertSame(SearchKeyDigest::all(["assignee.{$this->ada->getKey()}"]), $this->accessOf($first));
 
         $assignment->update(['article_id' => $second->getKey()]);
 
         $this->assertSame([], $this->accessOf($first));
-        $this->assertSame(["assignee.{$this->ada->getKey()}"], $this->accessOf($second));
+        $this->assertSame(SearchKeyDigest::all(["assignee.{$this->ada->getKey()}"]), $this->accessOf($second));
     }
 
     #[Test]
@@ -162,10 +163,10 @@ class ReindexWhenTest extends FreshnessTestCase
         DB::transaction(function () use ($folder, $article): void {
             $folder->update(['client_id' => $this->globex->getKey()]);
 
-            $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+            $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
         });
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -182,7 +183,7 @@ class ReindexWhenTest extends FreshnessTestCase
             $this->assertCount($updates, $this->engine->updates);
         });
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -197,11 +198,11 @@ class ReindexWhenTest extends FreshnessTestCase
         DB::rollBack();
 
         $this->assertCount($updates, $this->engine->updates);
-        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
 
         $folder->refresh()->update(['client_id' => $this->globex->getKey()]);
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -257,13 +258,13 @@ class ReindexWhenTest extends FreshnessTestCase
         $folder->update(['client_id' => $this->globex->getKey()]);
         $job = unserialize(serialize(Queue::pushed(ReindexWatchedRows::class)->first()));
         $this->assertInstanceOf(ReindexWatchedRows::class, $job);
-        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
 
         $this->bindFolderKeys();
         $this->app->call([$job, 'handle']);
 
         $this->assertSame(ArticleControl::class, $job->control);
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -353,7 +354,7 @@ class ReindexWhenTest extends FreshnessTestCase
         $folder->update(['client_id' => $this->globex->getKey()]);
         $ledger->rollBack();
 
-        $this->assertSame(["client.{$this->globex->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->globex->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -382,7 +383,7 @@ class ReindexWhenTest extends FreshnessTestCase
             $folder->update(['client_id' => $this->globex->getKey()]);
         });
 
-        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
     }
 
     #[Test]
@@ -463,7 +464,7 @@ class ReindexWhenTest extends FreshnessTestCase
         $this->app->call([$job, 'handle']);
 
         $this->assertSame([], $this->engine->updates);
-        $this->assertSame(["client.{$this->acme->getKey()}"], $this->accessOf($article));
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->acme->getKey()}"]), $this->accessOf($article));
     }
 
     /** @return list<WatchedChange> */

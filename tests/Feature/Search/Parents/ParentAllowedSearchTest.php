@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\Perimeters\ThroughParent;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Threads\ConfiguredReplyControl;
@@ -74,6 +75,6 @@ class ParentAllowedSearchTest extends ParentSearchTestCase
     #[Test]
     public function it_keeps_the_row_keys_whatever_allowed_answers(): void
     {
-        $this->assertContains("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}", $this->accessKeysOf('Ship it'));
+        $this->assertContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"), $this->accessKeysOf('Ship it'));
     }
 }

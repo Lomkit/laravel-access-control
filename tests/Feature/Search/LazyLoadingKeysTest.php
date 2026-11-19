@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Search;
 
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Exceptions\UndeclaredSearchKeyRelationException;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -71,7 +72,7 @@ class LazyLoadingKeysTest extends SearchTestCase
 
         $article = Article::factory()->for($this->website)->createOne(['title' => 'Scout primer']);
 
-        $this->assertSame(["client.{$this->website->client_id}"], $this->document($article)['_access']);
+        $this->assertSame(SearchKeyDigest::all(["client.{$this->website->client_id}"]), $this->document($article)['_access']);
     }
 
     #[Test]

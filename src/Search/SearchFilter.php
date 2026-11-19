@@ -4,6 +4,9 @@ namespace Lomkit\Access\Search;
 
 final readonly class SearchFilter
 {
+    /** @var array<string, list<string>> */
+    private array $whereIns;
+
     /**
      * @param  list<string>|null  $boundary
      * @param  list<string>|null  $access
@@ -12,7 +15,19 @@ final readonly class SearchFilter
         private bool $closed,
         private ?array $boundary,
         private ?array $access,
-    ) {}
+    ) {
+        $whereIns = [];
+
+        if ($boundary !== null) {
+            $whereIns[SearchField::Boundary->value] = $boundary;
+        }
+
+        if ($access !== null) {
+            $whereIns[SearchField::Access->value] = $access;
+        }
+
+        $this->whereIns = SearchKeyDigest::document($whereIns);
+    }
 
     public static function closed(): self
     {
@@ -52,17 +67,7 @@ final readonly class SearchFilter
     /** @return array<string, list<string>> */
     public function whereIns(): array
     {
-        $whereIns = [];
-
-        if ($this->boundary !== null) {
-            $whereIns[SearchField::Boundary->value] = $this->boundary;
-        }
-
-        if ($this->access !== null) {
-            $whereIns[SearchField::Access->value] = $this->access;
-        }
-
-        return $whereIns;
+        return $this->whereIns;
     }
 
     /** @param  array<string, list<string>>  $document */
@@ -72,7 +77,7 @@ final readonly class SearchFilter
             return false;
         }
 
-        foreach ($this->whereIns() as $field => $values) {
+        foreach ($this->whereIns as $field => $values) {
             if (array_intersect($document[$field] ?? [], $values) === []) {
                 return false;
             }

@@ -19,6 +19,7 @@ use Lomkit\Access\Exceptions\MissingSearchClientException;
 use Lomkit\Access\Exceptions\PastSearchTokenExpiryException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsupportedSearchTokenEngineException;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Search\Tokens\SearchToken;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
@@ -81,7 +82,7 @@ class SearchTokenTest extends SearchTestCase
 
         $token = $this->token($this->ada);
 
-        $filter = "(_access:'author.{$this->ada->getKey()}' OR _access:'featured.yes')";
+        $filter = sprintf("(_access:'%s' OR _access:'%s')", ...SearchKeyDigest::all(["author.{$this->ada->getKey()}", 'featured.yes']));
         $this->assertSame($filter, $token->filter());
         $this->assertSame('articles', $token->index());
         $this->assertSame(['filters' => $filter, 'restrictIndices' => 'articles', 'validUntil' => (string) now()->addMinutes(15)->getTimestamp()], $this->restrictionsOf($token));
@@ -92,7 +93,7 @@ class SearchTokenTest extends SearchTestCase
     {
         $this->allow(['view own articles']);
 
-        $this->assertSame("(_access:'author.{$this->grace->getKey()}')", $this->token($this->grace)->filter());
+        $this->assertSame(sprintf("(_access:'%s')", SearchKeyDigest::of("author.{$this->grace->getKey()}")), $this->token($this->grace)->filter());
     }
 
     #[Test]
@@ -106,7 +107,7 @@ class SearchTokenTest extends SearchTestCase
         );
 
         $this->assertSame(
-            "(_boundary:'workspace_id.1') AND (_access:'author.{$this->ada->getKey()}' OR _access:'author._416461')",
+            sprintf("(_boundary:'%s') AND (_access:'%s' OR _access:'%s')", ...SearchKeyDigest::all(['workspace_id.1', "author.{$this->ada->getKey()}", 'author._416461'])),
             $this->token($this->ada)->filter(),
         );
     }

@@ -5,6 +5,7 @@ namespace Lomkit\Access\Tests\Feature\Search;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Perimeters\Levels;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Blog\WorkspaceBoundary;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
@@ -58,7 +59,7 @@ class SearchBoundaryTest extends SearchTestCase
 
         $this->assertSame(['Scout internals', 'Scout primer'], $this->searchedTitles());
         $this->assertSame([
-            '_boundary' => ['workspace_id.1'],
+            '_boundary' => SearchKeyDigest::all(['workspace_id.1']),
         ], Article::search('Scout')->controlled()->whereIns);
     }
 
@@ -88,7 +89,7 @@ class SearchBoundaryTest extends SearchTestCase
         $this->reindex();
 
         $this->assertSame(['Scout internals', 'Scout primer'], $this->searchedTitles());
-        $this->assertSame(['workspace.1'], $this->document(Article::query()->where('title', 'Scout primer')->firstOrFail())['_boundary']);
+        $this->assertSame(SearchKeyDigest::all(['workspace.1']), $this->document(Article::query()->where('title', 'Scout primer')->firstOrFail())['_boundary']);
     }
 
     #[Test]

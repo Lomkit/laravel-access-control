@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Queue;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\UnresolvablePivotException;
 use Lomkit\Access\Search\Freshness\ReindexDocument;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\ConfiguredArticleControl;
@@ -69,7 +70,7 @@ class ReindexesSearchTest extends FreshnessTestCase
     public function it_reindexes_the_document_when_a_pivot_is_attached_and_detached(): void
     {
         $this->article->reviewers()->attach($this->ada);
-        $this->assertSame(["reviewer.{$this->ada->getKey()}"], $this->accessOf($this->article));
+        $this->assertSame(SearchKeyDigest::all(["reviewer.{$this->ada->getKey()}"]), $this->accessOf($this->article));
 
         $this->article->reviewers()->detach($this->ada);
         $this->assertSame([], $this->accessOf($this->article));
@@ -82,7 +83,7 @@ class ReindexesSearchTest extends FreshnessTestCase
 
         $this->article->reviewers()->sync([$this->grace->getKey()]);
 
-        $this->assertSame(["reviewer.{$this->grace->getKey()}"], $this->accessOf($this->article));
+        $this->assertSame(SearchKeyDigest::all(["reviewer.{$this->grace->getKey()}"]), $this->accessOf($this->article));
     }
 
     #[Test]
@@ -100,7 +101,7 @@ class ReindexesSearchTest extends FreshnessTestCase
     public function it_reindexes_the_document_when_a_pivot_is_toggled(): void
     {
         $this->article->reviewers()->toggle([$this->ada->getKey()]);
-        $this->assertSame(["reviewer.{$this->ada->getKey()}"], $this->accessOf($this->article));
+        $this->assertSame(SearchKeyDigest::all(["reviewer.{$this->ada->getKey()}"]), $this->accessOf($this->article));
 
         $this->article->reviewers()->toggle([$this->ada->getKey()]);
         $this->assertSame([], $this->accessOf($this->article));
@@ -239,7 +240,7 @@ class ReindexesSearchTest extends FreshnessTestCase
         $this->assertSame([], $this->accessOf($this->article));
 
         $this->article->searchable();
-        $this->assertSame(["shared.{$this->ada->getKey()}"], $this->accessOf($this->article));
+        $this->assertSame(SearchKeyDigest::all(["shared.{$this->ada->getKey()}"]), $this->accessOf($this->article));
     }
 
     #[Test]

@@ -38,18 +38,18 @@ class ParentSearchKeysTest extends ParentSearchTestCase
     #[Test]
     public function it_writes_a_key_per_pair_of_boundary_and_access_keys_of_the_parent(): void
     {
-        $this->assertSame([
+        $this->assertRowKeys([
             "author.{$this->grace->getKey()}",
             'through.thread.2.workspace_id.1',
             "through.thread.2.workspace_id.1.author.{$this->ada->getKey()}",
             "through.thread.2.workspace_id.1.client.{$this->acme->getKey()}",
-        ], $this->accessKeysOf('Ship it'));
+        ], 'Ship it');
     }
 
     #[Test]
     public function it_writes_no_key_through_a_parent_outside_every_boundary(): void
     {
-        $this->assertSame(["author.{$this->grace->getKey()}"], $this->accessKeysOf('Nowhere'));
+        $this->assertRowKeys(["author.{$this->grace->getKey()}"], 'Nowhere');
     }
 
     #[Test]
@@ -101,11 +101,11 @@ class ParentSearchKeysTest extends ParentSearchTestCase
         );
         $this->reindexReplies();
 
-        $this->assertSame([
+        $this->assertRowKeys([
             "author.{$this->grace->getKey()}",
             'through.thread.0',
             "through.thread.0.author.{$this->ada->getKey()}",
-        ], $this->accessKeysOf('Ship it'));
+        ], 'Ship it');
         $this->assertSame(['through.thread.0'], $this->readerKeys($this->root));
         $this->assertSame(["through.thread.0.author.{$this->ada->getKey()}"], $this->readerKeys($this->ada));
         $this->assertSame(['Nowhere', 'Ship it', 'Typo in the title'], $this->searchedReplies($this->ada));
@@ -124,7 +124,8 @@ class ParentSearchKeysTest extends ParentSearchTestCase
             'through.thread.0',
             'through.thread.0.through.forum.0',
             "through.thread.0.through.forum.0.client.{$this->globex->getKey()}",
-        ], array_values(array_filter($this->accessKeysOf('Too expensive'), fn (string $key): bool => str_starts_with($key, 'through.'))));
+        ], array_values(array_filter($this->readableKeysOf('Too expensive'), fn (string $key): bool => str_starts_with($key, 'through.'))));
+        $this->assertSame($this->digestsOf($this->readableKeysOf('Too expensive')), $this->accessKeysOf('Too expensive'));
         $this->assertSame(["through.thread.0.through.forum.0.client.{$this->globex->getKey()}"], $this->readerKeys($this->linus));
         $this->assertSame(['Too expensive'], $this->searchedReplies($this->linus));
         $this->assertCount(5, $this->searchedReplies($this->root));
@@ -147,7 +148,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
         $this->grant(['view own threads' => ['Ada'], 'update own threads' => ['Ada']]);
         $this->reindexReplies();
 
-        $this->assertSame([], $this->accessKeysOf('Ship it'));
+        $this->assertRowKeys([], 'Ship it');
         $this->assertSame([], $this->searchedReplies($this->ada));
         $this->assertEveryReaderAgrees();
     }

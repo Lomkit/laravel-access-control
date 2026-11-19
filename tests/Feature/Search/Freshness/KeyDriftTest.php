@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Feature\Search\Freshness;
 
 use Illuminate\Support\Facades\DB;
 use Lomkit\Access\Boundaries\Boundary;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\Project;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -45,7 +46,7 @@ class KeyDriftTest extends SearchTestCase
     {
         $this->article->update(['author_id' => $this->grace->getKey()]);
 
-        $this->assertSame(["author.{$this->grace->getKey()}"], $this->access());
+        $this->assertSame(SearchKeyDigest::all(["author.{$this->grace->getKey()}"]), $this->access());
     }
 
     #[Test]
@@ -53,7 +54,7 @@ class KeyDriftTest extends SearchTestCase
     {
         $this->article->update(['author_id' => null, 'featured' => true]);
 
-        $this->assertSame(['featured.yes'], $this->access());
+        $this->assertSame(SearchKeyDigest::all(['featured.yes']), $this->access());
     }
 
     #[Test]
@@ -73,7 +74,7 @@ class KeyDriftTest extends SearchTestCase
             $this->assertSame([], $this->engine->updates);
         });
 
-        $this->assertSame(["author.{$this->grace->getKey()}"], $this->access());
+        $this->assertSame(SearchKeyDigest::all(["author.{$this->grace->getKey()}"]), $this->access());
     }
 
     #[Test]
@@ -84,7 +85,7 @@ class KeyDriftTest extends SearchTestCase
         DB::rollBack();
 
         $this->assertSame([], $this->engine->updates);
-        $this->assertSame(["author.{$this->ada->getKey()}"], $this->access());
+        $this->assertSame(SearchKeyDigest::all(["author.{$this->ada->getKey()}"]), $this->access());
     }
 
     #[Test]
@@ -135,11 +136,11 @@ class KeyDriftTest extends SearchTestCase
         );
         $this->article->update(['project_id' => $website->getKey(), 'workspace_id' => 1]);
         $this->article->searchable();
-        $this->assertSame(["client.{$acme->getKey()}"], $this->access());
+        $this->assertSame(SearchKeyDigest::all(["client.{$acme->getKey()}"]), $this->access());
 
         $this->article->update(['project_id' => $warehouse->getKey(), 'workspace_id' => 2]);
 
-        $this->assertSame(["client.{$globex->getKey()}"], $this->access());
-        $this->assertSame(['workspace_id.2'], $this->engine->documents[$this->article->searchableAs()][(string) $this->article->getKey()]['_boundary']);
+        $this->assertSame(SearchKeyDigest::all(["client.{$globex->getKey()}"]), $this->access());
+        $this->assertSame(SearchKeyDigest::all(['workspace_id.2']), $this->engine->documents[$this->article->searchableAs()][(string) $this->article->getKey()]['_boundary']);
     }
 }
