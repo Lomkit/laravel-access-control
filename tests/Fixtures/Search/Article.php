@@ -81,6 +81,14 @@ class Article extends Model
         return $this->belongsToMany(Notice::class, 'article_notice')->using(ArticleNotice::class);
     }
 
+    /** @return array<array-key, mixed> */
+    public function typesenseSearchParameters(): array
+    {
+        $parameters = config('testing.article.typesense-search-parameters', []);
+
+        return is_array($parameters) ? $parameters : [];
+    }
+
     /** @return array{id: string, author_id: mixed, title: mixed, featured: mixed} */
     public function toSearchableArray(): array
     {

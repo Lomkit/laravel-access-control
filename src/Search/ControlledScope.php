@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Engines\NullEngine;
+use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Ability;
 use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
@@ -19,6 +20,8 @@ final class ControlledScope implements SearchScope
     private ?Closure $constraint = null;
 
     private ?ContainsAnyFilter $containsAny = null;
+
+    private ?TypesenseAccessFilter $typesense = null;
 
     private function __construct(
         private readonly Control $control,
@@ -62,6 +65,10 @@ final class ControlledScope implements SearchScope
 
         foreach ($filter->whereIns() as $field => $values) {
             $search->whereIn($field, $values);
+        }
+
+        if ($engine instanceof TypesenseEngine) {
+            ($this->typesense ??= new TypesenseAccessFilter)->apply($search, $filter, $engine);
         }
 
         return $engine;

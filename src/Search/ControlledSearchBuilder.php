@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Laravel\Scout\Builder;
 use Lomkit\Access\Exceptions\ConflictingSearchScopeException;
 use Lomkit\Access\Exceptions\MissingControlException;
+use Lomkit\Access\Exceptions\UncombinableSearchFilterException;
 use Lomkit\Access\Exceptions\UndeclaredSearchScopeException;
 use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
@@ -25,6 +26,7 @@ final class ControlledSearchBuilder extends Builder
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsupportedSearchEngineException When the engine of the model cannot filter by the access keys.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
+     * @throws UncombinableSearchFilterException When the filter_by of a Typesense search cannot be ANDed with the access filter.
      * @throws UnsearchableAbilityException When an ability is given.
      */
     public function controlled(): static
@@ -42,6 +44,7 @@ final class ControlledSearchBuilder extends Builder
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsupportedSearchEngineException When the engine of the model cannot filter by the access keys.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
+     * @throws UncombinableSearchFilterException When the filter_by of a Typesense search cannot be ANDed with the access filter.
      * @throws UnsearchableAbilityException When an ability is given after the reader.
      */
     public function controlledFor(?Model $reader): static
@@ -58,7 +61,10 @@ final class ControlledSearchBuilder extends Builder
         return $this->declare(new UncontrolledScope);
     }
 
-    /** @throws UndeclaredSearchScopeException When the search declares neither controlled() nor uncontrolled(). */
+    /**
+     * @throws UndeclaredSearchScopeException When the search declares neither controlled() nor uncontrolled().
+     * @throws UncombinableSearchFilterException When the filter_by of a Typesense search cannot be ANDed with the access filter.
+     */
     #[\Override]
     protected function engine(): mixed
     {

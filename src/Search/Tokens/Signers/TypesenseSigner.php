@@ -16,6 +16,10 @@ final readonly class TypesenseSigner implements SearchTokenSigner
 {
     private const string PACKAGE = 'typesense/typesense-php';
 
+    private const string FILTER = 'filter_by';
+
+    private const string CURATED_HITS = 'filter_curated_hits';
+
     public function __construct(private TypesenseEngine $typesense) {}
 
     #[\Override]
@@ -40,7 +44,7 @@ final readonly class TypesenseSigner implements SearchTokenSigner
             throw MissingSearchClientException::for($this->engine(), self::PACKAGE);
         }
 
-        $parameters = $filter === null ? [] : ['filter_by' => $filter];
+        $parameters = $filter === null ? [] : [self::FILTER => $filter, self::CURATED_HITS => true];
         $token = $keys->generateScopedSearchKey($key->key(), [...$parameters, 'expires_at' => $expiresAt->getTimestamp()]);
 
         return is_string($token) ? $token : throw MissingSearchClientException::for($this->engine(), self::PACKAGE);
