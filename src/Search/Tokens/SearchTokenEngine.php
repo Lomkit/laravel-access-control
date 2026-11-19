@@ -3,12 +3,25 @@
 namespace Lomkit\Access\Search\Tokens;
 
 use Illuminate\Support\Facades\Config;
+use Laravel\Scout\Engines\AlgoliaEngine;
+use Laravel\Scout\Engines\MeilisearchEngine;
+use Laravel\Scout\Engines\TypesenseEngine;
 
 enum SearchTokenEngine
 {
     case Meilisearch;
     case Typesense;
     case Algolia;
+
+    public static function of(mixed $engine): ?self
+    {
+        return match (true) {
+            $engine instanceof MeilisearchEngine => self::Meilisearch,
+            $engine instanceof TypesenseEngine => self::Typesense,
+            $engine instanceof AlgoliaEngine => self::Algolia,
+            default => null,
+        };
+    }
 
     public function label(): string
     {

@@ -5,6 +5,7 @@ namespace Lomkit\Access\Search;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Scout\Builder;
 use Laravel\Scout\Engines\TypesenseEngine;
+use Lomkit\Access\Exceptions\NaturalLanguageSearchException;
 use Lomkit\Access\Exceptions\UncombinableSearchFilterException;
 use Lomkit\Access\Search\Tokens\Syntax\TypesenseSyntax;
 
@@ -22,6 +23,7 @@ final class TypesenseAccessFilter
      * @param  Builder<covariant Model>  $search
      *
      * @throws UncombinableSearchFilterException When the filter of the app cannot be ANDed with the access filter.
+     * @throws NaturalLanguageSearchException When the options or the model turn on natural-language search.
      */
     public function apply(Builder $search, SearchFilter $filter, TypesenseEngine $engine): void
     {
@@ -30,6 +32,8 @@ final class TypesenseAccessFilter
         if ($access === null) {
             return;
         }
+
+        TypesenseNaturalLanguage::refuse($search);
 
         $option = $this->optionOf($search);
         $app = $option ?? TypesenseAppFilter::fromModel($search) ?? TypesenseAppFilter::fromClauses($search, $engine);

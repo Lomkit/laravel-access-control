@@ -73,6 +73,7 @@ abstract class EngineTestCase extends PackageTestCase
         Article::factory()->createOne(['author_id' => $this->grace->getKey(), 'title' => 'Scout internals']);
         $this->waitForDocuments(3);
         $this->actingAs($this->ada);
+        Access::searchTokens(direct: true);
     }
 
     #[\Override]

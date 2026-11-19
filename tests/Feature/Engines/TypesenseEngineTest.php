@@ -10,6 +10,7 @@ use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\AuthorPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\EngineTestCase;
 use Lomkit\Access\Tests\Fixtures\Search\TypesenseAccessFilterEngineTests;
+use Lomkit\Access\Tests\Fixtures\SearchGuard\TypesenseGuardEngineTests;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use Typesense\Client;
@@ -21,6 +22,7 @@ use Typesense\Exceptions\RequestUnauthorized;
 class TypesenseEngineTest extends EngineTestCase
 {
     use TypesenseAccessFilterEngineTests;
+    use TypesenseGuardEngineTests;
 
     #[\Override]
     protected function driver(): string
@@ -57,6 +59,7 @@ class TypesenseEngineTest extends EngineTestCase
                         ['name' => 'featured', 'type' => 'bool'],
                         ['name' => '_access', 'type' => 'string[]'],
                         ['name' => '_boundary', 'type' => 'string[]'],
+                        ['name' => '__soft_deleted', 'type' => 'int32', 'optional' => true],
                     ],
                 ],
                 'search-parameters' => ['query_by' => 'title'],

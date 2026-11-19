@@ -736,6 +736,8 @@ It needs nothing for a closed reader, since the package never calls the engine f
 - Typesense: a `filter_by` that you pass in `options()`, before or after `controlled()`, or that the model returns from `typesenseSearchParameters()`, is ANDed with the access filter and never takes its place. The search sends `(<your filter_by>) && (<access filter>)`, and the package combines it again when the search runs, on every read path and in a search callback, so your `filter_by` can only narrow the reader's rows. Scout's precedence is unchanged: a `filter_by` in `options()` replaces the one of `typesenseSearchParameters()`, and either one replaces the `where()` clauses of the search. Without a `filter_by`, the filter that Scout renders from your `where()`, `whereIn()` and `whereNotIn()` clauses is combined the same way. A blank filter sends the access filter alone. Typesense must read the filter as an expression that ends on its own, since the access filter is read right after it. If the filter is not a string, or if a backtick-quoted value, a geo filter, a reference or an object filter is still open at its end, the search throws `UncombinableSearchFilterException`. Typesense itself refuses unbalanced parentheses. An unrestricted reader without a boundary has no access filter, so your `filter_by` is sent as it is.
 - Typesense returns pinned hits (`pinned_hits`) and the documents that a curation set includes even when they fail `filter_by`, unless `filter_curated_hits` is true. A controlled Typesense search therefore always sends `filter_curated_hits: true`, whatever `options()`, `typesenseSearchParameters()` or a preset says, so pinned and curated hits are only the rows the reader may see.
 - Meilisearch and Algolia: Scout sends its own filter, built from the `where()` and `whereIn()` clauses and the access filter, in place of the `filter` (Meilisearch) or `filters` (Algolia) that you pass in `options()`, whenever that filter is not empty. With an access filter, your value is therefore ignored. It applies only when Scout's filter is empty: for an unrestricted reader without a boundary, or in an `uncontrolled()` search, and only if the search has no `where()` clauses. Put your conditions in `where()` and `whereIn()` to have them in every case. Algolia ANDs the `facetFilters` and `numericFilters` of `options()` with Scout's filter.
+- Typesense natural-language search: Typesense adds the filter that its language model generates after the access filter, without parentheses, and copies the other parameters it generates over the ones the package sets. A controlled Typesense search with an access filter therefore throws `NaturalLanguageSearchException` when `options()` or `typesenseSearchParameters()` sets `nl_query` to anything but `false`. A preset that turns it on is not visible to the package: do not use one on a controlled model.
+- Algolia: a rule that promotes records shows them whatever the filters, unless the rule sets `filterPromotes`, and an A/B test can answer a search from another index or with other parameters. A controlled Algolia search therefore always sends `enableRules: false` and `enableABTest: false`, set again when the search runs, so `options()` cannot turn them back on. Rules and A/B tests do not apply to controlled searches; an unrestricted reader without a boundary, who has no access filter, keeps them.
 
 A reader with many keys sends a long filter. Scout's `TypesenseEngine` searches with a GET request, and Typesense refuses a query string longer than 4,000 encoded characters with HTTP 400, which the Typesense client throws as `RequestMalformed`: the search fails, it never shows a row too many. Each key costs about 36 encoded characters, so a search holds about 100 keys, `_boundary` and `_access` together, less the parameters of your own search. The keys through a parent multiply: the boundary keys of the parent times its access keys. If your readers hold more, search through Typesense's `multi_search` endpoint, which takes the filter in a POST body, with a subclass of Scout's engine registered under the `typesense` driver. It needs Scout 11.7 or later, where `TypesenseEngine::executeSearch()` exists:
 
@@ -934,7 +936,28 @@ The control of a searchable child watches its parent and the models its parent w
 
 #### Search from the browser
 
-A front end that queries Meilisearch, Typesense or Algolia directly needs a key that finds only what its reader may see. `Access::searchToken()` signs the reader's filter into a key derived from a search-only key, and the browser cannot widen it:
+A front end reaches Meilisearch, Typesense or Algolia in one of two ways: it queries the engine directly with a signed token, or it goes through a route of your application, which adds the reader's filter on the server. Declare which one, once, in the `boot()` method of a service provider:
+
+```php
+use Lomkit\Access\Access;
+
+Access::searchTokens(direct: true);  // browsers query the engine with a token from Access::searchToken()
+Access::searchTokens(direct: false); // browsers go through a route of the application that calls Access::guardSearch()
+```
+
+- `Access::searchToken()` throws `UndeclaredSearchTokensException` until one is declared.
+- With `direct: false`, `Access::searchToken()` throws `ProxiedSearchTokenException`. The route authenticates the reader itself and computes the reader's filter at each request, so the browser needs no key of the engine and a permission change applies at the next search.
+- An application makes one choice: a second declaration that differs from the first throws `ConflictingSearchTokensException`. The same declaration twice is accepted.
+
+`direct: true` is safe only on the engine versions below, which keep the filter of the token apart from the filter that the browser sends. The package cannot check the version of your servers: the declaration is your statement that every engine your browsers query meets this table.
+
+| Engine | `direct: true` needs | |
+|---|---|---|
+| Typesense | the first release that includes typesense/typesense#3111 (expected 31.0) | Older servers do not isolate the filter of the browser from the filter of a scoped key. Use `direct: false` with the releases before it. |
+| Meilisearch | 1.0 or later | The filter of a tenant token is applied apart from the filter of the browser (tested on 1.0 and 1.55). |
+| Algolia | not verified by the package | Algolia documents that the parameters of a secured API key cannot be changed by the browser. Algolia is a hosted service that the package cannot test: use `direct: false` if you need a guarantee that the package verifies. |
+
+A front end that queries the engine directly needs a key that finds only what its reader may see. `Access::searchToken()` signs the reader's filter into a key derived from a search-only key:
 
 ```php
 use Lomkit\Access\Access;
@@ -967,8 +990,78 @@ class PostSearchTokenController
 - Meilisearch and Typesense sign with their official client, `meilisearch/meilisearch-php` or `typesense/typesense-php`, which Scout already needs for those engines; without it `MissingSearchClientException` names the package. Algolia keys are signed by the package, with the documented HMAC-SHA256 of the restrictions, so the Algolia client is not needed.
 - The `database`, `collection` and `null` engines, Turbopuffer and the engines passed to `Access::trustSearchEngine()` have no browser token: `UnsupportedSearchTokenEngineException`. A model that does not use `ControlledSearchable` throws `MissingControlledSearchableException`, a boundary class without `searchKeys()` `UnsearchableBoundaryException`.
 - A Typesense token also embeds `filter_curated_hits: true`, which the browser cannot turn off, so pinned hits and the includes of curation sets go through the reader's filter too.
-- `SearchToken::filter()` returns the rendered filter, or `null` without one, for an application that proxies the search on its server. `toArray()` and the JSON form hold the token, the index and the expiry only.
-- The engine applies the token's filter with any filter the browser sends, joined with AND. The browser can narrow its search, never widen it, and the index's lag applies as on the server.
+- With `scout.soft_delete` on, Scout keeps the deleted rows of a model that uses `SoftDeletes` in the index, marked `__soft_deleted: 1`, and a server-side search leaves them out. A token, and a guarded search below, add the same condition to the access filter (`__soft_deleted:=0` on Typesense, `__soft_deleted = 0` on Meilisearch, `__soft_deleted:'0'` on Algolia), also for an unrestricted reader without a boundary. Declare `__soft_deleted` as an `int32` field of the Typesense collection, or every search of a token fails; Scout declares it on Meilisearch and Algolia with `scout:sync-index-settings`.
+- Typesense runs its natural-language model before it applies the parameters of a scoped key, so a token cannot turn natural-language search off. Do not configure a natural-language search model on a Typesense server that browsers query with tokens: the output of the model is applied as it is, and can even change the searched collection after the key was checked.
+- An Algolia token with a filter also embeds `enableRules=false` and `enableABTest=false`, so the rules of the index, whose promoted records skip the filters, and its A/B tests do not apply to the browser's searches. Algolia documents that the browser cannot change the parameters of a secured API key; the package cannot verify it.
+- `SearchToken::filter()` returns the rendered filter, or `null` without one, for logs and tests. An application that searches on behalf of the browser calls `Access::guardSearch()` instead, below. `toArray()` and the JSON form hold the token, the index and the expiry only.
+- On the engine versions of the table above, the engine applies the token's filter with any filter the browser sends, joined with AND. The browser can narrow its search, never widen it, and the index's lag applies as on the server.
+
+**Through a route of the application.** With `direct: false`, the front end sends the body of its multi-search to a route of your application. The route authenticates the reader, passes the body to `Access::guardSearch()`, and forwards the body it returns to the engine with a search-only key that stays on the server:
+
+```php
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Lomkit\Access\Access;
+
+class SearchController
+{
+    public function __invoke(Request $request): JsonResponse
+    {
+        $body = json_decode($request->getContent(), true);
+        $guarded = Access::guardSearch(is_array($body) ? $body : [], $request->user());
+
+        $response = Http::baseUrl(config('services.typesense.url'))
+            ->withHeaders(['X-TYPESENSE-API-KEY' => config('services.typesense.search_key')])
+            ->post('/multi_search', $guarded);
+
+        return response()->json($response->json(), $response->status());
+    }
+}
+
+// routes/web.php
+Route::post('/search', SearchController::class)->middleware('auth');
+```
+
+Read the raw body, as above: Laravel's `TrimStrings` and `ConvertEmptyStringsToNull` middlewares also rewrite `$request->json()`, so an empty `q` would reach the engine as `null`. The guard treats a `null` or empty filter as no filter on every engine, and turns an empty `federation` or `mergeFacets` of Meilisearch back into an object. Return the status of the engine, so that a search the engine rejects stays a client error.
+
+Give the search client of the front end (the InstantSearch adapter of your engine) the URL of that route instead of the engine's; the route ignores the key the client sends. Forward the guarded body only, never the query string or the headers of the browser: a Typesense `preset` in the query string, for instance, replaces the whole body. One exception: with `union: true`, Typesense reads the pagination of the union (`page`, `per_page`, `offset`, `limit` and `limit_hits`) from the query string, where its InstantSearch adapter sends it. Forward those five, as integers, and nothing else of the query string.
+
+
+| Engine | Body | Forward to | Key |
+|---|---|---|---|
+| Typesense | `{"searches": [...]}` | `POST /multi_search` | `X-TYPESENSE-API-KEY` header |
+| Meilisearch (1.1 or later) | `{"queries": [...]}` | `POST /multi-search` | `Authorization: Bearer` header |
+| Algolia | `{"requests": [...]}` | `POST /1/indexes/*/queries` | `X-Algolia-Application-Id` and `X-Algolia-API-Key` headers |
+
+`Access::guardSearch(array $body, ?Model $reader): array` is pure: it calls no engine and needs no declaration.
+
+- The field that lists the searches tells the engine. A body with none of them, or with several, throws `InvalidSearchBodyException`.
+- Each search names its index (`collection`, `indexUid` or `indexName`), which must be the index of a `ControlledSearchable` model whose control is discovered, in `app/Access/Controls` or a directory passed to `Access::discoverControlsIn()`. Any other index throws `UnknownSearchIndexException`, including the index of a model linked by `#[ControlledBy]` to a control outside those directories. Two discovered models searched in the same index throw `AmbiguousSearchIndexException` when a search names it.
+- The model must search with the engine of the body, or `InvalidSearchBodyException` is thrown. The `database`, `collection` and `null` engines, Turbopuffer and the engines passed to `Access::trustSearchEngine()` throw `UnguardableSearchEngineException`.
+- The reader's filter is the one `controlled()` applies, from the same `searchFilter()`. A reader that `controlled()` would show an empty page gets a filter on an `_access` key that no document carries, so the search finds nothing; an unrestricted reader without a boundary gets no access filter, and the filter of the browser is sent as it is, once checked.
+- Each search is checked and rewritten as below. The guard accepts, as written, only the parameters listed under "Accepted": the ones that narrow, page, rank or format the documents the reader may see. Any other parameter, including one that differs by its case only (`Filter_By`, `Filters`), refuses the whole body with `RefusedSearchParameterException`. A forced parameter replaces whatever the browser sends.
+
+| Engine | Filter of the browser | Sent to the engine | Forced |
+|---|---|---|---|
+| Typesense | `filter_by`, a string that is self-contained, as in [Engines](#engines) | `(<filter_by>) && (<access filter>)` | `filter_curated_hits: true` |
+| Meilisearch | `filter`, a string or a list of strings and lists of strings | `[<access filter>, ...<filter>]`, which Meilisearch ANDs element by element | |
+| Algolia | `filters`, a string without backslash, self-contained whether single quotes delimit values or not | `<filters> AND <access filter>`, or `(<filters>) AND <access filter>` when `filters` holds an `OR` outside parentheses | `enableRules: false`, `enableABTest: false` |
+
+Accepted parameters of each search:
+
+- Typesense: `collection`, `q`, `query_by`, `query_by_weights`, `prefix`, `infix`, `max_extra_prefix`, `max_extra_suffix`, `pre_segmented_query`, `split_join_tokens`, `text_match_type`, `num_typos`, `min_len_1typo`, `min_len_2typo`, `typo_tokens_threshold`, `drop_tokens_threshold`, `drop_tokens_mode`, `enable_typos_for_numerical_tokens`, `enable_typos_for_alpha_numerical_tokens`, `synonym_prefix`, `synonym_num_typos`, `enable_synonyms`, `demote_synonym_match`, `synonym_sets`, `stopwords`, `filter_by`, `filter_curated_hits`, `enable_lazy_filter`, `max_filter_by_candidates`, `validate_field_names`, `hidden_hits`, `sort_by`, `prioritize_exact_match`, `prioritize_token_position`, `prioritize_num_matching_fields`, `facet_by`, `facet_query`, `facet_query_num_typos`, `max_facet_values`, `facet_strategy`, `facet_sample_percent`, `facet_sample_threshold`, `facet_sample_slope`, `facet_return_parent`, `group_by`, `group_limit`, `group_missing_values`, `group_max_candidates`, `page`, `per_page`, `offset`, `limit`, `limit_hits`, `include_fields`, `exclude_fields`, `highlight_fields`, `highlight_full_fields`, `highlight_affix_num_tokens`, `highlight_start_tag`, `highlight_end_tag`, `snippet_threshold`, `exhaustive_search`, `search_cutoff_ms`, `max_candidates`, `use_cache`, `cache_ttl`, `vector_query`, `rerank_hybrid_matches`, `remote_embedding_timeout_ms`, `remote_embedding_num_tries`, `voice_query`. The body takes `searches`, `union` and `remove_duplicates`. A reference to another collection (`$name(...)`) in `filter_by`, and a `$` in `include_fields`, `exclude_fields`, `sort_by`, `facet_by` or `group_by`, are refused, as is a `vector_query` with an `id`, which searches with the vector of a stored document that the engine reads without the access filter.
+- Meilisearch: `indexUid`, `q`, `offset`, `limit`, `page`, `hitsPerPage`, `attributesToRetrieve`, `attributesToCrop`, `cropLength`, `cropMarker`, `attributesToHighlight`, `highlightPreTag`, `highlightPostTag`, `showMatchesPosition`, `filter`, `sort`, `distinct`, `facets`, `matchingStrategy`, `attributesToSearchOn`, `rankingScoreThreshold`, `locales`, `hybrid`, `vector`, `retrieveVectors`, `media`, `personalize`, `showRankingScore`, `showRankingScoreDetails`, `showPerformanceDetails`, and `federationOptions` with `weight` and `queryPosition`. The body takes `queries` and `federation`, with `limit`, `offset`, `page`, `hitsPerPage`, `facetsByIndex`, `mergeFacets`, `distinct`, `showPerformanceDetails` and `personalize`.
+- Algolia: `query`, `similarQuery`, `filters`, `facetFilters`, `optionalFilters`, `numericFilters`, `tagFilters`, `sumOrFiltersScores`, `restrictSearchableAttributes`, `facets`, `facetingAfterDistinct`, `maxValuesPerFacet`, `sortFacetValuesBy`, `facetQuery`, `maxFacetHits`, `page`, `hitsPerPage`, `offset`, `length`, `aroundLatLng`, `aroundLatLngViaIP`, `aroundRadius`, `aroundPrecision`, `minimumAroundRadius`, `insideBoundingBox`, `insidePolygon`, `naturalLanguages`, `queryLanguages`, `ignorePlurals`, `removeStopWords`, `decompoundQuery`, `attributesToRetrieve`, `attributesToHighlight`, `attributesToSnippet`, `highlightPreTag`, `highlightPostTag`, `snippetEllipsisText`, `restrictHighlightAndSnippetArrays`, `minWordSizefor1Typo`, `minWordSizefor2Typos`, `typoTolerance`, `allowTyposOnNumericTokens`, `disableTypoToleranceOnAttributes`, `queryType`, `removeWordsIfNoResults`, `advancedSyntax`, `advancedSyntaxFeatures`, `optionalWords`, `disableExactOnAttributes`, `exactOnSingleWordQuery`, `alternativesAsExact`, `distinct`, `getRankingInfo`, `synonyms`, `replaceSynonymsInHighlight`, `minProximity`, `responseFields`, `percentileComputation`, `attributeCriteriaComputedByMinProximity`, `relevancyStrictness`, `analytics`, `analyticsTags`, `clickAnalytics`, `userToken`, `enableRules` and `enableABTest`, as fields of the request or in its `params` query string, not both. A request also takes `indexName`, `type` and `facet`; the body takes `requests` and `strategy`. A parameter twice in `params`, whatever its case, is refused.
+
+- The parameters left out let the browser choose a key, stored settings (presets, curations, rules, A/B tests), documents that the engine adds to a search, a language model, or the history of another user; set them on the server instead. In particular, Typesense natural-language search (`nl_query`) is refused, and so are the rule contexts and curation tags that InstantSearch sends with a `QueryRuleContext` widget. Algolia rules and A/B tests are turned off because a rule that promotes records shows them whatever the filters, unless the rule sets `filterPromotes`, and an A/B test can answer from another index. The guard turns them off for every reader, including an unrestricted one, unlike `controlled()`. Algolia analytics parameters are accepted, so that the InstantSearch insights middleware keeps working: the browser chooses the `userToken`, so do not let Algolia personalization rank a guarded search by it.
+- An index that is not the index of a discovered model, such as an Algolia replica that sorts differently or a Typesense alias, is refused like any other unknown index.
+- A filter that is not a string (or, on Meilisearch, not a list of strings and lists of strings), that is not self-contained, or, on Algolia, that holds a backslash, throws `RefusedSearchFilterException`; a refused parameter throws `RefusedSearchParameterException`.
+- `InvalidSearchBodyException`, `UnknownSearchIndexException`, `RefusedSearchParameterException` and `RefusedSearchFilterException` are HTTP exceptions: Laravel answers `422` with their message and does not report them. `UnguardableSearchEngineException`, `AmbiguousSearchIndexException`, `MissingControlException` and `UnsearchableBoundaryException` point at the configuration of the application.
+- With `scout.soft_delete` on, the access filter of a model that uses `SoftDeletes` also leaves out its deleted rows, as for a token.
+- The filter is computed at each request, so a permission change applies at the next search; the index's lag applies as on the server.
+- Meilisearch search rules that pin documents (Enterprise Edition, Meilisearch Cloud) are not verified by the package: it does not know whether a pinned document goes through the access filter, on a controlled search, a token or a guarded search. Do not pin the documents of a controlled model.
+- Do not declare Meilisearch `foreignKeys` from or to the index of a controlled model: Meilisearch replaces the keys with the documents of the other index, and the package does not know whether the filter of a token or of a guarded search applies to them.
 
 #### Testing the search
 
@@ -2125,7 +2218,7 @@ If you extended `AccessControlExtension`, move the conditions of its `restrict()
 | `Post::search($terms)->get()` on a controlled model | `Post::search($terms)->controlled()->get()`, or `->uncontrolled()` on purpose |
 | `UnsearchableBoundaryException` for every boundary | `Boundary::where()` searches; a boundary class declares `searchKeys()` |
 | The `collection` Scout engine with `controlled()` | The `database` engine |
-| A Meilisearch tenant token, a Typesense scoped key or an Algolia secured API key whose filter is written by hand | `Access::searchToken($user, Post::class, SearchTokenKey::meilisearch(uid: ..., key: ...), now()->addMinutes(15))` |
+| A Meilisearch tenant token, a Typesense scoped key or an Algolia secured API key whose filter is written by hand | `Access::searchTokens(direct: true)` once, then `Access::searchToken($user, Post::class, SearchTokenKey::meilisearch(uid: ..., key: ...), now()->addMinutes(15))`; or `Access::searchTokens(direct: false)` and a route that calls `Access::guardSearch(json_decode($request->getContent(), true), $request->user())` |
 | A `saved` listener on `Project` that calls `$project->posts()->searchable()` | `->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts())` |
 | A custom pivot whose `saved` / `deleted` listeners reindex the post | `use ReindexesSearch` on the pivot |
 | `->query(fn ($query) => $query->join('projects', ...)->where('projects.client_id', ...))` | `->query(fn ($query) => $query->whereHas('project', fn ($q) => $q->where('client_id', ...)))`: a join throws `JoinInPerimeterException` |

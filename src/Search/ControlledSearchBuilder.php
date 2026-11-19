@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Laravel\Scout\Builder;
 use Lomkit\Access\Exceptions\ConflictingSearchScopeException;
 use Lomkit\Access\Exceptions\MissingControlException;
+use Lomkit\Access\Exceptions\NaturalLanguageSearchException;
 use Lomkit\Access\Exceptions\UncombinableSearchFilterException;
 use Lomkit\Access\Exceptions\UndeclaredSearchScopeException;
 use Lomkit\Access\Exceptions\UnsearchableAbilityException;
@@ -27,6 +28,7 @@ final class ControlledSearchBuilder extends Builder
      * @throws UnsupportedSearchEngineException When the engine of the model cannot filter by the access keys.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws UncombinableSearchFilterException When the filter_by of a Typesense search cannot be ANDed with the access filter.
+     * @throws NaturalLanguageSearchException When the options or the model turn on Typesense natural-language search.
      * @throws UnsearchableAbilityException When an ability is given.
      */
     public function controlled(): static
@@ -45,6 +47,7 @@ final class ControlledSearchBuilder extends Builder
      * @throws UnsupportedSearchEngineException When the engine of the model cannot filter by the access keys.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws UncombinableSearchFilterException When the filter_by of a Typesense search cannot be ANDed with the access filter.
+     * @throws NaturalLanguageSearchException When the options or the model turn on Typesense natural-language search.
      * @throws UnsearchableAbilityException When an ability is given after the reader.
      */
     public function controlledFor(?Model $reader): static
@@ -64,6 +67,7 @@ final class ControlledSearchBuilder extends Builder
     /**
      * @throws UndeclaredSearchScopeException When the search declares neither controlled() nor uncontrolled().
      * @throws UncombinableSearchFilterException When the filter_by of a Typesense search cannot be ANDed with the access filter.
+     * @throws NaturalLanguageSearchException When the options or the model turn on Typesense natural-language search.
      */
     #[\Override]
     protected function engine(): mixed

@@ -37,18 +37,18 @@ class AlgoliaSignerTest extends PackageTestCase
     public function it_signs_the_query_string_of_the_restrictions_with_hmac_sha256_as_algolia_documents_it(): void
     {
         $this->assertSame(
-            'MzZlOTZkZGQ2ZDExOTYyMzBhMTVmZjA3M2Q2OGJhMWI1N2IxMGUyOTIyNjVkZjI2MjAxNzdkMjEzNTc3MTFkNGZpbHRlcnM9JTI4X2FjY2VzcyUzQSUyN2NsaWVudC43JTI3JTIwT1IlMjBfYWNjZXNzJTNBJTI3ZmVhdHVyZWQueWVzJTI3JTI5JnJlc3RyaWN0SW5kaWNlcz1wb3N0cyZ2YWxpZFVudGlsPTE3OTQ3MDA4MDA=',
+            'NTUyMTJmOTg4MTZhMWNmOTE5NTMyN2Q4MzBlNjNiOWZlZDU2NjFjYzJkMzg3NDk3ODQ3Zjg1ZGNhYTIxYjI4MGVuYWJsZUFCVGVzdD1mYWxzZSZlbmFibGVSdWxlcz1mYWxzZSZmaWx0ZXJzPSUyOF9hY2Nlc3MlM0ElMjdjbGllbnQuNyUyNyUyME9SJTIwX2FjY2VzcyUzQSUyN2ZlYXR1cmVkLnllcyUyNyUyOSZyZXN0cmljdEluZGljZXM9cG9zdHMmdmFsaWRVbnRpbD0xNzk0NzAwODAw',
             $this->sign(self::FILTER),
         );
     }
 
     #[Test]
-    public function it_embeds_the_filter_the_index_and_the_expiry(): void
+    public function it_embeds_the_filter_the_rule_and_test_switches_the_index_and_the_expiry(): void
     {
         [$query, $restrictions] = $this->decode($this->sign(self::FILTER));
 
-        $this->assertSame('filters=%28_access%3A%27client.7%27%20OR%20_access%3A%27featured.yes%27%29&restrictIndices=posts&validUntil=1794700800', $query);
-        $this->assertSame(['filters' => self::FILTER, 'restrictIndices' => 'posts', 'validUntil' => '1794700800'], $restrictions);
+        $this->assertSame('enableABTest=false&enableRules=false&filters=%28_access%3A%27client.7%27%20OR%20_access%3A%27featured.yes%27%29&restrictIndices=posts&validUntil=1794700800', $query);
+        $this->assertSame(['enableABTest' => 'false', 'enableRules' => 'false', 'filters' => self::FILTER, 'restrictIndices' => 'posts', 'validUntil' => '1794700800'], $restrictions);
     }
 
     #[Test]
@@ -67,7 +67,7 @@ class AlgoliaSignerTest extends PackageTestCase
         }
 
         $this->assertSame(
-            SearchClient::generateSecuredApiKey(self::KEY, ['filters' => self::FILTER, 'restrictIndices' => 'posts', 'validUntil' => 1794700800]),
+            SearchClient::generateSecuredApiKey(self::KEY, ['enableABTest' => 'false', 'enableRules' => 'false', 'filters' => self::FILTER, 'restrictIndices' => 'posts', 'validUntil' => 1794700800]),
             $this->sign(self::FILTER),
         );
     }
