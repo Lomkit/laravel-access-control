@@ -348,8 +348,8 @@ class SearchTokenTest extends SearchTestCase
 
         $token = Access::searchToken($this->ada, GuardedArticle::class, $key, now()->addMinutes(15));
 
-        $this->assertSame("(_access:'author.{$this->ada->getKey()}') AND __soft_deleted:'0'", $token->filter());
-        $this->assertSame("(_access:'author.{$this->ada->getKey()}')", $this->token($this->ada)->filter());
+        $this->assertSame(sprintf("(_access:'%s') AND __soft_deleted:'0'", SearchKeyDigest::of("author.{$this->ada->getKey()}")), $token->filter());
+        $this->assertSame(sprintf("(_access:'%s')", SearchKeyDigest::of("author.{$this->ada->getKey()}")), $this->token($this->ada)->filter());
 
         $this->allow(['view global articles']);
         Access::forgetDecisions();
@@ -363,6 +363,6 @@ class SearchTokenTest extends SearchTestCase
         Access::discoverControlsIn([dirname(__DIR__, 2).'/Fixtures/SearchGuard']);
         $this->allow(['view own articles']);
 
-        $this->assertSame("(_access:'author.{$this->ada->getKey()}')", Access::searchToken($this->ada, GuardedArticle::class, SearchTokenKey::algolia('search-only-key'), now()->addMinutes(15))->filter());
+        $this->assertSame(sprintf("(_access:'%s')", SearchKeyDigest::of("author.{$this->ada->getKey()}")), Access::searchToken($this->ada, GuardedArticle::class, SearchTokenKey::algolia('search-only-key'), now()->addMinutes(15))->filter());
     }
 }

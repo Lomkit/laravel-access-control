@@ -7,6 +7,7 @@ use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\RefusedSearchFilterException;
 use Lomkit\Access\Exceptions\RefusedSearchParameterException;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Search\Tokens\Syntax\AlgoliaSyntax;
 use Lomkit\Access\Tests\Fixtures\SearchGuard\GuardTestCase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -287,7 +288,7 @@ class AlgoliaSearchGuardTest extends GuardTestCase
     {
         config(['scout.soft_delete' => true]);
 
-        $this->assertSame("featured:true AND (_access:'author.{$this->ada->getKey()}') AND __soft_deleted:'0'", $this->guard(['filters' => 'featured:true'])['filters']);
+        $this->assertSame(sprintf("featured:true AND (_access:'%s') AND __soft_deleted:'0'", SearchKeyDigest::of("author.{$this->ada->getKey()}")), $this->guard(['filters' => 'featured:true'])['filters']);
     }
 
     #[Test]

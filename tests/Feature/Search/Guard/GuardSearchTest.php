@@ -13,6 +13,7 @@ use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\UnguardableSearchEngineException;
 use Lomkit\Access\Exceptions\UnknownSearchIndexException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
+use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Search\Tokens\Syntax\TypesenseSyntax;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Blog\WorkspaceBoundary;
@@ -200,7 +201,7 @@ class GuardSearchTest extends GuardTestCase
                 ->unrestricted(),
         );
 
-        $this->assertSame('_boundary:=[`workspace_id.1`]', $this->guarded([], $this->ada));
+        $this->assertSame(sprintf('_boundary:=[`%s`]', SearchKeyDigest::of('workspace_id.1')), $this->guarded([], $this->ada));
     }
 
     #[Test]
@@ -256,7 +257,7 @@ class GuardSearchTest extends GuardTestCase
     public function it_hides_the_soft_deleted_documents_when_scout_keeps_them(): void
     {
         config(['scout.soft_delete' => true]);
-        $access = "_access:=[`author.{$this->ada->getKey()}`] && __soft_deleted:=0";
+        $access = sprintf('_access:=[`%s`] && __soft_deleted:=0', SearchKeyDigest::of("author.{$this->ada->getKey()}"));
 
         $this->assertSame($access, $this->guarded([], $this->ada));
         $this->assertSame("(featured:=true) && ({$access})", $this->guarded(['filter_by' => 'featured:=true'], $this->ada));
