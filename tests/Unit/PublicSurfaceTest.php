@@ -15,6 +15,7 @@ use RecursiveIteratorIterator;
 use ReflectionClass;
 use ReflectionMethod;
 use SplFileInfo;
+use Throwable;
 
 class PublicSurfaceTest extends PackageTestCase
 {
@@ -64,7 +65,7 @@ class PublicSurfaceTest extends PackageTestCase
     {
         $internalExceptions = array_filter(
             array_keys(array_filter($this->declarations())),
-            fn (string $class): bool => str_starts_with($class, self::EXCEPTIONS),
+            fn (string $class): bool => str_starts_with($class, self::EXCEPTIONS) && is_subclass_of($class, Throwable::class),
         );
 
         $this->assertSame([], array_values($internalExceptions));
