@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Search\Tokens\Syntax;
 
+/** @internal */
 final class MeilisearchSyntax extends FilterSyntax
 {
     /** @param  list<string>  $quoted */

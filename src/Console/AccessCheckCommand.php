@@ -31,6 +31,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
+/** @internal */
 #[AsCommand(name: 'access:check')]
 #[Signature('access:check
     {--only=* : Check only the controls of these models or control classes}

@@ -17,6 +17,7 @@ use Symfony\Component\Finder\SplFileInfo;
 use function Laravel\Prompts\multiselect;
 use function Laravel\Prompts\select;
 
+/** @internal */
 #[AsCommand(name: 'make:control')]
 #[Description('Create a new control class')]
 class ControlMakeCommand extends GeneratorCommand

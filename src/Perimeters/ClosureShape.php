@@ -5,6 +5,7 @@ namespace Lomkit\Access\Perimeters;
 use Closure;
 use ReflectionFunction;
 
+/** @internal */
 final readonly class ClosureShape
 {
     private const int NESTED_CLOSURES_COMPARED = 3;

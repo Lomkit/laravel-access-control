@@ -13,6 +13,7 @@ use Lomkit\Access\Exceptions\InvalidControlException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\UnwatchableReindexException;
 
+/** @internal */
 final class ControlRegistry
 {
     private ?ControlMap $discovered = null;

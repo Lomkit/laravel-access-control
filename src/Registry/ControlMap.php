@@ -4,6 +4,7 @@ namespace Lomkit\Access\Registry;
 
 use Lomkit\Access\Exceptions\DuplicateControlException;
 
+/** @internal */
 final readonly class ControlMap
 {
     /** @param  array<string, string>  $controls */

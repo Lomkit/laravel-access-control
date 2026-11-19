@@ -7,6 +7,7 @@ use Lomkit\Access\Search\SearchField;
 use Lomkit\Access\Search\SearchFilter;
 use Lomkit\Access\Search\SearchKeyDigest;
 
+/** @internal */
 abstract class FilterSyntax
 {
     private const string UNMATCHABLE_KEY = '#closed';

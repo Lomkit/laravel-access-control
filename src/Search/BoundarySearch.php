@@ -7,6 +7,7 @@ use Lomkit\Access\AccessContext;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Boundaries\NoBoundary;
 
+/** @internal */
 final readonly class BoundarySearch
 {
     private function __construct(

@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Perimeters;
 
+/** @internal */
 final readonly class PerimeterState
 {
     private const array PACKAGE_CLASSES = [Perimeter::class, ThroughParent::class];

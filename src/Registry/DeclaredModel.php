@@ -7,6 +7,7 @@ use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\InvalidControlModelException;
 use ReflectionProperty;
 
+/** @internal */
 final class DeclaredModel
 {
     /**

@@ -11,6 +11,7 @@ use Lomkit\Access\Registry\ControlRegistry;
 use Lomkit\Access\Registry\WatchMap;
 use Symfony\Component\Console\Attribute\AsCommand;
 
+/** @internal */
 #[AsCommand(name: 'access:cache')]
 #[Description('Discover the access controls and cache the control of each model')]
 class AccessCacheCommand extends Command

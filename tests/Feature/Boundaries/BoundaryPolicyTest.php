@@ -4,6 +4,9 @@ namespace Lomkit\Access\Tests\Feature\Boundaries;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Lomkit\Access\Ability;
+use Lomkit\Access\Access;
+use Lomkit\Access\AccessContext;
 use Lomkit\Access\Boundaries\Boundary;
 use Lomkit\Access\Perimeters\Levels;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
@@ -212,5 +215,24 @@ class BoundaryPolicyTest extends PackageTestCase
         $this->assertTrue(Boundary::where('workspace_id', fn (User $user): ?int => $user->current_workspace_id)->checksInMemory());
         $this->assertTrue((new InMemoryWorkspaceBoundary)->checksInMemory());
         $this->assertFalse((new WorkspaceBoundary)->checksInMemory());
+    }
+
+    #[Test]
+    public function it_refuses_every_decision_of_an_ability_to_a_reader_its_admits_hook_refuses(): void
+    {
+        $this->bindGlobalLevelWithin(new class extends WorkspaceBoundary
+        {
+            #[\Override]
+            protected function admits(AccessContext $context): bool
+            {
+                return ! $context->ability()->is('update');
+            }
+        });
+
+        $this->assertTrue(Gate::forUser($this->ada)->allows('view', $this->releaseNotes));
+        $this->assertSame('no_perimeter', Gate::forUser($this->ada)->inspect('update', $this->releaseNotes)->code());
+        $this->assertSame('no_perimeter', Access::controlFor(Post::class)->decide($this->ada, Ability::update())->code());
+        $this->assertSame([], Post::controlledFor($this->ada, 'update')->pluck('title')->all());
+        $this->assertSame(['Release notes', 'Archive'], Post::controlledFor($this->ada)->orderBy('id')->pluck('title')->all());
     }
 }

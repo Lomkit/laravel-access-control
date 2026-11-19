@@ -9,6 +9,7 @@ use Lomkit\Access\Discovery\DiscoveryCache;
 use Lomkit\Access\Registry\ControlRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 
+/** @internal */
 #[AsCommand(name: 'access:clear')]
 #[Description('Remove the access controls cache file')]
 class AccessClearCommand extends Command

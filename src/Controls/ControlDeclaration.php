@@ -8,6 +8,7 @@ use Lomkit\Access\Perimeters\PerimeterList;
 use Lomkit\Access\Perimeters\ReachedPerimeters;
 use Lomkit\Access\Search\SearchRules;
 
+/** @internal */
 final readonly class ControlDeclaration
 {
     public function __construct(

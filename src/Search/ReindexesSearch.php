@@ -8,6 +8,7 @@ use Lomkit\Access\Search\Freshness\PivotDocuments;
 /** @phpstan-require-extends Pivot */
 trait ReindexesSearch
 {
+    /** @internal */
     public static function bootReindexesSearch(): void
     {
         $ensureResolvable = static function (Pivot $pivot): void {

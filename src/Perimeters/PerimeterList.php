@@ -10,6 +10,7 @@ use Lomkit\Access\Perimeters\Parents\ParentChain;
 use Lomkit\Access\Perimeters\Parents\ParentStep;
 use Lomkit\Access\Search\SearchKeys;
 
+/** @internal */
 final readonly class PerimeterList
 {
     /** @var list<Perimeter|Levels> */

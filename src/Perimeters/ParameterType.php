@@ -9,6 +9,7 @@ use ReflectionParameter;
 use ReflectionType;
 use ReflectionUnionType;
 
+/** @internal */
 final readonly class ParameterType
 {
     private ?ReflectionType $type;

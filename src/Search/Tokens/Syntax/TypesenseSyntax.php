@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Search\Tokens\Syntax;
 
+/** @internal */
 final class TypesenseSyntax extends FilterSyntax
 {
     /** @param  list<string>  $quoted */

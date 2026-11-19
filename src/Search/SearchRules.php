@@ -14,6 +14,7 @@ use Lomkit\Access\Search\Freshness\FreshnessRules;
 use Lomkit\Access\Search\Parents\ParentKey;
 use Lomkit\Access\Search\Parents\ParentSearch;
 
+/** @internal */
 final class SearchRules
 {
     /**

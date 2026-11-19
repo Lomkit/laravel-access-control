@@ -6,6 +6,7 @@ use BackedEnum;
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Exceptions\InvalidSearchKeyValueException;
 
+/** @internal */
 final class SearchKeyValues
 {
     private const string PLAIN_COMPONENT = '/^[a-z0-9][a-z0-9_]*$/';

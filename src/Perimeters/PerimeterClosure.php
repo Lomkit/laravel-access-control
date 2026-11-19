@@ -11,6 +11,7 @@ use Lomkit\Access\Exceptions\PerimeterCallbackResultException;
 use Lomkit\Access\Exceptions\QueryCallbackReturnedAnotherBuilderException;
 use ReflectionFunction;
 
+/** @internal */
 final readonly class PerimeterClosure
 {
     private function __construct(

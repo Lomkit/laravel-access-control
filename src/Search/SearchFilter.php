@@ -2,6 +2,7 @@
 
 namespace Lomkit\Access\Search;
 
+/** @internal */
 final readonly class SearchFilter
 {
     /** @var array<string, list<string>> */

@@ -18,6 +18,26 @@ Version 0.7 already changed several things. If you upgrade from 0.6, apply the [
 - `HasControl::newControl()` returns `Control` instead of `?Control`.
 - Overridden `ControlledPolicy` methods declare a return type compatible with `bool|Response`.
 
+### What is public in 1.x
+
+The releases of 1.x follow semantic versioning for what the documentation describes, on [laravel-access-control.lomkit.com](https://laravel-access-control.lomkit.com) and in this guide, and does not mark `@internal`:
+
+- the classes, and their public and protected methods, that the documentation shows an application calling, extending, implementing or overriding;
+- the exception classes and the classes they extend, which your application may catch, thrown in the cases the documentation gives; their messages and the way they are built are not covered;
+- the refusal codes of the policies (`unsaved`, `no_perimeter`, `outside_boundary`, `not_found`, `outside_rows`) and the names of the search attributes `_access` and `_boundary`;
+- the artisan commands, their options, their exit codes and the JSON of `access:check`. A minor release may add problems and notes to `access:check`, so a CI that passed may fail after it, as with the new rules of a linter.
+- `Access::searchTokens()` and `Access::guardSearch()`, with the bodies the guard accepts and the parameters it forces. A release, even a patch, may refuse a parameter or a filter that turns out to widen what a reader finds: the guard fails closed, with `RefusedSearchParameterException` or `RefusedSearchFilterException`, rather than keep an opening.
+
+A class or a method marked `@internal` may change or disappear in any release, whatever its PHP visibility, and so may a method, public or protected, that the documentation does not describe: do not call, extend, implement, override or type against them. The classes behind the artisan commands, the control registry and the search keys and filters, such as `SearchKeyValues`, `SearchDocuments`, `SearchRules` and `SearchFilter`, are internal. `AccessServiceProvider` is registered by Laravel's package discovery: list it in `bootstrap/providers.php` if your application turns the discovery off, and do not extend it. `ControlledSearchBuilder` is the builder that `search()` returns on a `ControlledSearchable` model, whose `controlled()`, `controlledFor()` and `uncontrolled()` are public (see [Search](#search)).
+
+- Your application extends `Perimeter`, `Control` and `Boundary`. A minor release may add methods to these classes, and a method of the same name in your subclass would then clash with it: give the methods you add to your subclasses distinctive names. Their members covered by 1.x are these:
+  - `Perimeter`: `new()`, `allowed()`, `should()`, `query()`, `searchKeys()`, `reindexWhen()`, `unrestricted()`, `admits()` and `checksInMemory()`, and the protected hooks `allows()`, `includes()` and `scope()`;
+  - `Control`: `new()`, `abilityFor()`, `decide()`, `applies()` and `reachableKeys()`, and the protected `perimeters()`, `boundary()` and `applicablePerimeters()`;
+  - `Boundary`: `where()`, `none()` and `checksInMemory()`, the protected hooks `scope()`, `includes()`, `searchKeys()` and `admits()` (see [Boundaries](#boundaries)), and `readOnlyWhenNotNull()` on the boundary that `where()` returns.
+- `ControlledPolicy` gets no new method in 1.x, since the methods of your policy are named after your abilities: it keeps the seven standard abilities, the protected `decideByControl()` and `declaredControl()`, and nothing else (see [Business abilities](#business-abilities)).
+- PHP lets a perimeter class call the protected hooks of another perimeter, since both extend `Perimeter`. That is not supported: the package admits the reader by the type of the callbacks and by the `reader:` closure of the search keys before it calls `allows()`, and a hook called directly skips both (see [Perimeter classes](#perimeter-classes)).
+- The access keys, and the digests of them stored in your search documents, are not an API, but they live in your indexes: a release that changes them says so in its upgrade notes, with the reindex it needs, even a minor one.
+
 ### The configuration file
 
 The package has no configuration file anymore: `config/access-control.php`, its `methods` map and the `access-control-config` publish tag are removed, and the package reads no `access-control.*` key. Delete your published `config/access-control.php`. A file left in place is ignored, so a custom `methods` map stops applying: move it to the control, as [Abilities](#abilities) shows.
@@ -237,6 +257,8 @@ protected function boundary(): Boundary
 
 Without `includes()`, the policy checks the boundary with an `exists` query on the row; with it, in memory. Even an unrestricted perimeter grants a row without SQL only when the boundary is empty or checks in memory: otherwise the policy runs that `exists` on the boundary alone. The policy checks the boundary before the `should` callbacks of the perimeters. `boundary()` follows the rule of `perimeters()`: it is built once per process and must not read the user, the request or the tenant while it builds the boundary (see [Pure perimeter lists](#pure-perimeter-lists)).
 
+A boundary class may also override `admits(AccessContext $context): bool`, the form of the boundary without a row. When it returns `false`, the reader reaches nothing for that ability: `controlled()` lists no row, and the policy refuses with `no_perimeter`, `viewAny` and `create` included. Its answer is kept like the one of `allowed()`, once per reader, ability and decision context (see [Kept decisions](#kept-decisions)). `Boundary::where()` uses it to close the boundary for a null reader value.
+
 Replace the overrides of `applies()` and `applyQueryControl()` that added such a condition by hand with a boundary:
 
 ```php
@@ -381,7 +403,7 @@ It is on purpose:
 | Mistake | Exception |
 | --- | --- |
 | The relation does not exist on the child model | `InvalidParentRelationException` |
-| The relation is not a `belongsTo` (`hasMany`, `morphTo`, `belongsToMany`...) | `InvalidParentRelationException`: other relations come in 1.1 |
+| The relation is not a `belongsTo` (`hasMany`, `morphTo`, `belongsToMany`...) | `InvalidParentRelationException`: other relations come in 1.1; until then, see [Several parents, or parents of several types](#several-parents-or-parents-of-several-types) |
 | `inverse` is not the `hasMany` of the parent on the same keys | `InvalidParentRelationException` |
 | No control is registered for the parent model | `MissingParentControlException` |
 | The parents lead back to the child, directly or through several hops | `ParentCycleException`, naming the cycle |
@@ -393,6 +415,34 @@ It is on purpose:
 **A model on a connection configured later.** The control reads the relation of a `ThroughParent`, and its `inverse`, without resolving a database connection: Eloquent gets a connection without PDO for the call of the relation method, and the control keeps only the related model and the key names. So a model on a connection configured at runtime, such as a tenant connection before the tenant is initialized or a connection opened with `DB::connectUsing()`, is validated outside that context, the same way: by `access:check`, `access:cache` (so `php artisan optimize`) and `make:control --parent`, and when the listeners that keep the search keys fresh build the controls on the save of a model of another connection. The decisions still use the real relation on the real connection, so the declaration is the same inside and outside that context. A relation method that runs a query while it builds the relation throws `RelationInspectionQueryException`, which names the model, the relation and the connection: build the relation from its keys alone, and move the query out of the method. The connection resolver is swapped for the call of the relation method only, which is safe under Octane since a worker serves one request at a time; a relation method that reads `getConnection()->getDriverName()` gets a placeholder name during that call, and a related model that the call instantiates for the first time boots against the same placeholder connection: a `booted()` that runs a query throws `RelationInspectionQueryException`.
 
 `php artisan make:control CommentControl --parent=post` writes the `ThroughParent::belongsTo('post')` entry, and refuses a relation that is not a `belongsTo` of the model.
+
+#### Several parents, or parents of several types
+
+In 1.0, `ThroughParent` follows a `belongsTo` relation. A child readable through any of several parents, such as a note linked to contracts and customers by a `note_links` table (`note_id`, `subject_type`, `subject_id`), has to wait for 1.1, which brings `ThroughParent` over a `morphTo` relation with listed types and over the relations to several parents. Until then, give the child a perimeter checked in SQL, for `view` only, whose `query()` reaches each type of parent through the control of that parent, for the reader the callback receives:
+
+```php
+LinkedSubjectsPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability): bool => $ability->is('view') && $user->can('view notes'))
+    ->query(function (Builder $query, User $user): void {
+        $query->whereHas('links', fn (Builder $links) => $links->whereHasMorph(
+            'subject',
+            [Contract::class, Customer::class],
+            fn (Builder $subjects) => $subjects->controlledFor($user),
+        ));
+    }),
+```
+
+`links` is the `hasMany` from the note to its links, and `subject` the `morphTo` of a link. A note is readable when the reader may view at least one of its subjects, each decided by its own control, boundary and levels included. The same perimeter works over a `belongsToMany` of a single type (`whereHas('folders', fn (Builder $folders) => $folders->controlledFor($user))`) and over a `morphTo` of the child itself (`whereHasMorph('subject', [...], ...)` on the child's query). The perimeter has no `should` callback, so the policy, `withAbilities()`, `Access::preload()` and `reachableKeys()` decide a note with this same query, and `assertControlAgrees()` checks that they agree. It is a recipe for the meantime, with limits that `ThroughParent` does not have:
+
+- Keep `$ability->is('view')` in `allowed()`. `controlledFor($user)` checks each parent for `view`, whatever the ability decided on the note: without that guard, every reader of a parent may update and delete the note, and any business ability is granted the same way.
+- Call `controlledFor()` with the reader that the callback receives, and nothing else in that closure: never `controlled()`, which reads the signed-in user, so a policy checked for another user, or a job, would reach the parents of someone else.
+- List the types, never `'*'`: with `'*'`, Laravel reads the types from the link table, and any controlled type that a row names would open the note. A link to a type missing from the list, to a type that no model declares, or to a row that does not exist opens nothing. A listed type without a control throws `MissingControlException` when the query is built, and one whose model does not use `HasControl` throws a `BadMethodCallException` (no `controlledFor` scope).
+- Nothing else follows the parents: no write is delegated, and a draft is refused, since a perimeter checked in SQL never grants one. Without a row, `viewAny` is granted to every reader whom `allowed()` accepts, whether they reach a parent or not, where a `ThroughParent` asks the control of the parent: keep a permission of the child in `allowed()`.
+- No search: the perimeter declares no search keys, so a controlled search finds none of these rows, and `access:check` reports `perimeter_without_search_keys` on a searchable model. Keep the model out of the search engine, or search it with Scout's `database` driver, which applies the SQL of the control.
+- No check of cycles: a parent whose control leads back to the notes loops while the query is built, and fails with a fatal error rather than an exception.
+- The parents are decided under the decision context of the request, like a `ThroughParent` without `decidedInRowContext()` (see [Several brands in one list](#several-brands-in-one-list)).
+
+Replace the perimeter with `ThroughParent` once 1.1 supports the relation.
 
 #### Deciding the parent in the context of the child row
 
@@ -980,7 +1030,7 @@ class PostSearchTokenController
 ```
 
 - The engine is the one the model searches with (`searchableUsing()`): a tenant token for Meilisearch, a scoped search key for Typesense, a secured API key for Algolia. Pass the key of that engine, `SearchTokenKey::meilisearch(uid:, key:)`, `SearchTokenKey::typesense(key:)` or `SearchTokenKey::algolia(key:)`, or `MismatchedSearchTokenKeyException` is thrown. The package has no configuration file: read the key from your own, such as `config/services.php`.
-- The filter in the token is the one `controlled()` applies, rendered in the engine's syntax from the same `searchFilter()`, with the same meaning: a document is found when it shares at least one key with the reader, inside the boundary. A reader that `controlled()` would show an empty page (no reader, no perimeter that allows them, no key) gets a token whose filter asks for an `_access` key that no document can carry, so it finds nothing. An unrestricted reader without a boundary gets a token with no filter, over the whole index of the model.
+- The filter in the token is the one `controlled()` applies, rendered in the engine's syntax from the same filter, with the same meaning: a document is found when it shares at least one key with the reader, inside the boundary. A reader that `controlled()` would show an empty page (no reader, no perimeter that allows them, no key) gets a token whose filter asks for an `_access` key that no document can carry, so it finds nothing. An unrestricted reader without a boundary gets a token with no filter, over the whole index of the model.
 - The token keeps the keys of its reader until it expires: a permission change reaches the browser at the next token. The expiry is required, and one that is not in the future throws `PastSearchTokenExpiryException`. Keep it short, from a few minutes to an hour, and fetch a new token when it expires.
 - Never sign with the admin key: a key equal to the one Scout uses (`scout.meilisearch.key`, `scout.typesense.client-settings.api_key`, `scout.algolia.secret`) throws `AdminSearchTokenKeyException`. Create a search-only key for each engine:
   - Meilisearch: `POST /keys` with the master key and `{"actions": ["search"], "indexes": ["posts"], "expiresAt": null}`; pass the `uid` and the `key` it returns. The token is limited to the model's index in its `searchRules`.
@@ -1039,7 +1089,7 @@ Give the search client of the front end (the InstantSearch adapter of your engin
 - The field that lists the searches tells the engine. A body with none of them, or with several, throws `InvalidSearchBodyException`.
 - Each search names its index (`collection`, `indexUid` or `indexName`), which must be the index of a `ControlledSearchable` model whose control is discovered, in `app/Access/Controls` or a directory passed to `Access::discoverControlsIn()`. Any other index throws `UnknownSearchIndexException`, including the index of a model linked by `#[ControlledBy]` to a control outside those directories. Two discovered models searched in the same index throw `AmbiguousSearchIndexException` when a search names it.
 - The model must search with the engine of the body, or `InvalidSearchBodyException` is thrown. The `database`, `collection` and `null` engines, Turbopuffer and the engines passed to `Access::trustSearchEngine()` throw `UnguardableSearchEngineException`.
-- The reader's filter is the one `controlled()` applies, from the same `searchFilter()`. A reader that `controlled()` would show an empty page gets a filter on an `_access` key that no document carries, so the search finds nothing; an unrestricted reader without a boundary gets no access filter, and the filter of the browser is sent as it is, once checked.
+- The reader's filter is the one `controlled()` applies, from the same filter. A reader that `controlled()` would show an empty page gets a filter on an `_access` key that no document carries, so the search finds nothing; an unrestricted reader without a boundary gets no access filter, and the filter of the browser is sent as it is, once checked.
 - Each search is checked and rewritten as below. The guard accepts, as written, only the parameters listed under "Accepted": the ones that narrow, page, rank or format the documents the reader may see. Any other parameter, including one that differs by its case only (`Filter_By`, `Filters`), refuses the whole body with `RefusedSearchParameterException`. A forced parameter replaces whatever the browser sends.
 
 | Engine | Filter of the browser | Sent to the engine | Forced |
@@ -1062,6 +1112,16 @@ Accepted parameters of each search:
 - The filter is computed at each request, so a permission change applies at the next search; the index's lag applies as on the server.
 - Meilisearch search rules that pin documents (Enterprise Edition, Meilisearch Cloud) are not verified by the package: it does not know whether a pinned document goes through the access filter, on a controlled search, a token or a guarded search. Do not pin the documents of a controlled model.
 - Do not declare Meilisearch `foreignKeys` from or to the index of a controlled model: Meilisearch replaces the keys with the documents of the other index, and the package does not know whether the filter of a token or of a guarded search applies to them.
+
+#### Your own search client
+
+A controlled search keeps the documents whose access keys meet the keys of the reader. An application that queries the engine with its own client keeps that filter in one of three ways:
+
+- **The index of a `ControlledSearchable` model, queried by your own client**, for a multi-search that holds this search, a vector search or an option that Scout does not expose: pass a callback to the search, such as `Post::search('budget', fn ($client, $query, $options) => ...)->controlled()`. The options it receives hold the access filter of the reader for the index of this model: pass them on to your client, never rebuild them (see [Engines](#engines)). Never apply that filter to another index: the keys of another model may have the same names and another meaning, so it could widen what the reader finds there. In a multi-search, each model takes the filter of its own search.
+- **A search that your server proxies**, such as the multi-search of an InstantSearch front end: declare `Access::searchTokens(direct: false)`, pass the body of the search to `Access::guardSearch($body, $reader)` in your route, and forward the body it returns to the engine, as [Search from the browser](#search-from-the-browser) shows. The guard checks that each search names the index of a controlled model, adds the reader's filter of that model to the filter of the search, and refuses the parameters that could widen what the reader finds. Never combine a filter of the package with yours by hand: `Access::searchToken()` throws under `direct: false`, and `SearchToken::filter()` is for logs and tests.
+- **One index per model, written by your own client**: wrap the client in a Scout engine of your application, a subclass of Scout's Algolia, Meilisearch, Typesense or Turbopuffer engine, which the package trusts as it is, or another engine trusted with `Access::trustSearchEngine()` (see [Engines](#engines)). The documents, their freshness, `access:check` and `assertSearchAgrees()` then follow as for any engine.
+
+An index that is not the index of one Scout model, such as a collection shared by several models, chunks of documents for a semantic search or an ingestion pipeline of your own, has no public route in 1.0: the classes that compute the keys of a row and the filter of a reader are internal (see [What is public in 1.x](#what-is-public-in-1x)), and may change in any release. A read-only way to get them is planned for 1.1. The freshness is what such an index would miss: the package reindexes the documents of a Scout model when the data its keys read changes (see [Keeping the keys fresh](#keeping-the-keys-fresh)), and a key that an index keeps after a change can show a row to a reader who lost access.
 
 #### Testing the search
 
@@ -1141,7 +1201,7 @@ The paths accept glob patterns (`app_path('Domain/*/Controls')`), and a missing 
 
 `addControl()`, `addControls()` and `discoverControls()` are removed: declare the control on its model with `#[ControlledBy]`. `Access::flush()` is removed with every other static state: each container, so each test, gets a new registry. Remove the `Access::flush()` calls from your tests. `Access::cache()`, `Access::cachePath()`, `Access::discoverControlClasses()` and `discoverControlsWithin()` are removed: run `php artisan access:cache` and `php artisan access:clear`.
 
-`Control::new()` and `Access::control(PostControl::class)` return the control instance of the registry, resolved through the container: one instance per control class and per container. A control can take constructor dependencies, and a test can swap one with `$this->app->instance(PostControl::class, $control)`.
+`Control::new()` and `Access::control(PostControl::class)` return the control instance of the registry, resolved through the container: one instance per control class and per container. A control can take constructor dependencies, and a test can swap one with `$this->app->instance(PostControl::class, $control)` before the registry first resolves that control: the registry keeps the instance it resolved, and the first Eloquent write of the test may already have resolved it (see [Pure perimeter lists](#pure-perimeter-lists)).
 
 `access:cache` now writes the control of each model instead of a list of controls. Run `php artisan access:cache` again after upgrading, or `php artisan optimize` in your deployment. A cached control class that was deleted since is skipped instead of failing.
 
@@ -1291,7 +1351,7 @@ $this->authorize('record', $visit);                            // a saved visit,
 $this->authorize('record', Visit::class);                      // somewhere
 ```
 
-Never wrap the argument in `Draft::of()` inside the policy: a saved visit changed with `fill()` would then be judged on its new values.
+Never wrap the argument in `Draft::of()` inside the policy: a saved visit changed with `fill()` would then be judged on its new values. `Draft::model()` returns the model about to be created, for a policy that reads it; pass the draft itself to `decideByControl()`.
 
 A `ThroughParent` judges such a draft only when `delegates()` lists that ability.
 
@@ -1371,6 +1431,19 @@ protected function perimeters(): array
 ```
 
 `Post::controlled()` then lists the posts of every brand of the reader in one query, and the policy, `withAbilities()` and `Access::preload()` decide each row from its own brand, whatever the current one, as long as the rules read the brand of the row. A child read through `ThroughParent` is decided from its parent, never from its own brand (see below). Keep these perimeters out of `Levels::of()`: a group applies only the highest level the reader reaches, in any brand, so a reader who sees every post of brand A and only their own posts of brand B would lose their posts of brand B. Loose perimeters add up, each one filtered by its own brands. Check the result with `assertControlAgrees()` on posts of several brands.
+
+**One level per brand.** These loose perimeters already give each brand its own level: the levels nest, so in each brand their union is the highest level the reader reaches there, every post of brand A and the own posts of brand B. Never wrap a group, or its levels, in a perimeter that picks the level brand by brand: that is not supported (see [Perimeter classes](#perimeter-classes)), and a `Levels::of()` group of wrapped levels still keeps the first level reached in any brand. To keep what a group saves, the lower levels left out of the SQL, filter each lower level by the brands where no higher level applies:
+
+```php
+OwnPerimeter::new()
+    ->allowed(fn (User $user, Ability $ability): bool => $user->brandsOnlyWhere("{$ability} own posts", above: ["{$ability} brand posts"]) !== [])
+    ->should(fn (User $user, Post $post, Ability $ability): bool => $post->author_id === $user->id && in_array($post->brand_id, $user->brandsOnlyWhere("{$ability} own posts", above: ["{$ability} brand posts"]), true))
+    ->query(function (Builder $query, User $user, Ability $ability): void {
+        $query->whereBelongsTo($user, 'author')->whereIn('brand_id', $user->brandsOnlyWhere("{$ability} own posts", above: ["{$ability} brand posts"]));
+    }),
+```
+
+`brandsOnlyWhere()` stands for `brandsWhere()` of the first permission minus the brands of every higher level, whose permissions `above:` lists, so each brand is read by one level only. The answers stay the same as long as each level contains the next one in every brand; `assertControlAgrees()` on posts of several brands checks that the paths agree, not that the answers are those of the perimeters without the filter. A child read through a parent written this way gets the level of each brand without anything more. When the control of the parent reads the brands from the decision context instead, such as a `Levels::of()` group evaluated under the brands of the request, add `decidedInRowContext()` to the `ThroughParent` (see [Deciding the parent in the context of the child row](#deciding-the-parent-in-the-context-of-the-child-row)); 1.1 plans the decision in the context of the row for `Levels::of()` itself.
 
 Keep the brand out of the boundary: `Boundary::where()` holds one value per reader, so a boundary that reads the current brand cuts the list to that brand. Keep in the boundary what is the same for every row the reader may reach, such as the tenant. On a searchable model, give each of these perimeters search keys built from the brand of the row and the brands where the reader holds the `view` right:
 
@@ -1830,7 +1903,7 @@ In both forms:
 - The state is private and pure: build it from scalars, enums or readonly objects that come from a constant or a value that does not change in the process, never from the request, the tenant or the signed-in user (see [Pure perimeter lists](#pure-perimeter-lists)).
 - Every path reads it: `scope()` for the controlled queries and the row checks in SQL, `includes()` for the in-memory checks and the drafts, and the `row:` closure of the search keys, which returns no key for a row outside the variant. The policy, the controlled queries, the batches and the search then agree, which `assertControlAgrees()` and `assertSearchAgrees()` check.
 - Two variants of one class in one control are two perimeters: with search keys, give them distinct key names, or the control throws `DuplicateSearchKeyNameException`.
-- Do not wrap a perimeter in another one to narrow it: the package recognizes a `ThroughParent` and an unrestricted perimeter by their own class, which a wrapper hides.
+- Do not wrap a perimeter in another one to narrow it. The package reads what each perimeter of the list declares, never what a perimeter holds: a wrapped `ThroughParent` is never bound to its parent and throws `ThroughParentCallbackException` at its first use, a wrapped unrestricted perimeter is no longer unrestricted, and the search keys of the wrapped perimeter are lost, which `access:check` reports as `perimeter_without_search_keys`. Never call the hooks of another perimeter either: `allows()`, `includes()` and `scope()` skip the admission of the reader that the package does first, by the type of the callbacks and by the `reader:` closure of the search keys, so a callback typed `fn (User $user)` receives another reader and throws a `TypeError`. For a hierarchy decided brand by brand, see [Several brands in one list](#several-brands-in-one-list).
 
 `applyScoutQueryCallback()` has no hook in 1.0: a perimeter is searched through its search keys (see [Search](#search)). Remove the override and declare `searchKeys()` on the perimeter.
 
@@ -1959,6 +2032,8 @@ The check only sees what changes between two builds of the same process. It cann
 - what the callbacks read when they run: that is not a purity problem, since the callbacks are where the reader, the request and the tenant belong.
 
 Read request and tenant state in the callbacks, never in `perimeters()` or in the constructor of a service it captures.
+
+**When the controls are built.** A control is built at its first use, which can come earlier than a test expects. With Scout installed and without `php artisan access:cache`, the first Eloquent write of any model in a process, a factory in a test included, builds the control of every discovered model that uses `ControlledSearchable`, to learn which writes reindex which documents; with the cache, a write builds the controls that watch its model. Set what `perimeters()` and `boundary()` read before that write, in `setUp()` or in the environment of the test, or read it in the callbacks. A test that sets it after that write gets `ImpurePerimetersException` at the next lookup of the control, since the control kept the perimeters built with the former value. There is no way to reset the registry, on purpose: when the value can change within one process in production, such as the domain of a queue worker that serves several, the control built for the first value would serve the next ones, so the value belongs in the callbacks or in the decision context.
 
 ### Checking the controls
 
@@ -2188,6 +2263,7 @@ If you extended `AccessControlExtension`, move the conditions of its `restrict()
 | `$this->allowedCallback = ...` in a perimeter subclass | `->allowed(...)`, or the `allows()` hook |
 | `$user instanceof User ? ... : $query->whereRaw('0 = 1')` in a callback | Type the reader: `fn (Builder $query, User $user) => ...` |
 | `Control::appNamespace()` | `app()->getNamespace()` |
+| `$control->getModel()`, `$control->isModel($model)` | Internal: the model is the `$model` of your control; from a model, `Access::controlFor($model)` |
 | `class SharedPerimeter extends OverlayPerimeter` | `class SharedPerimeter extends Perimeter`, written outside the `Levels::of()` group |
 | Perimeters that stop at the first allowed one | `Levels::of(...)`, widest first, in the same order; checked by `assertLevelsNest()` |
 | `overlays()` overridden on a perimeter | Removed: a perimeter outside a group always adds up |

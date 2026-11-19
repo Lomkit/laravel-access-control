@@ -7,6 +7,7 @@ use Illuminate\Filesystem\Filesystem;
 use Lomkit\Access\Registry\ControlMap;
 use Lomkit\Access\Registry\WatchMap;
 
+/** @internal */
 final readonly class DiscoveryCache
 {
     public function __construct(

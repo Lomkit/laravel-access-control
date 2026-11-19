@@ -10,6 +10,7 @@ use Laravel\Scout\Engines\TurbopufferEngine;
 use Laravel\Scout\Engines\TypesenseEngine;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
 
+/** @internal */
 final class TrustedSearchEngines
 {
     /** @var list<class-string> */

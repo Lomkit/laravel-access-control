@@ -4,6 +4,7 @@ namespace Lomkit\Access\Perimeters;
 
 use ReflectionMethod;
 
+/** @internal */
 enum PerimeterHook: string
 {
     case Allows = 'allows';

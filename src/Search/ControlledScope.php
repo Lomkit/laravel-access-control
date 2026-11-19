@@ -14,6 +14,7 @@ use Lomkit\Access\Access;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 
+/** @internal */
 final class ControlledScope implements SearchScope
 {
     private ?SearchFilter $filter = null;

@@ -6,6 +6,7 @@ use Lomkit\Access\Perimeters\Perimeter;
 use Lomkit\Access\Perimeters\PerimeterConstructor;
 use Lomkit\Access\Perimeters\PerimeterHook;
 
+/** @internal */
 final readonly class GeneratedPerimeter
 {
     public function __construct(private string $class) {}
