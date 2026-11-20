@@ -39,7 +39,7 @@ final readonly class IndexScope
 
     /**
      * @param  array<string, list<string>>  $keys
-     * @return array<string, list<string>>
+     * @return array{_access: list<string>, _boundary: list<string>}
      */
     public function document(array $keys, bool $bounded): array
     {
@@ -52,7 +52,7 @@ final readonly class IndexScope
     /**
      * @param  list<string>|null  $access
      * @param  list<string>|null  $boundary
-     * @return array<string, list<string>>
+     * @return array{_access: list<string>, _boundary: list<string>}
      */
     public function reader(?array $access, ?array $boundary): array
     {

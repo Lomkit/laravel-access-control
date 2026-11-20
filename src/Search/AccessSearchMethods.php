@@ -35,6 +35,7 @@ use Lomkit\Access\Search\Tokens\SearchTokenDeclaration;
 use Lomkit\Access\Search\Tokens\SearchTokenKey;
 use Lomkit\Access\Search\Tokens\SearchTokens;
 
+/** @internal */
 trait AccessSearchMethods
 {
     /** @return list<string> */
@@ -105,7 +106,7 @@ trait AccessSearchMethods
 
     /**
      * @param  iterable<Model>  $rows
-     * @return array<int|string, array<string, list<string>>>
+     * @return array<int|string, array{_access: list<string>, _boundary: list<string>}>
      *
      * @throws InvalidSearchRowException When a row is not an Eloquent model, is not of the model of the first row, is unsaved, deleted or soft-deleted, or has a key that is not an int or a string.
      * @throws MissingControlException When no control is registered for the model of the rows.

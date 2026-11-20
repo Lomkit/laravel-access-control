@@ -12,7 +12,7 @@ final class IndexKeysAgreement
 {
     private const int REPORTED_ROWS = 10;
 
-    /** @var array<int|string, array<string, list<string>>> */
+    /** @var array<int|string, array{_access: list<string>, _boundary: list<string>}> */
     private array $documents;
 
     public function __construct(private readonly Control $control)
@@ -43,13 +43,13 @@ final class IndexKeysAgreement
     }
 
     /**
-     * @param  array<string, list<string>>  $document
-     * @param  array<string, list<string>>  $values
+     * @param  array{_access: list<string>, _boundary: list<string>}  $document
+     * @param  array{_access: list<string>, _boundary: list<string>}  $values
      */
     private static function matches(array $document, array $values): bool
     {
         foreach ($values as $field => $fieldValues) {
-            if (array_intersect($document[$field] ?? [], $fieldValues) === []) {
+            if (array_intersect($document[$field], $fieldValues) === []) {
                 return false;
             }
         }

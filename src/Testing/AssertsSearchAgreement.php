@@ -9,6 +9,7 @@ use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Search\ControlledSearchable;
 use PHPUnit\Framework\Assert;
 
+/** @internal */
 trait AssertsSearchAgreement
 {
     /**

@@ -26,7 +26,7 @@ final readonly class IndexKeys
 
     /**
      * @param  iterable<mixed>  $rows
-     * @return array<int|string, array<string, list<string>>>
+     * @return array<int|string, array{_access: list<string>, _boundary: list<string>}>
      *
      * @throws InvalidSearchRowException When a row is not an Eloquent model, is not of the model of the first row, is unsaved, deleted or soft-deleted, or has a key that is not an int or a string.
      * @throws MissingControlException When no control is registered for the model of the rows.
@@ -89,7 +89,7 @@ final readonly class IndexKeys
         return new self($control, IndexScope::of($control->getModel()));
     }
 
-    /** @return array<int|string, array<string, list<string>>> */
+    /** @return array<int|string, array{_access: list<string>, _boundary: list<string>}> */
     private function documents(IndexRows $rows): array
     {
         $rules = $this->control->searchRules();

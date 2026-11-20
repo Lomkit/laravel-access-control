@@ -37,7 +37,6 @@ class PublicSurfaceTest extends PackageTestCase
         'Lomkit\Access\Perimeters\Perimeter',
         'Lomkit\Access\Perimeters\ThroughParent',
         'Lomkit\Access\Policies\ControlledPolicy',
-        'Lomkit\Access\Search\AccessSearchMethods',
         'Lomkit\Access\Search\ControlledSearchBuilder',
         'Lomkit\Access\Search\ControlledSearchable',
         'Lomkit\Access\Search\ReaderSearchKeys',
@@ -45,7 +44,6 @@ class PublicSurfaceTest extends PackageTestCase
         'Lomkit\Access\Search\SearchKeys',
         'Lomkit\Access\Search\Tokens\SearchToken',
         'Lomkit\Access\Search\Tokens\SearchTokenKey',
-        'Lomkit\Access\Testing\AssertsSearchAgreement',
         'Lomkit\Access\Testing\InteractsWithAccess',
     ];
 

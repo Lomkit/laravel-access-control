@@ -8,7 +8,7 @@ final readonly class ReaderSearchKeys
 {
     /**
      * @param  class-string<Model>  $model
-     * @param  array<string, list<string>>  $values
+     * @param  array{_access: list<string>, _boundary: list<string>}  $values
      */
     private function __construct(
         private string $model,
@@ -23,20 +23,17 @@ final readonly class ReaderSearchKeys
      */
     public static function closed(string $model): self
     {
-        $values = [];
-
-        foreach (SearchField::names() as $field) {
-            $values[$field] = [SearchKeyDigest::UNMATCHABLE];
-        }
-
-        return new self($model, true, $values);
+        return new self($model, true, [
+            SearchField::Access->value => [SearchKeyDigest::UNMATCHABLE],
+            SearchField::Boundary->value => [SearchKeyDigest::UNMATCHABLE],
+        ]);
     }
 
     /**
      * @internal
      *
      * @param  class-string<Model>  $model
-     * @param  array<string, list<string>>  $values
+     * @param  array{_access: list<string>, _boundary: list<string>}  $values
      */
     public static function open(string $model, array $values): self
     {
@@ -54,7 +51,7 @@ final readonly class ReaderSearchKeys
         return $this->closed;
     }
 
-    /** @return array<string, list<string>> */
+    /** @return array{_access: list<string>, _boundary: list<string>} */
     public function values(): array
     {
         return $this->values;
