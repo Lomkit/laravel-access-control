@@ -21,7 +21,7 @@ final class UnsearchableThroughParentException extends LogicException
     public static function mappedView(string $control, string $relation, Ability $ability): self
     {
         return new self(sprintf(
-            'The ThroughParent perimeter of the [%s] control through the [%s] relation delegates view to the [%s] ability of the parent, but a search only knows the keys that open the parent for view. Delegate view to view on a searchable model.',
+            'The ThroughParent perimeter of the [%s] control through the [%s] relation delegates view to the [%s] ability of the parent, but a search only knows the keys that open the parent for view. Delegate view to view on a model that is searched, through Scout or through an index of your own.',
             $control,
             $relation,
             $ability,

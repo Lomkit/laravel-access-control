@@ -39,6 +39,7 @@ class PublicSurfaceTest extends PackageTestCase
         'Lomkit\Access\Policies\ControlledPolicy',
         'Lomkit\Access\Search\ControlledSearchBuilder',
         'Lomkit\Access\Search\ControlledSearchable',
+        'Lomkit\Access\Search\IndexReaderKeys',
         'Lomkit\Access\Search\ReindexesSearch',
         'Lomkit\Access\Search\SearchKeys',
         'Lomkit\Access\Search\Tokens\SearchToken',

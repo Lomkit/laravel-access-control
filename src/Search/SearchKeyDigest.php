@@ -5,6 +5,8 @@ namespace Lomkit\Access\Search;
 /** @internal */
 final class SearchKeyDigest
 {
+    public const string UNMATCHABLE = '#closed';
+
     private const string VERSION = 'lac1:';
 
     private const string ALGORITHM = 'sha256';

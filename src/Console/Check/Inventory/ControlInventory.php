@@ -3,8 +3,8 @@
 namespace Lomkit\Access\Console\Check\Inventory;
 
 use Lomkit\Access\Boundaries\NoBoundary;
-use Lomkit\Access\Console\Check\PerimeterPositions;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Perimeters\PerimeterPositions;
 use Lomkit\Access\Search\UsesControlledSearchable;
 
 /** @internal */

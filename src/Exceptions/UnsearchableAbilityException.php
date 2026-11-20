@@ -27,6 +27,24 @@ final class UnsearchableAbilityException extends LogicException
         ));
     }
 
+    public static function indexReaderKeys(string $model): self
+    {
+        return new self(sprintf(
+            'Access::indexReaderKeys() for the [%s] model received an argument after the model, such as an ability. %s',
+            $model,
+            self::FIX,
+        ));
+    }
+
+    public static function indexAgreement(string $control): self
+    {
+        return new self(sprintf(
+            'assertIndexKeysAgree() for the [%s] control received an argument after the readers, such as an ability. It compares the keys of an index with the view rows of each reader. %s',
+            $control,
+            self::FIX,
+        ));
+    }
+
     public static function agreement(string $control): self
     {
         return new self(sprintf(
