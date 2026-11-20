@@ -20,6 +20,7 @@ use Lomkit\Access\Exceptions\PerimeterWithoutSearchKeysException;
 use Lomkit\Access\Exceptions\ProxiedSearchTokenException;
 use Lomkit\Access\Exceptions\RefusedSearchFilterException;
 use Lomkit\Access\Exceptions\RefusedSearchParameterException;
+use Lomkit\Access\Exceptions\SharedMorphClassException;
 use Lomkit\Access\Exceptions\UndeclaredSearchTokensException;
 use Lomkit\Access\Exceptions\UnguardableSearchEngineException;
 use Lomkit\Access\Exceptions\UnknownSearchIndexException;
@@ -111,6 +112,7 @@ trait AccessSearchMethods
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
      * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
+     * @throws SharedMorphClassException When the morph class of the model names another model.
      */
     public static function searchKeysOf(iterable $rows): array
     {
@@ -124,6 +126,7 @@ trait AccessSearchMethods
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
      * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
+     * @throws SharedMorphClassException When the morph class of the model names another model.
      * @throws UnsearchableAbilityException When an ability is given after the reader.
      */
     public static function readerKeysFor(string $model, ?Model $reader): ReaderSearchKeys

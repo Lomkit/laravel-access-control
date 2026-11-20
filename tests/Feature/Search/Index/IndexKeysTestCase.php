@@ -74,6 +74,7 @@ abstract class IndexKeysTestCase extends AccessTestCase
     protected function tearDown(): void
     {
         Relation::morphMap([], false);
+        Relation::requireMorphMap(false);
 
         parent::tearDown();
     }

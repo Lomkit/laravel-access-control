@@ -2,18 +2,23 @@
 
 namespace Lomkit\Access\Tests\Feature\Search\Index;
 
+use Illuminate\Database\ClassMorphViolationException;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Lomkit\Access\Access;
 use Lomkit\Access\Exceptions\InvalidSearchRowException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\PerimeterWithoutSearchKeysException;
+use Lomkit\Access\Exceptions\SharedMorphClassException;
 use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Tests\Fixtures\Agencies\Mission;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\Post;
 use Lomkit\Access\Tests\Fixtures\Blog\PostControl;
+use Lomkit\Access\Tests\Fixtures\Blog\User;
 use Lomkit\Access\Tests\Fixtures\Index\Guide;
 use Lomkit\Access\Tests\Fixtures\Index\GuideControl;
+use Lomkit\Access\Tests\Fixtures\Index\PinnedGuide;
 use Lomkit\Access\Tests\Fixtures\Index\Ticket;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -73,6 +78,34 @@ class IndexKeysRefusalTest extends IndexKeysTestCase
         $this->assertThrows(fn () => Access::readerKeysFor(Post::class, null), PerimeterWithoutSearchKeysException::class, $message);
         $this->assertThrows(fn () => Access::readerKeysFor(Post::class, $this->ada), PerimeterWithoutSearchKeysException::class, $message);
         $this->assertThrows(fn () => Access::searchKeysOf([$post]), PerimeterWithoutSearchKeysException::class, $message);
+    }
+
+    #[Test]
+    public function it_refuses_a_model_whose_morph_class_names_another_model(): void
+    {
+        $pinned = PinnedGuide::query()->firstOrFail();
+        $message = sprintf('The [%s] model returns the morph class [%s], which names the [%s] model', PinnedGuide::class, Guide::class, Guide::class);
+
+        $this->assertThrows(fn () => Access::readerKeysFor(PinnedGuide::class, $this->root), SharedMorphClassException::class, $message);
+        $this->assertThrows(fn () => Access::searchKeysOf([$pinned]), SharedMorphClassException::class, $message);
+
+        Relation::morphMap(['guide' => Guide::class]);
+
+        $this->assertThrows(fn () => Access::readerKeysFor(PinnedGuide::class, $this->root), SharedMorphClassException::class, sprintf('returns the morph class [guide], which names the [%s] model', Guide::class));
+        $this->assertFalse(Access::readerKeysFor(Guide::class, $this->root)->isClosed());
+    }
+
+    #[Test]
+    public function it_lets_laravel_refuse_a_model_missing_from_a_required_morph_map(): void
+    {
+        Relation::requireMorphMap();
+
+        $this->assertThrows(fn () => Access::readerKeysFor(Guide::class, $this->root), ClassMorphViolationException::class);
+        $this->assertThrows(fn () => Access::searchKeysOf(Guide::query()->get()), ClassMorphViolationException::class);
+
+        Relation::morphMap(['guide' => Guide::class, 'user' => User::class]);
+
+        $this->assertFalse(Access::readerKeysFor(Guide::class, $this->root)->isClosed());
     }
 
     #[Test]

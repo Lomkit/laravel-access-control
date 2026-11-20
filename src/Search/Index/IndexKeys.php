@@ -8,6 +8,7 @@ use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\InvalidSearchRowException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\PerimeterWithoutSearchKeysException;
+use Lomkit\Access\Exceptions\SharedMorphClassException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Exceptions\UnsearchableThroughParentException;
 use Lomkit\Access\Perimeters\PerimeterPositions;
@@ -32,6 +33,7 @@ final readonly class IndexKeys
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
      * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
+     * @throws SharedMorphClassException When the morph class of the model names another model.
      */
     public static function documentsOf(iterable $rows): array
     {
@@ -52,6 +54,7 @@ final readonly class IndexKeys
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
      * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
+     * @throws SharedMorphClassException When the morph class of the model names another model.
      */
     public static function readerKeysFor(string $model, ?Model $reader): ReaderSearchKeys
     {
@@ -65,6 +68,7 @@ final readonly class IndexKeys
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
      * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
+     * @throws SharedMorphClassException When the morph class of the model names another model.
      */
     private static function for(string $model): self
     {

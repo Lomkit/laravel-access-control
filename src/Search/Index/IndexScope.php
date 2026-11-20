@@ -3,6 +3,8 @@
 namespace Lomkit\Access\Search\Index;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Lomkit\Access\Exceptions\SharedMorphClassException;
 use Lomkit\Access\Search\SearchField;
 use Lomkit\Access\Search\SearchKeyDigest;
 use Lomkit\Access\Search\SearchKeyValues;
@@ -18,10 +20,21 @@ final readonly class IndexScope
 
     private function __construct(private string $prefix) {}
 
-    /** @param  class-string<Model>  $model */
+    /**
+     * @param  class-string<Model>  $model
+     *
+     * @throws SharedMorphClassException When the morph class of the model names another model.
+     */
     public static function of(string $model): self
     {
-        return new self(self::MARKER.SearchKeyValues::component((new $model)->getMorphClass()).self::SEPARATOR);
+        $morph = (new $model)->getMorphClass();
+        $named = Relation::getMorphedModel($morph) ?? $morph;
+
+        if ($named !== $model) {
+            throw SharedMorphClassException::forIndex($model, $morph, $named);
+        }
+
+        return new self(self::MARKER.SearchKeyValues::component($morph).self::SEPARATOR);
     }
 
     /**
