@@ -161,7 +161,7 @@ class FilterSyntaxTest extends PackageTestCase
                 $syntax->render(self::filterSending(['_boundary' => [SearchKeyDigest::of('workspace.1')], '_access' => [$value]]));
                 $this->fail(sprintf('%s rendered an undigested value.', $syntax::class));
             } catch (UndigestedSearchValueException $exception) {
-                $this->assertSame(sprintf('The [_access] filter received the value [%s], which is not the digest of a search key. The package writes every search key in a document, and renders it in a filter, as its digest only, so this value is a defect of the package.', $value), $exception->getMessage());
+                $this->assertSame(sprintf('The [_access] filter received the value [%s], which is not the digest of a search key. The package writes every search key in a document, and renders it in a filter, as its digest only, so this value did not go through the digest.', $value), $exception->getMessage());
             }
         }
     }

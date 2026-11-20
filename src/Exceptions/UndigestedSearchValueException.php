@@ -6,7 +6,7 @@ use LogicException;
 
 final class UndigestedSearchValueException extends LogicException
 {
-    private const string INVARIANT = 'The package writes every search key in a document, and renders it in a filter, as its digest only, so this value is a defect of the package.';
+    private const string INVARIANT = 'The package writes every search key in a document, and renders it in a filter, as its digest only, so this value did not go through the digest.';
 
     public static function for(string $field, string $value): self
     {
@@ -21,7 +21,7 @@ final class UndigestedSearchValueException extends LogicException
     public static function inDocument(string $field, string $value): self
     {
         return new self(sprintf(
-            'The [%s] field of a search document holds the value [%s], which is not the digest of a search key, so no filter would ever match it. %s',
+            'The [%s] field of a search document holds the value [%s], which is not the digest of a search key, so it never equals a key of a filter. %s',
             $field,
             $value,
             self::INVARIANT,

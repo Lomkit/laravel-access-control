@@ -70,7 +70,7 @@ class SearchFilterTest extends TestCase
     public function it_refuses_to_match_a_document_value_that_is_not_a_digest(SearchFilter $filter, array $document, string $field, string $value): void
     {
         $this->expectException(UndigestedSearchValueException::class);
-        $this->expectExceptionMessage(sprintf('The [%s] field of a search document holds the value [%s], which is not the digest of a search key, so no filter would ever match it. The package writes every search key in a document, and renders it in a filter, as its digest only, so this value is a defect of the package.', $field, $value));
+        $this->expectExceptionMessage(sprintf('The [%s] field of a search document holds the value [%s], which is not the digest of a search key, so it never equals a key of a filter. The package writes every search key in a document, and renders it in a filter, as its digest only, so this value did not go through the digest.', $field, $value));
 
         $filter->matches($document);
     }
