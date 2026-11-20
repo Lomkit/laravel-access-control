@@ -17,11 +17,11 @@ use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
 use Lomkit\Access\Perimeters\Perimeter;
-use Lomkit\Access\Perimeters\ThroughParent;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessInspector;
 use Lomkit\Access\Search\Freshness\Inspection\FreshnessIssue;
 use Lomkit\Access\Search\Freshness\Inspection\KeyRelationIssue;
 use Lomkit\Access\Search\Freshness\Inspection\UnreadableKeyRelation;
+use Lomkit\Access\Search\KeylessPerimeters;
 use Lomkit\Access\Search\SearchEngineKind;
 use Lomkit\Access\Search\SearchKeys;
 use Lomkit\Access\Search\UsesControlledSearchable;
@@ -67,10 +67,8 @@ final class SearchCheck
 
         $positions = PerimeterPositions::of($control);
 
-        foreach ($positions as $position => $perimeter) {
-            if (! $perimeter->isUnrestricted() && ! $perimeter instanceof ThroughParent && $perimeter->declaredSearchKeys() === null) {
-                $findings->problem(new PerimeterWithoutSearchKeys($control::class, $position, $perimeter::class, $model, HeldPerimeters::in($perimeter)));
-            }
+        foreach (KeylessPerimeters::in($positions) as $position => $perimeter) {
+            $findings->problem(new PerimeterWithoutSearchKeys($control::class, $position, $perimeter::class, $model, HeldPerimeters::in($perimeter)));
         }
 
         foreach (FreshnessInspector::inspect($model)->issues() as $issue) {

@@ -10,13 +10,11 @@ use Lomkit\Access\Search\SearchKeyDigest;
 /** @internal */
 abstract class FilterSyntax
 {
-    private const string UNMATCHABLE_KEY = '#closed';
-
     /** @throws UndigestedSearchValueException When a value of the filter is not the digest of a search key. */
     final public function render(SearchFilter $filter, bool $hidesDeleted = false): ?string
     {
         if ($filter->isClosed()) {
-            return $this->clause(SearchField::Access->value, [$this->quote(self::UNMATCHABLE_KEY)]);
+            return $this->clause(SearchField::Access->value, [$this->quote(SearchKeyDigest::UNMATCHABLE)]);
         }
 
         $clauses = [];
@@ -35,7 +33,7 @@ abstract class FilterSyntax
     /** @throws UndigestedSearchValueException When the value is neither a digest nor the key that no document carries. */
     private static function checked(string $field, string $value): string
     {
-        if ($value !== self::UNMATCHABLE_KEY && ! SearchKeyDigest::isDigest($value)) {
+        if ($value !== SearchKeyDigest::UNMATCHABLE && ! SearchKeyDigest::isDigest($value)) {
             throw UndigestedSearchValueException::for($field, $value);
         }
 

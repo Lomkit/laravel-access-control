@@ -27,6 +27,7 @@ The releases of 1.x follow semantic versioning for what the documentation descri
 - the refusal codes of the policies (`unsaved`, `no_perimeter`, `outside_boundary`, `not_found`, `outside_rows`) and the names of the search attributes `_access` and `_boundary`;
 - the artisan commands, their options, their exit codes and the JSON of `access:check`. A minor release may add problems and notes to `access:check`, so a CI that passed may fail after it, as with the new rules of a linter.
 - `Access::searchTokens()` and `Access::guardSearch()`, with the bodies the guard accepts and the parameters it forces. A release, even a patch, may refuse a parameter or a filter that turns out to widen what a reader finds: the guard fails closed, with `RefusedSearchParameterException` or `RefusedSearchFilterException`, rather than keep an opening.
+- `Access::searchKeysOf()` and `Access::readerKeysFor()`, the `ReaderSearchKeys` that `readerKeysFor()` returns, with its `model()`, `isClosed()` and `values()`, and the `assertIndexKeysAgree()` assertion (see [Your own search client](#your-own-search-client)). Their shape is covered: both fields for each document and each open reader, never an empty list, values of 32 lowercase hexadecimal characters, and `#closed` in both fields for a closed reader. The values themselves change as the access keys below do.
 
 A class or a method marked `@internal` may change or disappear in any release, whatever its PHP visibility, and so may a method, public or protected, that the documentation does not describe: do not call, extend, implement, override or type against them. The classes behind the artisan commands, the control registry and the search keys and filters, such as `SearchKeyValues`, `SearchDocuments`, `SearchRules` and `SearchFilter`, are internal. `AccessServiceProvider` is registered by Laravel's package discovery: list it in `bootstrap/providers.php` if your application turns the discovery off, and do not extend it. `ControlledSearchBuilder` is the builder that `search()` returns on a `ControlledSearchable` model, whose `controlled()`, `controlledFor()` and `uncontrolled()` are public (see [Search](#search)).
 
@@ -1115,13 +1116,50 @@ Accepted parameters of each search:
 
 #### Your own search client
 
-A controlled search keeps the documents whose access keys meet the keys of the reader. An application that queries the engine with its own client keeps that filter in one of three ways:
+A controlled search keeps the documents whose access keys meet the keys of the reader. An application that queries the engine with its own client keeps that filter in one of four ways:
 
 - **The index of a `ControlledSearchable` model, queried by your own client**, for a multi-search that holds this search, a vector search or an option that Scout does not expose: pass a callback to the search, such as `Post::search('budget', fn ($client, $query, $options) => ...)->controlled()`. The options it receives hold the access filter of the reader for the index of this model: pass them on to your client, never rebuild them (see [Engines](#engines)). Never apply that filter to another index: the keys of another model may have the same names and another meaning, so it could widen what the reader finds there. In a multi-search, each model takes the filter of its own search.
 - **A search that your server proxies**, such as the multi-search of an InstantSearch front end: declare `Access::searchTokens(direct: false)`, pass the body of the search to `Access::guardSearch($body, $reader)` in your route, and forward the body it returns to the engine, as [Search from the browser](#search-from-the-browser) shows. The guard checks that each search names the index of a controlled model, adds the reader's filter of that model to the filter of the search, and refuses the parameters that could widen what the reader finds. Never combine a filter of the package with yours by hand: `Access::searchToken()` throws under `direct: false`, and `SearchToken::filter()` is for logs and tests.
 - **One index per model, written by your own client**: wrap the client in a Scout engine of your application, a subclass of Scout's Algolia, Meilisearch, Typesense or Turbopuffer engine, which the package trusts as it is, or another engine trusted with `Access::trustSearchEngine()` (see [Engines](#engines)). The documents, their freshness, `access:check` and `assertSearchAgrees()` then follow as for any engine.
+- **An index of your own**, which is not the index of one Scout model: store the values of `Access::searchKeysOf()` on its documents and filter on the values of `Access::readerKeysFor()`, below.
 
-An index that is not the index of one Scout model, such as a collection shared by several models, chunks of documents for a semantic search or an ingestion pipeline of your own, has no public route in 1.0: the classes that compute the keys of a row and the filter of a reader are internal (see [What is public in 1.x](#what-is-public-in-1x)), and may change in any release. A read-only way to get them is planned for 1.1. The freshness is what such an index would miss: the package reindexes the documents of a Scout model when the data its keys read changes (see [Keeping the keys fresh](#keeping-the-keys-fresh)), and a key that an index keeps after a change can show a row to a reader who lost access.
+**An index of your own.** An index that is not the index of one Scout model, such as a collection shared by several models, chunks of documents for a semantic search or an ingestion pipeline of your own, takes its values from two read-only methods: `Access::searchKeysOf($rows)` gives the values to store on the documents of each row, and `Access::readerKeysFor($model, $reader)` the values that the search of a reader filters on. A common use keeps the list in SQL with `controlledFor()` and asks the engine only for the rows that its content finds, filtered by the keys of the reader so that the documents the reader may not view do not take the top results:
+
+```php
+use Lomkit\Access\Access;
+
+// Indexing: the rows of one model at a time
+$posts = Post::query()->whereKey($ids)->get();
+
+foreach (Access::searchKeysOf($posts) as $id => $keys) {
+    foreach ($chunks[$id] as $chunk) {
+        $index->upsert([...$chunk, '_access' => $keys['_access'], '_boundary' => $keys['_boundary']]);
+    }
+}
+
+// Searching
+$keys = Access::readerKeysFor(Post::class, $request->user());
+
+if ($keys->isClosed()) {
+    return [];
+}
+
+$hits = $index->search($query, filters: [
+    ['_access', 'in', $keys->values()['_access']],
+    ['_boundary', 'in', $keys->values()['_boundary']],
+]);
+```
+
+`$index` stands for the client of your engine. Declare `_access` and `_boundary` as arrays of strings that the engine filters on, compared as whole values, as in [Engines](#engines).
+
+- `searchKeysOf()` takes the saved rows of one model, as a collection or any iterable, and returns, by the key of each row, `['_access' => [...], '_boundary' => [...]]`. It loads the `load:` relations of the keys once for all the rows, as the indexing of a `ControlledSearchable` model does, and never loads lazily. Rows of two models throw `InvalidSearchRowException`, and so do a value that is not a model and an unsaved row.
+- `readerKeysFor()` returns a `ReaderSearchKeys`: `model()`, `isClosed()` and `values()`, the values of `_access` and `_boundary`. The keys of the reader are the ones `controlledFor()` lists the rows with: for `view`, in the current [decision context](#the-decision-context), and in the context of the row for a `ThroughParent` that is `decidedInRowContext()`. It takes no ability: one given after the reader throws `UnsearchableAbilityException`.
+- A document matches a reader when it shares at least one value with the reader in `_access` and at least one in `_boundary`. Every document and every open reader has values in both fields, never an empty list, so a filter on both fields is always right: an unrestricted reader holds the value that every document of the model carries, and a model without a boundary gives the same `_boundary` value to its documents and to its readers.
+- A reader that `controlled()` would show an empty page (no reader, no perimeter that allows them, no key, or a boundary value that is `null`) is closed: `isClosed()` is `true` and both fields hold `#closed`, a value that no document carries, so a filter that ignores `isClosed()` still finds nothing. Skip the engine when it is `true`.
+- The values are digests of 32 lowercase hexadecimal characters, never the keys as you declare them. The morph class of the model (`getMorphClass()`: its morph alias, or its class name without one) is part of each digest, so the values of a model only match the values that these two methods give for the same model: two models whose rules have the same names never match each other's documents, and one collection holds several models without a field of its own. For the same reason, they never match the documents of a `ControlledSearchable` model, even of the same model: never store or filter one kind with the other. A change of the morph alias, or the rename of a class without one, changes every value, and the index finds nothing until its documents are written again.
+- The model needs a control, not `ControlledSearchable`. Both methods throw `MissingControlException` without one, `UnsearchableBoundaryException` when the boundary class has no `searchKeys()`, and `PerimeterWithoutSearchKeysException` when a perimeter of the control that is neither unrestricted nor a `ThroughParent` declares no search keys, whoever the reader: the rows it grants would be missing from the index. `access:check` reports the same perimeters as `perimeter_without_search_keys`. A perimeter that never grants `view` needs its search keys too until 1.1.
+
+The package reindexes nothing outside Scout. A document keeps the values it was written with, and a value that an index keeps after a change can show a row to a reader who lost access, until the document is written again. Compute the values again and rewrite the documents when what the keys read changes: the columns of the row that the `row:` closures and the boundary read, the models they load through `load:`, the models that the `reindexWhen()` of a perimeter watches, the parent of a `ThroughParent` and what changes its keys, the pivots that a key reads, the rules themselves after a deployment, and the writes that Eloquent does not see. [Keeping the keys fresh](#keeping-the-keys-fresh) lists what the package does for a Scout model in each case; your pipeline does the same for its index. The reader side needs nothing: `readerKeysFor()` computes the keys at each call. Check the pair with `assertIndexKeysAgree()`, below.
 
 #### Testing the search
 
@@ -1135,6 +1173,17 @@ public function test_its_search_says_what_its_sql_says(): void
 ```
 
 It proves the agreement on the rows of the test only: seed the rows each perimeter reaches. It compares the digests of the keys, as the engine receives them, so it proves the logic of your keys, not the behaviour of the engine. A failure lists the readable keys of the reader and of each row in disagreement, the first ten of each list.
+
+`assertIndexKeysAgree()` checks the same for an index of your own, on a model with or without `ControlledSearchable`: for each reader, `null` included, the rows whose `Access::searchKeysOf()` values share a value with the `Access::readerKeysFor()` values in each field, without reading `isClosed()`, must be the rows of `controlledFor()`:
+
+```php
+public function test_its_index_keys_say_what_its_sql_says(): void
+{
+    $this->assertIndexKeysAgree(PostControl::class, readers: [null, $this->admin, $this->clientManager, $this->author]);
+}
+```
+
+It proves the agreement on the rows of the test only, as `assertSearchAgrees()` does. A failure lists the keys of the rows in disagreement, the first ten of each list.
 
 ### Linking a model to its control
 
