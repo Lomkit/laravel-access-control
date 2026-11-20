@@ -98,7 +98,7 @@ abstract class ParentSearchTestCase extends SearchTestCase
     }
 
     /** @return list<string> */
-    protected function accessKeysOf(string $body): array
+    protected function digestedAccessKeysOf(string $body): array
     {
         $reply = $this->replyNamed($body);
         $keys = $this->engine->documents[$reply->searchableAs()][(string) $reply->getKey()]['_access'] ?? [];
@@ -125,7 +125,7 @@ abstract class ParentSearchTestCase extends SearchTestCase
     protected function readableKeysOf(string $body): array
     {
         $rules = Access::controlFor(Reply::class)->searchRules();
-        $keys = (new SearchDocuments($rules))->keysFor([$this->replyNamed($body)])[0]['_access'];
+        $keys = (new SearchDocuments($rules))->readableKeysFor([$this->replyNamed($body)])[0]['_access'];
         sort($keys);
 
         return $keys;
@@ -135,7 +135,7 @@ abstract class ParentSearchTestCase extends SearchTestCase
     protected function assertRowKeys(array $readable, string $body): void
     {
         $this->assertSame($readable, $this->readableKeysOf($body));
-        $this->assertSame($this->digestsOf($readable), $this->accessKeysOf($body));
+        $this->assertSame($this->digestsOf($readable), $this->digestedAccessKeysOf($body));
     }
 
     /** @return list<string> */

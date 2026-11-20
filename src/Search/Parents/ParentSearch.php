@@ -92,7 +92,7 @@ final readonly class ParentSearch
         $filter = $this->parent->searchFilterIn($context->withAbility($this->view));
         $key = $value === null ? $this->key : $this->key->in($value);
 
-        return $filter->isClosed() ? [] : $key->products($filter->boundaryKeys(), $filter->accessKeys());
+        return $filter->isClosed() ? [] : $key->products($filter->readableBoundaryKeys(), $filter->readableAccessKeys());
     }
 
     /** @return array<string, list<ReindexRule>> */

@@ -85,9 +85,9 @@ class RowContextSearchTest extends ParentSearchTestCase
     #[Test]
     public function it_gives_the_reader_the_keys_of_the_parent_in_each_value_of_the_request(): void
     {
-        $this->assertSame(['through.thread.in.1.0.brand.1', 'through.thread.in.2.0.brand.2'], $this->readerKeys($this->ada));
-        $this->assertSame(['through.thread.in.2.0.brand.2'], $this->readerKeys($this->grace));
-        $this->assertSame([], $this->readerKeys($this->linus));
+        $this->assertSame(['through.thread.in.1.0.brand.1', 'through.thread.in.2.0.brand.2'], $this->readableReaderKeys($this->ada));
+        $this->assertSame(['through.thread.in.2.0.brand.2'], $this->readableReaderKeys($this->grace));
+        $this->assertSame([], $this->readableReaderKeys($this->linus));
     }
 
     #[Test]
@@ -96,7 +96,7 @@ class RowContextSearchTest extends ParentSearchTestCase
         ConfiguredReplyControl::bind($this->throughThread());
 
         $this->assertSame([], $this->searchedReplies($this->ada));
-        $this->assertSame(['through.thread.0.brand.1', 'through.thread.0.brand.2'], $this->readerKeys($this->ada));
+        $this->assertSame(['through.thread.0.brand.1', 'through.thread.0.brand.2'], $this->readableReaderKeys($this->ada));
     }
 
     #[Test]
@@ -134,7 +134,7 @@ class RowContextSearchTest extends ParentSearchTestCase
         $this->reindexReplies();
 
         $this->assertRowKeys(['through.thread.in._41636d65.0', 'through.thread.in._41636d65.0.brand.1'], 'Ship it');
-        $this->assertSame(['through.thread.in._41636d65.0.brand.1', 'through.thread.in.globex.0.brand.2'], $this->readerKeys($this->ada));
+        $this->assertSame(['through.thread.in._41636d65.0.brand.1', 'through.thread.in.globex.0.brand.2'], $this->readableReaderKeys($this->ada));
         $this->assertSame(['Offsite plan'], $this->searchedReplies($this->grace));
         $this->assertSame(['Offsite plan', 'Ship it'], $this->searchedReplies($this->ada));
         $this->assertSearchAgrees(ReplyControl::class, [$this->ada, $this->grace, $this->linus]);
@@ -166,9 +166,9 @@ class RowContextSearchTest extends ParentSearchTestCase
     }
 
     /** @return list<string> */
-    private function readerKeys(User $reader): array
+    private function readableReaderKeys(User $reader): array
     {
-        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->accessKeys() ?? [];
+        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->readableAccessKeys() ?? [];
         sort($keys);
 
         return $keys;
