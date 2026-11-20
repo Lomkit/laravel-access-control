@@ -6,8 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Ability;
 use Lomkit\Access\AccessContext;
 use Lomkit\Access\Controls\Control;
+use Lomkit\Access\Exceptions\PerimeterWithoutSearchKeysException;
 use Lomkit\Access\Exceptions\UnsearchableThroughParentException;
+use Lomkit\Access\Perimeters\PerimeterPositions;
 use Lomkit\Access\Search\Freshness\ReindexRule;
+use Lomkit\Access\Search\KeylessPerimeters;
 use Lomkit\Access\Search\SearchField;
 use Lomkit\Access\Search\SearchRules;
 
@@ -47,6 +50,33 @@ final readonly class ParentSearch
 
         foreach ($this->rules()->parents() as $grandparent) {
             $grandparent->ensureSearchable($this->parent::class);
+        }
+    }
+
+    /**
+     * @throws UnsearchableThroughParentException When the keys of the parent would not describe the rows the child reads through it.
+     * @throws PerimeterWithoutSearchKeysException When a perimeter of the parent, or of a parent further up, declares no search keys.
+     */
+    public function ensureIndexable(string $control): void
+    {
+        if ($this->view === null) {
+            return;
+        }
+
+        if (! $this->view->is(Ability::view())) {
+            throw UnsearchableThroughParentException::mappedView($control, $this->relation, $this->view);
+        }
+
+        if (! $this->rules()->isSearchable()) {
+            throw UnsearchableThroughParentException::unsearchableBoundary($control, $this->relation, $this->parent::class);
+        }
+
+        foreach (KeylessPerimeters::in(PerimeterPositions::of($this->parent)) as $position => $perimeter) {
+            throw PerimeterWithoutSearchKeysException::forIndex($this->parent, $position, $perimeter);
+        }
+
+        foreach ($this->rules()->parents() as $grandparent) {
+            $grandparent->ensureIndexable($this->parent::class);
         }
     }
 

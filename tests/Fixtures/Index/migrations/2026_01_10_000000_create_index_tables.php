@@ -17,6 +17,14 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        Schema::create('guide_notes', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('guide_id')->constrained();
+            $table->unsignedBigInteger('brand_id')->nullable();
+            $table->string('body');
+            $table->timestamps();
+        });
+
         Schema::create('tickets', function (Blueprint $table): void {
             $table->id();
             $table->string('title');

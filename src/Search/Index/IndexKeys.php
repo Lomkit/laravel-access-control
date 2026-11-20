@@ -9,6 +9,7 @@ use Lomkit\Access\Exceptions\InvalidSearchRowException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\PerimeterWithoutSearchKeysException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
+use Lomkit\Access\Exceptions\UnsearchableThroughParentException;
 use Lomkit\Access\Perimeters\PerimeterPositions;
 use Lomkit\Access\Search\KeylessPerimeters;
 use Lomkit\Access\Search\ReaderSearchKeys;
@@ -29,7 +30,8 @@ final readonly class IndexKeys
      * @throws InvalidSearchRowException When a row is not an Eloquent model, is unsaved, or is not of the model of the first row.
      * @throws MissingControlException When no control is registered for the model of the rows.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
-     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control declares no search keys.
+     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
+     * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
      */
     public static function documentsOf(iterable $rows): array
     {
@@ -48,7 +50,8 @@ final readonly class IndexKeys
      *
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
-     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control declares no search keys.
+     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
+     * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
      */
     public static function readerKeysFor(string $model, ?Model $reader): ReaderSearchKeys
     {
@@ -60,7 +63,8 @@ final readonly class IndexKeys
      *
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
-     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control declares no search keys.
+     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
+     * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
      */
     private static function for(string $model): self
     {
@@ -72,6 +76,10 @@ final readonly class IndexKeys
 
         foreach (KeylessPerimeters::in(PerimeterPositions::of($control)) as $position => $perimeter) {
             throw PerimeterWithoutSearchKeysException::forIndex($control, $position, $perimeter);
+        }
+
+        foreach ($control->searchRules()->parents() as $parent) {
+            $parent->ensureIndexable($control::class);
         }
 
         return new self($control, IndexScope::of($control->getModel()));

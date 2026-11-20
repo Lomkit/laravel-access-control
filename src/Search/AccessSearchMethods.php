@@ -25,6 +25,7 @@ use Lomkit\Access\Exceptions\UnguardableSearchEngineException;
 use Lomkit\Access\Exceptions\UnknownSearchIndexException;
 use Lomkit\Access\Exceptions\UnsearchableAbilityException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
+use Lomkit\Access\Exceptions\UnsearchableThroughParentException;
 use Lomkit\Access\Exceptions\UnsupportedSearchTokenEngineException;
 use Lomkit\Access\Search\Guard\SearchGuards;
 use Lomkit\Access\Search\Index\IndexKeys;
@@ -108,7 +109,8 @@ trait AccessSearchMethods
      * @throws InvalidSearchRowException When a row is not an Eloquent model, is unsaved, or is not of the model of the first row.
      * @throws MissingControlException When no control is registered for the model of the rows.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
-     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control declares no search keys.
+     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
+     * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
      */
     public static function searchKeysOf(iterable $rows): array
     {
@@ -120,7 +122,8 @@ trait AccessSearchMethods
      *
      * @throws MissingControlException When no control is registered for the model.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
-     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control declares no search keys.
+     * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
+     * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
      * @throws UnsearchableAbilityException When an ability is given after the reader.
      */
     public static function readerKeysFor(string $model, ?Model $reader): ReaderSearchKeys
