@@ -4,12 +4,12 @@ namespace Lomkit\Access\Search\Index;
 
 use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Access;
-use Lomkit\Access\Console\Check\PerimeterPositions;
 use Lomkit\Access\Controls\Control;
 use Lomkit\Access\Exceptions\InvalidSearchRowException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\PerimeterWithoutSearchKeysException;
 use Lomkit\Access\Exceptions\UnsearchableBoundaryException;
+use Lomkit\Access\Perimeters\PerimeterPositions;
 use Lomkit\Access\Search\KeylessPerimeters;
 use Lomkit\Access\Search\ReaderSearchKeys;
 use Lomkit\Access\Search\SearchDocuments;

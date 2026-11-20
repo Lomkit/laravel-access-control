@@ -1,10 +1,8 @@
 <?php
 
-namespace Lomkit\Access\Console\Check;
+namespace Lomkit\Access\Perimeters;
 
 use Lomkit\Access\Controls\Control;
-use Lomkit\Access\Perimeters\Levels;
-use Lomkit\Access\Perimeters\Perimeter;
 
 /** @internal */
 final class PerimeterPositions
