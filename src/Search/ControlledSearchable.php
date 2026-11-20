@@ -52,7 +52,7 @@ trait ControlledSearchable
         $rows = array_values($models->all());
         $documents = new SearchDocuments(Access::controlFor(static::class)->searchRules());
 
-        foreach ($documents->digestedMetadataFor($rows) as $index => $metadata) {
+        foreach ($documents->digestedKeysFor($rows) as $index => $metadata) {
             foreach ($metadata as $field => $value) {
                 $rows[$index]->withScoutMetadata($field, $value);
             }

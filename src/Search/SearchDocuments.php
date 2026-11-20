@@ -15,7 +15,7 @@ final readonly class SearchDocuments
      * @param  list<Model>  $rows
      * @return list<array<string, list<string>>>
      */
-    public function digestedMetadataFor(array $rows): array
+    public function digestedKeysFor(array $rows): array
     {
         return array_map(SearchKeyDigest::document(...), $this->readableKeysFor($rows));
     }
