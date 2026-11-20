@@ -63,7 +63,7 @@ class ParentFreshnessTest extends ParentSearchTestCase
     {
         $this->roadmap->update(['author_id' => $this->linus->getKey()]);
 
-        $this->assertSame($this->shipItKeysFor($this->linus->getKey(), $this->acme->getKey()), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->shipItKeysFor($this->linus->getKey(), $this->acme->getKey()), $this->digestedAccessKeysOf('Ship it'));
         $this->grant(['view own threads' => ['Ada', 'Linus']]);
         $this->assertSame([], $this->searchedReplies($this->ada));
         $this->assertSame(['Ship it', 'Too expensive', 'Typo in the title'], $this->searchedReplies($this->linus));
@@ -74,7 +74,7 @@ class ParentFreshnessTest extends ParentSearchTestCase
     {
         $this->roadmap->update(['workspace_id' => 2]);
 
-        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey(), 2), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey(), 2), $this->digestedAccessKeysOf('Ship it'));
     }
 
     #[Test]
@@ -114,7 +114,7 @@ class ParentFreshnessTest extends ParentSearchTestCase
     {
         $this->general->update(['client_id' => $this->globex->getKey()]);
 
-        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->globex->getKey()), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->globex->getKey()), $this->digestedAccessKeysOf('Ship it'));
         $this->grant(['view client threads' => ['Linus']]);
         $this->assertSame(['Ship it', 'Too expensive', 'Typo in the title'], $this->searchedReplies($this->linus));
         $this->assertSearchAgrees(ReplyControl::class, [$this->ada, $this->linus]);
@@ -142,13 +142,13 @@ class ParentFreshnessTest extends ParentSearchTestCase
 
         $this->roadmap->delete();
 
-        $this->assertSame($this->digestsOf(["author.{$this->grace->getKey()}"]), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->digestsOf(["author.{$this->grace->getKey()}"]), $this->digestedAccessKeysOf('Ship it'));
         $this->assertSame([], $this->searchedReplies($this->ada));
         $this->assertSearchAgrees(ReplyControl::class, [$this->ada]);
 
         $this->roadmap->restore();
 
-        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey()), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey()), $this->digestedAccessKeysOf('Ship it'));
         $this->assertSame(['Ship it', 'Typo in the title'], $this->searchedReplies($this->ada));
     }
 
@@ -157,8 +157,8 @@ class ParentFreshnessTest extends ParentSearchTestCase
     {
         $this->replyNamed('Ship it')->update(['thread_id' => $this->pricing->getKey()]);
 
-        $this->assertContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->linus->getKey()}"), $this->accessKeysOf('Ship it'));
-        $this->assertNotContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"), $this->accessKeysOf('Ship it'));
+        $this->assertContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->linus->getKey()}"), $this->digestedAccessKeysOf('Ship it'));
+        $this->assertNotContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"), $this->digestedAccessKeysOf('Ship it'));
     }
 
     #[Test]
@@ -167,10 +167,10 @@ class ParentFreshnessTest extends ParentSearchTestCase
         DB::transaction(function (): void {
             $this->roadmap->update(['author_id' => $this->linus->getKey()]);
 
-            $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey()), $this->accessKeysOf('Ship it'));
+            $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey()), $this->digestedAccessKeysOf('Ship it'));
         });
 
-        $this->assertSame($this->shipItKeysFor($this->linus->getKey(), $this->acme->getKey()), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->shipItKeysFor($this->linus->getKey(), $this->acme->getKey()), $this->digestedAccessKeysOf('Ship it'));
     }
 
     #[Test]
@@ -180,7 +180,7 @@ class ParentFreshnessTest extends ParentSearchTestCase
         $this->roadmap->update(['author_id' => $this->linus->getKey()]);
         DB::rollBack();
 
-        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey()), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->shipItKeysFor($this->ada->getKey(), $this->acme->getKey()), $this->digestedAccessKeysOf('Ship it'));
     }
 
     #[Test]
@@ -196,6 +196,6 @@ class ParentFreshnessTest extends ParentSearchTestCase
 
         $job->handle(Access::getFacadeRoot());
 
-        $this->assertSame($this->shipItKeysFor($this->linus->getKey(), $this->acme->getKey()), $this->accessKeysOf('Ship it'));
+        $this->assertSame($this->shipItKeysFor($this->linus->getKey(), $this->acme->getKey()), $this->digestedAccessKeysOf('Ship it'));
     }
 }

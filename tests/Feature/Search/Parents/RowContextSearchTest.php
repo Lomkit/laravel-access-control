@@ -168,7 +168,7 @@ class RowContextSearchTest extends ParentSearchTestCase
     /** @return list<string> */
     private function readerKeys(User $reader): array
     {
-        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->accessKeys() ?? [];
+        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->readableAccessKeys() ?? [];
         sort($keys);
 
         return $keys;

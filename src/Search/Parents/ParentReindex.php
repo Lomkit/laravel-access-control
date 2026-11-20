@@ -61,7 +61,7 @@ final readonly class ParentReindex implements ReindexRule
 
     private function keysChanged(Model $instance): bool
     {
-        $documents = (new SearchDocuments($this->parent->searchRules()))->keysFor([
+        $documents = (new SearchDocuments($this->parent->searchRules()))->readableKeysFor([
             $instance->newFromBuilder(ModelSnapshot::previous($instance)),
             $instance->newFromBuilder(ModelSnapshot::current($instance)),
         ]);

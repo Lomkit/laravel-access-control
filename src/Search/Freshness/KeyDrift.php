@@ -52,7 +52,7 @@ final class KeyDrift
         }
 
         $documents = (new SearchDocuments(Access::controlFor($model)->searchRules()))
-            ->keysFor([$model->newFromBuilder($previous), $model->newFromBuilder($current)]);
+            ->readableKeysFor([$model->newFromBuilder($previous), $model->newFromBuilder($current)]);
 
         foreach ([SearchField::Access, SearchField::Boundary] as $field) {
             if ($documents[0][$field->value] !== $documents[1][$field->value]) {

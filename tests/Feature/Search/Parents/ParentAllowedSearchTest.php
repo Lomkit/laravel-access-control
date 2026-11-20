@@ -41,7 +41,7 @@ class ParentAllowedSearchTest extends ParentSearchTestCase
     /** @return list<string> */
     protected function readerKeys(User $reader): array
     {
-        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->accessKeys() ?? [];
+        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->readableAccessKeys() ?? [];
         sort($keys);
 
         return $keys;
@@ -75,6 +75,6 @@ class ParentAllowedSearchTest extends ParentSearchTestCase
     #[Test]
     public function it_keeps_the_row_keys_whatever_allowed_answers(): void
     {
-        $this->assertContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"), $this->accessKeysOf('Ship it'));
+        $this->assertContains(SearchKeyDigest::of("through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"), $this->digestedAccessKeysOf('Ship it'));
     }
 }

@@ -54,13 +54,13 @@ final readonly class SearchFilter
     }
 
     /** @return list<string>|null */
-    public function boundaryKeys(): ?array
+    public function readableBoundaryKeys(): ?array
     {
         return $this->boundary;
     }
 
     /** @return list<string>|null */
-    public function accessKeys(): ?array
+    public function readableAccessKeys(): ?array
     {
         return $this->access;
     }

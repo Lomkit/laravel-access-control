@@ -24,7 +24,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
     /** @return list<string> */
     protected function readerKeys(User $reader): array
     {
-        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->accessKeys() ?? [];
+        $keys = Access::controlFor(Reply::class)->searchFilter($reader)->readableAccessKeys() ?? [];
         sort($keys);
 
         return $keys;
@@ -125,7 +125,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
             'through.thread.0.through.forum.0',
             "through.thread.0.through.forum.0.client.{$this->globex->getKey()}",
         ], array_values(array_filter($this->readableKeysOf('Too expensive'), fn (string $key): bool => str_starts_with($key, 'through.'))));
-        $this->assertSame($this->digestsOf($this->readableKeysOf('Too expensive')), $this->accessKeysOf('Too expensive'));
+        $this->assertSame($this->digestsOf($this->readableKeysOf('Too expensive')), $this->digestedAccessKeysOf('Too expensive'));
         $this->assertSame(["through.thread.0.through.forum.0.client.{$this->globex->getKey()}"], $this->readerKeys($this->linus));
         $this->assertSame(['Too expensive'], $this->searchedReplies($this->linus));
         $this->assertCount(5, $this->searchedReplies($this->root));
@@ -165,6 +165,6 @@ class ParentSearchKeysTest extends ParentSearchTestCase
         );
         $this->reindexReplies();
 
-        $this->assertCount(1 + 3 + 1, $this->accessKeysOf('Ship it'));
+        $this->assertCount(1 + 3 + 1, $this->digestedAccessKeysOf('Ship it'));
     }
 }

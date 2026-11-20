@@ -30,7 +30,7 @@ final class SearchAgreement
             fn (Model $row): bool => ! method_exists($row, 'shouldBeSearchable') || $row->shouldBeSearchable() === true,
         ));
 
-        foreach ((new SearchDocuments($this->control->searchRules()))->keysFor($rows) as $index => $keys) {
+        foreach ((new SearchDocuments($this->control->searchRules()))->readableKeysFor($rows) as $index => $keys) {
             $this->keys[self::key($rows[$index])] = $keys;
             $this->documents[self::key($rows[$index])] = SearchKeyDigest::document($keys);
         }
@@ -57,7 +57,7 @@ final class SearchAgreement
             return 'none, the search is closed';
         }
 
-        return $this->keysOf([SearchField::Boundary->value => $filter->boundaryKeys(), SearchField::Access->value => $filter->accessKeys()]);
+        return $this->keysOf([SearchField::Boundary->value => $filter->readableBoundaryKeys(), SearchField::Access->value => $filter->readableAccessKeys()]);
     }
 
     /**

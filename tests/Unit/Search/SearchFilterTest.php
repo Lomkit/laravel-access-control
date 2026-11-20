@@ -14,8 +14,8 @@ class SearchFilterTest extends TestCase
     {
         $filter = SearchFilter::of(['workspace_id.1'], ['author.1.23', 'featured.yes']);
 
-        $this->assertSame(['workspace_id.1'], $filter->boundaryKeys());
-        $this->assertSame(['author.1.23', 'featured.yes'], $filter->accessKeys());
+        $this->assertSame(['workspace_id.1'], $filter->readableBoundaryKeys());
+        $this->assertSame(['author.1.23', 'featured.yes'], $filter->readableAccessKeys());
         $this->assertSame([
             '_boundary' => SearchKeyDigest::all(['workspace_id.1']),
             '_access' => SearchKeyDigest::all(['author.1.23', 'featured.yes']),
