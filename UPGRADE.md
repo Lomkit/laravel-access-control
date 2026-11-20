@@ -32,7 +32,7 @@ A class or a method marked `@internal` may change or disappear in any release, w
 
 - Your application extends `Perimeter`, `Control` and `Boundary`. A minor release may add methods to these classes, and a method of the same name in your subclass would then clash with it: give the methods you add to your subclasses distinctive names. Their members covered by 1.x are these:
   - `Perimeter`: `new()`, `allowed()`, `should()`, `query()`, `searchKeys()`, `reindexWhen()`, `unrestricted()`, `admits()` and `checksInMemory()`, and the protected hooks `allows()`, `includes()` and `scope()`;
-  - `Control`: `new()`, `abilityFor()`, `decide()`, `applies()` and `reachableKeys()`, and the protected `perimeters()`, `boundary()` and `applicablePerimeters()`;
+  - `Control`: `new()`, `abilityFor()`, `decide()`, `applies()` and `reachableKeys()`, the protected `perimeters()`, `boundary()` and `applicablePerimeters()`, and the protected `$model` property, declared by its default value;
   - `Boundary`: `where()`, `none()` and `checksInMemory()`, the protected hooks `scope()`, `includes()`, `searchKeys()` and `admits()` (see [Boundaries](#boundaries)), and `readOnlyWhenNotNull()` on the boundary that `where()` returns.
 - `ControlledPolicy` gets no new method in 1.x, since the methods of your policy are named after your abilities: it keeps the seven standard abilities, the protected `decideByControl()` and `declaredControl()`, and nothing else (see [Business abilities](#business-abilities)).
 - PHP lets a perimeter class call the protected hooks of another perimeter, since both extend `Perimeter`. That is not supported: the package admits the reader by the type of the callbacks and by the `reader:` closure of the search keys before it calls `allows()`, and a hook called directly skips both (see [Perimeter classes](#perimeter-classes)).
@@ -441,6 +441,36 @@ LinkedSubjectsPerimeter::new()
 - No search: the perimeter declares no search keys, so a controlled search finds none of these rows, and `access:check` reports `perimeter_without_search_keys` on a searchable model. Keep the model out of the search engine, or search it with Scout's `database` driver, which applies the SQL of the control.
 - No check of cycles: a parent whose control leads back to the notes loops while the query is built, and fails with a fatal error rather than an exception.
 - The parents are decided under the decision context of the request, like a `ThroughParent` without `decidedInRowContext()` (see [Several brands in one list](#several-brands-in-one-list)).
+
+**Other abilities through such a perimeter.** The parents are checked for `view` whatever the ability decided on the note. To grant another ability this way, give each one its own permission of the note in `allowed()`, as a closed list that ends with `default => false`, never a permission name built from the ability: such a name grants every ability for which a permission of that name exists, and every ability under a `Gate::before()` that answers yes.
+
+```php
+protected function perimeters(): array
+{
+    return [
+        LinkedSubjectsPerimeter::new()
+            ->allowed(fn (User $user, Ability $ability): bool => match ($ability->name()) {
+                'view' => $user->can('view notes'),
+                'update' => $user->can('update notes'),
+                default => false,
+            })
+            ->query(function (Builder $query, User $user): void {
+                $query->whereHas('links', fn (Builder $links) => $links->whereHasMorph(
+                    'subject',
+                    [Contract::class, Customer::class],
+                    fn (Builder $subjects) => $subjects->controlledFor($user),
+                ));
+            }),
+    ];
+}
+```
+
+Such an ability follows the rule "the permission, and a parent the reader may view", not the reader's access to the parent for that ability. The rest follows from the limits above:
+
+- The decision is made on the stored row (see [Decisions on the stored row](#decisions-on-the-stored-row)), so an update is judged on the parents the note had before it: keep the columns and the links that name the parents out of the updates, or check the new parent for the reader before the write.
+- A draft is never granted by this perimeter. Judge a creation on its draft through another perimeter with a `should()` callback (see [Drafts](#drafts)), and never authorize `create` without the draft, which would grant it to every holder of the permission, whatever the parent.
+- laravel-rest-api keeps these decisions under the `updated_at` of the note only (see [laravel-rest-api](#laravel-rest-api)): leave these abilities out of `authorizationCache()`, or add the version of the parent with `versionAuthorization()`.
+- Under several brands, a write follows the same union as a read: a parent readable in any brand of the request grants it. Treat it as in [Several brands in one list](#several-brands-in-one-list).
 
 Replace the perimeter with `ThroughParent` once 1.1 supports the relation.
 
@@ -958,7 +988,7 @@ Check the recipe with `assertSearchAgrees()` on a stand-in and rows that cover e
 
 A searchable child is found through its parent with the same rule as in SQL: the parent's boundary AND the parent's access keys must both open the parent for the reader. The child's own filter is `_boundary` AND `_access`, and `_access` is a union, so each pair of a parent boundary key and a parent access key becomes one composite key in the child's `_access`:
 
-| Parent document | Keys written on the child |
+| Keys of the parent | Keys of the child (each stored as its digest) |
 | --- | --- |
 | `_boundary: [workspace_id.1]`, `_access: [author.7, client.3]` | `through.thread.2.workspace_id.1`, `through.thread.2.workspace_id.1.author.7`, `through.thread.2.workspace_id.1.client.3` |
 | No boundary, `_access: [client.3]` | `through.thread.0`, `through.thread.0.client.3` |
