@@ -107,7 +107,7 @@ trait AccessSearchMethods
      * @param  iterable<Model>  $rows
      * @return array<int|string, array<string, list<string>>>
      *
-     * @throws InvalidSearchRowException When a row is not an Eloquent model, is unsaved, or is not of the model of the first row.
+     * @throws InvalidSearchRowException When a row is not an Eloquent model, is not of the model of the first row, is unsaved, deleted or soft-deleted, or has a key that is not an int or a string.
      * @throws MissingControlException When no control is registered for the model of the rows.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.

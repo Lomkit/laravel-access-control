@@ -31,6 +31,7 @@ return new class extends Migration
             $table->unsignedBigInteger('client_id')->nullable();
             $table->unsignedBigInteger('author_id')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 };

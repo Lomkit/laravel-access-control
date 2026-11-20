@@ -20,6 +20,7 @@ use Lomkit\Access\Tests\Fixtures\Index\Guide;
 use Lomkit\Access\Tests\Fixtures\Index\GuideControl;
 use Lomkit\Access\Tests\Fixtures\Index\PinnedGuide;
 use Lomkit\Access\Tests\Fixtures\Index\Ticket;
+use Lomkit\Access\Tests\Fixtures\Index\TicketControl;
 use PHPUnit\Framework\Attributes\Test;
 
 class IndexKeysRefusalTest extends IndexKeysTestCase
@@ -46,9 +47,42 @@ class IndexKeysRefusalTest extends IndexKeysTestCase
     public function it_refuses_an_unsaved_row(): void
     {
         $this->expectException(InvalidSearchRowException::class);
-        $this->expectExceptionMessage(sprintf('an unsaved [%s] row', Guide::class));
+        $this->expectExceptionMessage(sprintf('an unsaved or deleted [%s] row', Guide::class));
 
         Access::searchKeysOf([new Guide(['title' => 'Draft', 'brand_id' => 1])]);
+    }
+
+    #[Test]
+    public function it_refuses_a_deleted_row(): void
+    {
+        $guide = Guide::query()->firstOrFail();
+        $guide->delete();
+
+        $this->assertThrows(fn () => Access::searchKeysOf([$guide]), InvalidSearchRowException::class, sprintf('an unsaved or deleted [%s] row', Guide::class));
+    }
+
+    #[Test]
+    public function it_refuses_a_soft_deleted_row_that_the_controlled_list_never_shows(): void
+    {
+        $ticket = Ticket::query()->where('title', 'Login fails')->firstOrFail();
+        $ticket->delete();
+
+        $this->assertThrows(fn () => Access::searchKeysOf([$ticket]), InvalidSearchRowException::class, sprintf('a soft-deleted [%s] row, which controlledFor() never lists', Ticket::class));
+        $this->assertThrows(fn () => Access::searchKeysOf(Ticket::withTrashed()->get()), InvalidSearchRowException::class);
+        $this->assertCount(2, Access::searchKeysOf(Ticket::query()->get()));
+        $this->assertIndexKeysAgree(TicketControl::class, $this->readers());
+    }
+
+    #[Test]
+    public function it_refuses_a_row_whose_key_is_not_an_int_or_a_string(): void
+    {
+        $guide = new Guide(['id' => null, 'title' => 'Keyless']);
+        $guide->exists = true;
+
+        $this->expectException(InvalidSearchRowException::class);
+        $this->expectExceptionMessage(sprintf('a [%s] row whose key is of type [null]', Guide::class));
+
+        Access::searchKeysOf([$guide]);
     }
 
     #[Test]

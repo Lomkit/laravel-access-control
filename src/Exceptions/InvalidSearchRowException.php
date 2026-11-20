@@ -24,11 +24,28 @@ final class InvalidSearchRowException extends InvalidArgumentException
         ));
     }
 
-    public static function unsaved(Model $row): self
+    public static function unsavedOrDeleted(Model $row): self
     {
         return new self(sprintf(
-            'Access::searchKeysOf() received an unsaved [%s] row. Pass saved rows: the keys are returned by the key of each row.',
+            'Access::searchKeysOf() received an unsaved or deleted [%s] row. Pass saved rows, and delete the documents of a deleted row from your index.',
             $row::class,
+        ));
+    }
+
+    public static function trashed(Model $row): self
+    {
+        return new self(sprintf(
+            'Access::searchKeysOf() received a soft-deleted [%s] row, which controlledFor() never lists. Delete its documents from your index, and write them again when the row is restored.',
+            $row::class,
+        ));
+    }
+
+    public static function unsupportedKey(Model $row, mixed $key): self
+    {
+        return new self(sprintf(
+            'Access::searchKeysOf() received a [%s] row whose key is of type [%s]. The keys are returned by the key of each row, which must be an int or a string.',
+            $row::class,
+            get_debug_type($key),
         ));
     }
 }

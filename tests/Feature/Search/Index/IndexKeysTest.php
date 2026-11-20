@@ -160,6 +160,18 @@ class IndexKeysTest extends IndexKeysTestCase
     }
 
     #[Test]
+    public function it_leaves_the_boundary_of_a_row_without_a_boundary_value_empty(): void
+    {
+        $orphan = Access::searchKeysOf(Guide::query()->where('title', 'Orphan')->get());
+        $document = reset($orphan);
+
+        $this->assertIsArray($document);
+        $this->assertSame([], $document['_boundary']);
+        $this->assertSame([SearchKeyDigest::of('@_'.bin2hex(Guide::class).'.*')], $document['_access']);
+        $this->assertNotContains('Guide Orphan', $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->root), $this->collection()));
+    }
+
+    #[Test]
     public function it_gives_the_documents_by_the_key_of_each_row(): void
     {
         $guides = Guide::query()->orderBy('id')->get();
