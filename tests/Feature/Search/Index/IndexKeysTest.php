@@ -58,7 +58,7 @@ class IndexKeysTest extends IndexKeysTestCase
         }
 
         $this->assertSame(['_access', '_boundary'], array_keys(Access::indexReaderKeys($this->root, Ticket::class)->values()));
-        $this->assertSame([], array_intersect(Access::indexReaderKeys($this->root, Ticket::class)->values()['_access'], Access::indexKeysOf(Guide::query()->get())[1]['_access']));
+        $this->assertSame([], array_intersect(Access::indexReaderKeys($this->root, Ticket::class)->values()['_access'], Access::indexKeysOf(Guide::query()->get())[$this->guideKey('Onboarding')]['_access']));
     }
 
     #[Test]
@@ -156,7 +156,7 @@ class IndexKeysTest extends IndexKeysTestCase
 
         $this->assertSame(['_access' => [SearchKeyDigest::of('@guide.*')], '_boundary' => [SearchKeyDigest::of('@guide.brand.1')]], Access::indexReaderKeys($this->root, Guide::class)->values());
         $this->assertSame(['_access' => [SearchKeyDigest::of('@ticket.*')], '_boundary' => [SearchKeyDigest::of('@ticket.*')]], Access::indexReaderKeys($this->root, Ticket::class)->values());
-        $this->assertSame([], array_intersect($document['_access'], Access::indexKeysOf(Guide::query()->where('title', 'Onboarding')->get())[1]['_access']));
+        $this->assertSame([], array_intersect($document['_access'], Access::indexKeysOf(Guide::query()->where('title', 'Onboarding')->get())[$this->guideKey('Onboarding')]['_access']));
     }
 
     #[Test]
@@ -201,7 +201,7 @@ class IndexKeysTest extends IndexKeysTestCase
             $this->assertIndexKeysAgree(MislabeledTicketControl::class, [$this->nobody, $this->ada]);
         } catch (AssertionFailedError $failure) {
             $this->assertStringContainsString(sprintf('[%s] control do not agree with its SQL for the [%s] reader with key [%s]', MislabeledTicketControl::class, User::class, $this->ada->getKey()), $failure->getMessage());
-            $this->assertStringContainsString('finds the rows with keys [2] that the SQL does not, and misses the rows with keys [1] that the SQL finds', $failure->getMessage());
+            $this->assertStringContainsString(sprintf('finds the rows with keys [%s] that the SQL does not, and misses the rows with keys [%s] that the SQL finds', $this->ticketKey('Slow export'), $this->ticketKey('Login fails')), $failure->getMessage());
 
             return;
         }

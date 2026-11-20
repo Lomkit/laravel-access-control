@@ -21,8 +21,8 @@ class MislabeledTicketControl extends Control
                 ->query(fn (Builder $query, User $user): Builder => $query->where('client_id', $user->client_id))
                 ->searchKeys(
                     name: 'client',
-                    row: fn (MislabeledTicket $ticket): mixed => $ticket->getAttribute('author_id'),
-                    reader: fn (User $user): mixed => $user->client_id,
+                    row: fn (MislabeledTicket $ticket): mixed => $ticket->getAttribute('title'),
+                    reader: fn (User $user): string => 'Slow export',
                 ),
         ];
     }

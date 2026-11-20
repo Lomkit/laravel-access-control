@@ -139,6 +139,16 @@ abstract class IndexKeysTestCase extends AccessTestCase
         return $titles;
     }
 
+    protected function guideKey(string $title): int|string
+    {
+        return Guide::query()->where('title', $title)->firstOrFail()->getKey();
+    }
+
+    protected function ticketKey(string $title): int|string
+    {
+        return Ticket::query()->where('title', $title)->firstOrFail()->getKey();
+    }
+
     /** @param  array<string, list<string>>  $permissions */
     protected function grant(array $permissions): void
     {
