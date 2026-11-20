@@ -2,6 +2,8 @@
 
 namespace Lomkit\Access\Search;
 
+use Lomkit\Access\Exceptions\UndigestedSearchValueException;
+
 /** @internal */
 final readonly class SearchFilter
 {
@@ -71,9 +73,15 @@ final readonly class SearchFilter
         return $this->whereIns;
     }
 
-    /** @param  array<string, list<string>>  $document */
+    /**
+     * @param  array<string, list<string>>  $document
+     *
+     * @throws UndigestedSearchValueException When a value of the document is not the digest of a search key.
+     */
     public function matches(array $document): bool
     {
+        self::checkDigested($document);
+
         if ($this->closed) {
             return false;
         }
@@ -85,5 +93,21 @@ final readonly class SearchFilter
         }
 
         return true;
+    }
+
+    /**
+     * @param  array<string, list<string>>  $document
+     *
+     * @throws UndigestedSearchValueException When a value of the document is not the digest of a search key.
+     */
+    private static function checkDigested(array $document): void
+    {
+        foreach ($document as $field => $values) {
+            foreach ($values as $value) {
+                if (! SearchKeyDigest::isDigest($value)) {
+                    throw UndigestedSearchValueException::inDocument($field, $value);
+                }
+            }
+        }
     }
 }
