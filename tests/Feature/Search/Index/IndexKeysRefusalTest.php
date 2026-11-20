@@ -53,10 +53,10 @@ class IndexKeysRefusalTest extends IndexKeysTestCase
     }
 
     #[Test]
-    public function it_refuses_a_deleted_row(): void
+    public function it_refuses_a_force_deleted_row(): void
     {
         $guide = Guide::query()->firstOrFail();
-        $guide->delete();
+        $guide->forceDelete();
 
         $this->assertThrows(fn () => Access::indexKeysOf([$guide]), InvalidIndexRowException::class, sprintf('an unsaved or deleted [%s] row', Guide::class));
     }
@@ -76,7 +76,7 @@ class IndexKeysRefusalTest extends IndexKeysTestCase
     #[Test]
     public function it_refuses_a_row_whose_key_is_not_an_int_or_a_string(): void
     {
-        $guide = new Guide(['id' => null, 'title' => 'Keyless']);
+        $guide = new Guide(['id' => null, 'title' => 'Keyless', 'deleted_at' => null]);
         $guide->exists = true;
 
         $this->expectException(InvalidIndexRowException::class);

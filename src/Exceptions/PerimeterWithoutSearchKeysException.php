@@ -18,4 +18,17 @@ final class PerimeterWithoutSearchKeysException extends LogicException
             $control->getModel(),
         ));
     }
+
+    public static function forIndexParent(string $model, string $control, string $relation, Control $parent, string $position, Perimeter $perimeter): self
+    {
+        return new self(sprintf(
+            'The [%s] perimeter at %s of the [%s] control declares no search keys, so the [%s] documents of an index of your own would miss the rows it grants through the [%s] relation of the [%s] control. Declare searchKeys() on the perimeter, even when it never grants view, or unrestricted() if it reaches every row.',
+            $perimeter::class,
+            $position,
+            $parent::class,
+            $model,
+            $relation,
+            $control,
+        ));
+    }
 }

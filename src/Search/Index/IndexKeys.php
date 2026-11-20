@@ -83,7 +83,7 @@ final readonly class IndexKeys
         }
 
         foreach ($control->searchRules()->parents() as $parent) {
-            $parent->ensureIndexable($control::class);
+            $parent->ensureIndexable($control::class, $control->getModel());
         }
 
         return new self($control, IndexScope::of($control->getModel()));

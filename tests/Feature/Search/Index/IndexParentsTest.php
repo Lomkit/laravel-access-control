@@ -74,6 +74,22 @@ class IndexParentsTest extends IndexKeysTestCase
     }
 
     #[Test]
+    public function it_drops_the_keys_of_a_soft_deleted_parent_and_gives_them_back_on_restore(): void
+    {
+        $onboarding = Guide::query()->where('title', 'Onboarding')->firstOrFail();
+        $onboarding->delete();
+
+        $this->assertSame([], $this->notesFoundBy($this->grace));
+        $this->assertSame(['Billing in brand 1'], $this->notesFoundBy($this->root));
+        $this->assertIndexKeysAgree(GuideNoteControl::class, $this->readers());
+
+        $onboarding->restore();
+
+        $this->assertSame(['Onboarding in brand 1', 'Onboarding in brand 2'], $this->notesFoundBy($this->grace));
+        $this->assertIndexKeysAgree(GuideNoteControl::class, $this->readers());
+    }
+
+    #[Test]
     public function it_refuses_a_parent_that_delegates_view_to_another_ability(): void
     {
         ConfiguredGuideNoteControl::bind(ThroughParent::belongsTo('guide')->delegates(['view' => 'update']));
@@ -115,7 +131,7 @@ class IndexParentsTest extends IndexKeysTestCase
                 ->allowed(fn (User $user, Ability $ability): bool => $user->can("{$ability} client guides"))
                 ->query(fn (Builder $query, User $user): Builder => $query->where('client_id', $user->client_id)),
         );
-        $message = sprintf('perimeter at #2 of the [%s] control declares no search keys', ConfiguredGuideControl::class);
+        $message = sprintf('perimeter at #2 of the [%s] control declares no search keys, so the [%s] documents of an index of your own would miss the rows it grants through the [guide] relation of the [%s] control', ConfiguredGuideControl::class, GuideNote::class, GuideNoteControl::class);
 
         $this->assertThrows(fn () => Access::indexReaderKeys($this->grace, GuideNote::class), PerimeterWithoutSearchKeysException::class, $message);
         $this->assertThrows(fn () => Access::indexKeysOf(GuideNote::query()->get()), PerimeterWithoutSearchKeysException::class, $message);

@@ -57,7 +57,7 @@ final readonly class ParentSearch
      * @throws UnsearchableThroughParentException When the keys of the parent would not describe the rows the child reads through it.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the parent, or of a parent further up, declares no search keys.
      */
-    public function ensureIndexable(string $control): void
+    public function ensureIndexable(string $control, string $model): void
     {
         if ($this->view === null) {
             return;
@@ -72,11 +72,11 @@ final readonly class ParentSearch
         }
 
         foreach (KeylessPerimeters::in(PerimeterPositions::of($this->parent)) as $position => $perimeter) {
-            throw PerimeterWithoutSearchKeysException::forIndex($this->parent, $position, $perimeter);
+            throw PerimeterWithoutSearchKeysException::forIndexParent($model, $control, $this->relation, $this->parent, $position, $perimeter);
         }
 
         foreach ($this->rules()->parents() as $grandparent) {
-            $grandparent->ensureIndexable($this->parent::class);
+            $grandparent->ensureIndexable($this->parent::class, $model);
         }
     }
 
