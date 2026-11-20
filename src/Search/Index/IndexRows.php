@@ -4,7 +4,7 @@ namespace Lomkit\Access\Search\Index;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Lomkit\Access\Exceptions\InvalidSearchRowException;
+use Lomkit\Access\Exceptions\InvalidIndexRowException;
 
 /** @internal */
 final readonly class IndexRows
@@ -21,7 +21,7 @@ final readonly class IndexRows
     /**
      * @param  iterable<mixed>  $rows
      *
-     * @throws InvalidSearchRowException When a row is not an Eloquent model, is not of the model of the first row, is unsaved, deleted or soft-deleted, or has a key that is not an int or a string.
+     * @throws InvalidIndexRowException When a row is not an Eloquent model, is not of the model of the first row, is unsaved, deleted or soft-deleted, or has a key that is not an int or a string.
      */
     public static function of(iterable $rows): self
     {
@@ -30,11 +30,11 @@ final readonly class IndexRows
 
         foreach ($rows as $row) {
             if (! $row instanceof Model) {
-                throw InvalidSearchRowException::notAModel($row);
+                throw InvalidIndexRowException::notAModel($row);
             }
 
             if ($list !== [] && $row::class !== $list[0]::class) {
-                throw InvalidSearchRowException::ofAnotherModel($list[0], $row);
+                throw InvalidIndexRowException::ofAnotherModel($list[0], $row);
             }
 
             $list[] = $row;
@@ -44,20 +44,20 @@ final readonly class IndexRows
         return new self($list, $keys);
     }
 
-    /** @throws InvalidSearchRowException When the row is unsaved, deleted or soft-deleted, or its key is not an int or a string. */
+    /** @throws InvalidIndexRowException When the row is unsaved, deleted or soft-deleted, or its key is not an int or a string. */
     private static function keyOf(Model $row): int|string
     {
         if (! $row->exists) {
-            throw InvalidSearchRowException::unsavedOrDeleted($row);
+            throw InvalidIndexRowException::unsavedOrDeleted($row);
         }
 
         if (in_array(SoftDeletes::class, class_uses_recursive($row), true) && method_exists($row, 'trashed') && $row->trashed() === true) {
-            throw InvalidSearchRowException::trashed($row);
+            throw InvalidIndexRowException::trashed($row);
         }
 
         $key = $row->getKey();
 
-        return is_int($key) || is_string($key) ? $key : throw InvalidSearchRowException::unsupportedKey($row, $key);
+        return is_int($key) || is_string($key) ? $key : throw InvalidIndexRowException::unsupportedKey($row, $key);
     }
 
     /** @return list<Model> */

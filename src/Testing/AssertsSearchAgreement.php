@@ -90,7 +90,7 @@ trait AssertsSearchAgreement
         $key = $reader?->getKey();
 
         return sprintf(
-            'The keys that Access::searchKeysOf() and Access::readerKeysFor() give for the [%s] control do not agree with its SQL for %s: an index that filters on them finds the rows with keys [%s] that the SQL does not, and misses the rows with keys [%s] that the SQL finds, the first ten of each. Make the searchKeys() of each perimeter, and of the boundary, describe the same rows as its query().',
+            'The keys that Access::indexKeysOf() and Access::indexReaderKeys() give for the [%s] control do not agree with its SQL for %s: an index that filters on them finds the rows with keys [%s] that the SQL does not, and misses the rows with keys [%s] that the SQL finds, the first ten of each. Make the searchKeys() of each perimeter, and of the boundary, describe the same rows as its query().',
             $control,
             $reader === null ? 'no reader' : sprintf('the [%s] reader with key [%s]', $reader::class, is_int($key) || is_string($key) ? $key : get_debug_type($key)),
             implode(', ', $disagreements['indexOnly']),

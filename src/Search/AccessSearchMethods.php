@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 use Lomkit\Access\Exceptions\AdminSearchTokenKeyException;
 use Lomkit\Access\Exceptions\AmbiguousSearchIndexException;
 use Lomkit\Access\Exceptions\ConflictingSearchTokensException;
+use Lomkit\Access\Exceptions\InvalidIndexRowException;
 use Lomkit\Access\Exceptions\InvalidSearchBodyException;
 use Lomkit\Access\Exceptions\InvalidSearchEngineException;
-use Lomkit\Access\Exceptions\InvalidSearchRowException;
 use Lomkit\Access\Exceptions\MismatchedSearchTokenKeyException;
 use Lomkit\Access\Exceptions\MissingControlException;
 use Lomkit\Access\Exceptions\MissingControlledSearchableException;
@@ -108,14 +108,14 @@ trait AccessSearchMethods
      * @param  iterable<Model>  $rows
      * @return array<int|string, array{_access: list<string>, _boundary: list<string>}>
      *
-     * @throws InvalidSearchRowException When a row is not an Eloquent model, is not of the model of the first row, is unsaved, deleted or soft-deleted, or has a key that is not an int or a string.
+     * @throws InvalidIndexRowException When a row is not an Eloquent model, is not of the model of the first row, is unsaved, deleted or soft-deleted, or has a key that is not an int or a string.
      * @throws MissingControlException When no control is registered for the model of the rows.
      * @throws UnsearchableBoundaryException When the boundary of the control has no search form.
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
      * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
      * @throws SharedMorphClassException When the morph class of the model names another model.
      */
-    public static function searchKeysOf(iterable $rows): array
+    public static function indexKeysOf(iterable $rows): array
     {
         return IndexKeys::documentsOf($rows);
     }
@@ -128,14 +128,14 @@ trait AccessSearchMethods
      * @throws PerimeterWithoutSearchKeysException When a perimeter of the control, or of the control of a parent it reads through, declares no search keys.
      * @throws UnsearchableThroughParentException When a ThroughParent delegates view to another ability, or its parent has a boundary without search form.
      * @throws SharedMorphClassException When the morph class of the model names another model.
-     * @throws UnsearchableAbilityException When an ability is given after the reader.
+     * @throws UnsearchableAbilityException When an ability is given after the model.
      */
-    public static function readerKeysFor(string $model, ?Model $reader): ReaderSearchKeys
+    public static function indexReaderKeys(?Model $reader, string $model): IndexReaderKeys
     {
         if (func_num_args() > 2) {
-            throw UnsearchableAbilityException::readerKeys($model);
+            throw UnsearchableAbilityException::indexReaderKeys($model);
         }
 
-        return IndexKeys::readerKeysFor($model, $reader);
+        return IndexKeys::indexReaderKeys($reader, $model);
     }
 }

@@ -5,7 +5,7 @@ namespace Lomkit\Access\Tests\Feature\Search\Index;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 use Lomkit\Access\Access;
-use Lomkit\Access\Search\ReaderSearchKeys;
+use Lomkit\Access\Search\IndexReaderKeys;
 use Lomkit\Access\Tests\Fixtures\Blog\Blog;
 use Lomkit\Access\Tests\Fixtures\Blog\Client;
 use Lomkit\Access\Tests\Fixtures\Blog\User;
@@ -94,7 +94,7 @@ abstract class IndexKeysTestCase extends AccessTestCase
             $rows = $model::query()->orderBy('id')->get();
             $titles = $rows->pluck('title', 'id')->all();
 
-            foreach (Access::searchKeysOf($rows) as $key => $document) {
+            foreach (Access::indexKeysOf($rows) as $key => $document) {
                 $collection[class_basename($model).' '.$titles[$key]] = $document;
             }
         }
@@ -106,7 +106,7 @@ abstract class IndexKeysTestCase extends AccessTestCase
      * @param  array<string, array<string, list<string>>>  $collection
      * @return list<string>
      */
-    protected function naivelyFound(ReaderSearchKeys $keys, array $collection): array
+    protected function naivelyFound(IndexReaderKeys $keys, array $collection): array
     {
         $found = [];
 

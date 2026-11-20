@@ -79,9 +79,9 @@ class IndexParentsTest extends IndexKeysTestCase
         ConfiguredGuideNoteControl::bind(ThroughParent::belongsTo('guide')->delegates(['view' => 'update']));
         $message = sprintf('of the [%s] control through the [guide] relation delegates view to the [update] ability', ConfiguredGuideNoteControl::class);
 
-        $this->assertThrows(fn () => Access::readerKeysFor(GuideNote::class, $this->grace), UnsearchableThroughParentException::class, $message);
-        $this->assertThrows(fn () => Access::readerKeysFor(GuideNote::class, null), UnsearchableThroughParentException::class, $message);
-        $this->assertThrows(fn () => Access::searchKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class, $message);
+        $this->assertThrows(fn () => Access::indexReaderKeys($this->grace, GuideNote::class), UnsearchableThroughParentException::class, $message);
+        $this->assertThrows(fn () => Access::indexReaderKeys(null, GuideNote::class), UnsearchableThroughParentException::class, $message);
+        $this->assertThrows(fn () => Access::indexKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class, $message);
     }
 
     #[Test]
@@ -90,8 +90,8 @@ class IndexParentsTest extends IndexKeysTestCase
         ConfiguredGuideControl::bindWithin(Boundary::none(), $this->brandGuides());
         ConfiguredGuideNoteControl::bind(ThroughParent::belongsTo('guide')->delegates(['view' => 'update']));
 
-        $this->assertThrows(fn () => Access::readerKeysFor(GuideNote::class, $this->grace), UnsearchableThroughParentException::class);
-        $this->assertThrows(fn () => Access::searchKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class);
+        $this->assertThrows(fn () => Access::indexReaderKeys($this->grace, GuideNote::class), UnsearchableThroughParentException::class);
+        $this->assertThrows(fn () => Access::indexKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class);
     }
 
     #[Test]
@@ -100,8 +100,8 @@ class IndexParentsTest extends IndexKeysTestCase
         ConfiguredGuideControl::bindWithin(new WorkspaceBoundary, $this->clientGuides());
         $message = sprintf('inherits the access of the [%s] control, whose boundary has no search form', ConfiguredGuideControl::class);
 
-        $this->assertThrows(fn () => Access::readerKeysFor(GuideNote::class, $this->grace), UnsearchableThroughParentException::class, $message);
-        $this->assertThrows(fn () => Access::searchKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class, $message);
+        $this->assertThrows(fn () => Access::indexReaderKeys($this->grace, GuideNote::class), UnsearchableThroughParentException::class, $message);
+        $this->assertThrows(fn () => Access::indexKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class, $message);
     }
 
     #[Test]
@@ -117,8 +117,8 @@ class IndexParentsTest extends IndexKeysTestCase
         );
         $message = sprintf('perimeter at #2 of the [%s] control declares no search keys', ConfiguredGuideControl::class);
 
-        $this->assertThrows(fn () => Access::readerKeysFor(GuideNote::class, $this->grace), PerimeterWithoutSearchKeysException::class, $message);
-        $this->assertThrows(fn () => Access::searchKeysOf(GuideNote::query()->get()), PerimeterWithoutSearchKeysException::class, $message);
+        $this->assertThrows(fn () => Access::indexReaderKeys($this->grace, GuideNote::class), PerimeterWithoutSearchKeysException::class, $message);
+        $this->assertThrows(fn () => Access::indexKeysOf(GuideNote::query()->get()), PerimeterWithoutSearchKeysException::class, $message);
     }
 
     #[Test]
@@ -127,8 +127,8 @@ class IndexParentsTest extends IndexKeysTestCase
         ConfiguredGuideControl::bindWithin(Boundary::none(), $this->clientGuides(), ThroughParent::belongsTo('author')->delegates(['view' => 'update']));
         $message = sprintf('of the [%s] control through the [author] relation delegates view to the [update] ability', ConfiguredGuideControl::class);
 
-        $this->assertThrows(fn () => Access::readerKeysFor(GuideNote::class, $this->grace), UnsearchableThroughParentException::class, $message);
-        $this->assertThrows(fn () => Access::searchKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class, $message);
+        $this->assertThrows(fn () => Access::indexReaderKeys($this->grace, GuideNote::class), UnsearchableThroughParentException::class, $message);
+        $this->assertThrows(fn () => Access::indexKeysOf(GuideNote::query()->get()), UnsearchableThroughParentException::class, $message);
     }
 
     protected function clientGuides(): ClientPerimeter
@@ -171,10 +171,10 @@ class IndexParentsTest extends IndexKeysTestCase
     {
         $rows = GuideNote::query()->orderBy('id')->get();
         $bodies = $rows->pluck('body', 'id')->all();
-        $values = Access::readerKeysFor(GuideNote::class, $reader)->values();
+        $values = Access::indexReaderKeys($reader, GuideNote::class)->values();
         $found = [];
 
-        foreach (Access::searchKeysOf($rows) as $key => $document) {
+        foreach (Access::indexKeysOf($rows) as $key => $document) {
             if (array_intersect($document['_access'], $values['_access']) !== [] && array_intersect($document['_boundary'], $values['_boundary']) !== []) {
                 $found[] = $bodies[$key];
             }

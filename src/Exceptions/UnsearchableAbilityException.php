@@ -27,10 +27,10 @@ final class UnsearchableAbilityException extends LogicException
         ));
     }
 
-    public static function readerKeys(string $model): self
+    public static function indexReaderKeys(string $model): self
     {
         return new self(sprintf(
-            'Access::readerKeysFor() for the [%s] model received an argument after the reader, such as an ability. %s',
+            'Access::indexReaderKeys() for the [%s] model received an argument after the model, such as an ability. %s',
             $model,
             self::FIX,
         ));

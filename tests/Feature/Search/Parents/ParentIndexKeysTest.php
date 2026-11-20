@@ -77,10 +77,10 @@ class ParentIndexKeysTest extends ParentSearchTestCase
     {
         $rows = Reply::query()->orderBy('id')->get();
         $bodies = $rows->pluck('body', 'id')->all();
-        $values = Access::readerKeysFor(Reply::class, $reader)->values();
+        $values = Access::indexReaderKeys($reader, Reply::class)->values();
         $found = [];
 
-        foreach (Access::searchKeysOf($rows) as $key => $document) {
+        foreach (Access::indexKeysOf($rows) as $key => $document) {
             if (array_intersect($document['_access'], $values['_access']) !== [] && array_intersect($document['_boundary'], $values['_boundary']) !== []) {
                 $found[] = $bodies[$key];
             }

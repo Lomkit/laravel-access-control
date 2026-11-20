@@ -35,16 +35,16 @@ class IndexKeysTest extends IndexKeysTestCase
 
         foreach ($this->readers() as $reader) {
             foreach ([Guide::class, Ticket::class] as $model) {
-                $this->assertSame($this->listed($model, $reader), $this->naivelyFound(Access::readerKeysFor($model, $reader), $collection));
+                $this->assertSame($this->listed($model, $reader), $this->naivelyFound(Access::indexReaderKeys($reader, $model), $collection));
             }
         }
 
-        $this->assertSame(['Guide Billing', 'Guide Onboarding'], $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->root), $collection));
-        $this->assertSame(['Guide Onboarding'], $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->ada), $collection));
-        $this->assertSame(['Guide Onboarding'], $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->grace), $collection));
-        $this->assertSame(['Ticket Login fails', 'Ticket Lost invoice', 'Ticket Slow export'], $this->naivelyFound(Access::readerKeysFor(Ticket::class, $this->root), $collection));
-        $this->assertSame(['Ticket Login fails'], $this->naivelyFound(Access::readerKeysFor(Ticket::class, $this->ada), $collection));
-        $this->assertSame(['Ticket Login fails'], $this->naivelyFound(Access::readerKeysFor(Ticket::class, $this->linus), $collection));
+        $this->assertSame(['Guide Billing', 'Guide Onboarding'], $this->naivelyFound(Access::indexReaderKeys($this->root, Guide::class), $collection));
+        $this->assertSame(['Guide Onboarding'], $this->naivelyFound(Access::indexReaderKeys($this->ada, Guide::class), $collection));
+        $this->assertSame(['Guide Onboarding'], $this->naivelyFound(Access::indexReaderKeys($this->grace, Guide::class), $collection));
+        $this->assertSame(['Ticket Login fails', 'Ticket Lost invoice', 'Ticket Slow export'], $this->naivelyFound(Access::indexReaderKeys($this->root, Ticket::class), $collection));
+        $this->assertSame(['Ticket Login fails'], $this->naivelyFound(Access::indexReaderKeys($this->ada, Ticket::class), $collection));
+        $this->assertSame(['Ticket Login fails'], $this->naivelyFound(Access::indexReaderKeys($this->linus, Ticket::class), $collection));
     }
 
     #[Test]
@@ -53,12 +53,12 @@ class IndexKeysTest extends IndexKeysTestCase
         $collection = $this->collection();
 
         foreach ($this->readers() as $reader) {
-            $this->assertSame([], array_filter($this->naivelyFound(Access::readerKeysFor(Guide::class, $reader), $collection), fn (string $name): bool => str_starts_with($name, 'Ticket ')));
-            $this->assertSame([], array_filter($this->naivelyFound(Access::readerKeysFor(Ticket::class, $reader), $collection), fn (string $name): bool => str_starts_with($name, 'Guide ')));
+            $this->assertSame([], array_filter($this->naivelyFound(Access::indexReaderKeys($reader, Guide::class), $collection), fn (string $name): bool => str_starts_with($name, 'Ticket ')));
+            $this->assertSame([], array_filter($this->naivelyFound(Access::indexReaderKeys($reader, Ticket::class), $collection), fn (string $name): bool => str_starts_with($name, 'Guide ')));
         }
 
-        $this->assertSame(['_access', '_boundary'], array_keys(Access::readerKeysFor(Ticket::class, $this->root)->values()));
-        $this->assertSame([], array_intersect(Access::readerKeysFor(Ticket::class, $this->root)->values()['_access'], Access::searchKeysOf(Guide::query()->get())[1]['_access']));
+        $this->assertSame(['_access', '_boundary'], array_keys(Access::indexReaderKeys($this->root, Ticket::class)->values()));
+        $this->assertSame([], array_intersect(Access::indexReaderKeys($this->root, Ticket::class)->values()['_access'], Access::indexKeysOf(Guide::query()->get())[1]['_access']));
     }
 
     #[Test]
@@ -68,7 +68,7 @@ class IndexKeysTest extends IndexKeysTestCase
         $this->brand = null;
 
         foreach ([[Guide::class, null], [Guide::class, $this->nobody], [Guide::class, $this->linus], [Guide::class, $this->root], [Ticket::class, null], [Ticket::class, $this->nobody]] as [$model, $reader]) {
-            $keys = Access::readerKeysFor($model, $reader);
+            $keys = Access::indexReaderKeys($reader, $model);
 
             $this->assertTrue($keys->isClosed());
             $this->assertSame(['_access' => ['#closed'], '_boundary' => ['#closed']], $keys->values());
@@ -80,7 +80,7 @@ class IndexKeysTest extends IndexKeysTestCase
     public function it_constrains_both_fields_of_an_open_reader(): void
     {
         foreach ([[Guide::class, $this->root], [Guide::class, $this->ada], [Ticket::class, $this->root], [Ticket::class, $this->grace]] as [$model, $reader]) {
-            $keys = Access::readerKeysFor($model, $reader);
+            $keys = Access::indexReaderKeys($reader, $model);
 
             $this->assertFalse($keys->isClosed());
             $this->assertSame($model, $keys->model());
@@ -101,7 +101,7 @@ class IndexKeysTest extends IndexKeysTestCase
 
         foreach ($this->readers() as $reader) {
             foreach ([Guide::class, Ticket::class] as $model) {
-                $keys = Access::readerKeysFor($model, $reader);
+                $keys = Access::indexReaderKeys($reader, $model);
 
                 if (! $keys->isClosed()) {
                     array_push($values, ...$keys->values()['_access'], ...$keys->values()['_boundary']);
@@ -121,7 +121,7 @@ class IndexKeysTest extends IndexKeysTestCase
     {
         $rows = Guide::query()->orderBy('id')->get();
         $readable = (new SearchDocuments(Access::controlFor(Guide::class)->searchRules()))->readableKeysFor(array_values($rows->all()));
-        $documents = array_values(Access::searchKeysOf($rows));
+        $documents = array_values(Access::indexKeysOf($rows));
 
         $this->assertSame(['author.'.$this->ada->getKey(), 'client.'.$this->acme->getKey()], $readable[0]['_access']);
 
@@ -132,14 +132,14 @@ class IndexKeysTest extends IndexKeysTestCase
         }
 
         $filter = Access::controlFor(Guide::class)->searchFilter($this->ada);
-        $this->assertSame([], array_intersect($filter->whereIns()['_access'], Access::readerKeysFor(Guide::class, $this->ada)->values()['_access']));
+        $this->assertSame([], array_intersect($filter->whereIns()['_access'], Access::indexReaderKeys($this->ada, Guide::class)->values()['_access']));
     }
 
     #[Test]
     public function it_digests_each_key_with_the_morph_class_of_its_model(): void
     {
         $morph = '_'.bin2hex(Guide::class);
-        $onboarding = Access::searchKeysOf(Guide::query()->where('title', 'Onboarding')->get());
+        $onboarding = Access::indexKeysOf(Guide::query()->where('title', 'Onboarding')->get());
         $document = reset($onboarding);
 
         $this->assertSame([
@@ -150,25 +150,25 @@ class IndexKeysTest extends IndexKeysTestCase
             ],
             '_boundary' => [SearchKeyDigest::of("@{$morph}.brand.1")],
         ], $document);
-        $this->assertSame(['_access' => [SearchKeyDigest::of("@{$morph}.*")], '_boundary' => [SearchKeyDigest::of("@{$morph}.brand.1")]], Access::readerKeysFor(Guide::class, $this->root)->values());
+        $this->assertSame(['_access' => [SearchKeyDigest::of("@{$morph}.*")], '_boundary' => [SearchKeyDigest::of("@{$morph}.brand.1")]], Access::indexReaderKeys($this->root, Guide::class)->values());
 
         Relation::morphMap(['guide' => Guide::class, 'ticket' => Ticket::class]);
 
-        $this->assertSame(['_access' => [SearchKeyDigest::of('@guide.*')], '_boundary' => [SearchKeyDigest::of('@guide.brand.1')]], Access::readerKeysFor(Guide::class, $this->root)->values());
-        $this->assertSame(['_access' => [SearchKeyDigest::of('@ticket.*')], '_boundary' => [SearchKeyDigest::of('@ticket.*')]], Access::readerKeysFor(Ticket::class, $this->root)->values());
-        $this->assertSame([], array_intersect($document['_access'], Access::searchKeysOf(Guide::query()->where('title', 'Onboarding')->get())[1]['_access']));
+        $this->assertSame(['_access' => [SearchKeyDigest::of('@guide.*')], '_boundary' => [SearchKeyDigest::of('@guide.brand.1')]], Access::indexReaderKeys($this->root, Guide::class)->values());
+        $this->assertSame(['_access' => [SearchKeyDigest::of('@ticket.*')], '_boundary' => [SearchKeyDigest::of('@ticket.*')]], Access::indexReaderKeys($this->root, Ticket::class)->values());
+        $this->assertSame([], array_intersect($document['_access'], Access::indexKeysOf(Guide::query()->where('title', 'Onboarding')->get())[1]['_access']));
     }
 
     #[Test]
     public function it_leaves_the_boundary_of_a_row_without_a_boundary_value_empty(): void
     {
-        $orphan = Access::searchKeysOf(Guide::query()->where('title', 'Orphan')->get());
+        $orphan = Access::indexKeysOf(Guide::query()->where('title', 'Orphan')->get());
         $document = reset($orphan);
 
         $this->assertIsArray($document);
         $this->assertSame([], $document['_boundary']);
         $this->assertSame([SearchKeyDigest::of('@_'.bin2hex(Guide::class).'.*')], $document['_access']);
-        $this->assertNotContains('Guide Orphan', $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->root), $this->collection()));
+        $this->assertNotContains('Guide Orphan', $this->naivelyFound(Access::indexReaderKeys($this->root, Guide::class), $this->collection()));
     }
 
     #[Test]
@@ -176,9 +176,9 @@ class IndexKeysTest extends IndexKeysTestCase
     {
         $guides = Guide::query()->orderBy('id')->get();
 
-        $this->assertSame($guides->modelKeys(), array_keys(Access::searchKeysOf($guides)));
-        $this->assertSame([], Access::searchKeysOf([]));
-        $this->assertSame([], Access::searchKeysOf(Guide::query()->whereKey(0)->get()));
+        $this->assertSame($guides->modelKeys(), array_keys(Access::indexKeysOf($guides)));
+        $this->assertSame([], Access::indexKeysOf([]));
+        $this->assertSame([], Access::indexKeysOf(Guide::query()->whereKey(0)->get()));
     }
 
     #[Test]
@@ -188,10 +188,10 @@ class IndexKeysTest extends IndexKeysTestCase
 
         $this->brand = 2;
 
-        $this->assertSame(['Guide Pricing'], $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->root), $collection));
-        $this->assertSame(['Guide Pricing'], $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->grace), $collection));
-        $this->assertFalse(Access::readerKeysFor(Guide::class, $this->ada)->isClosed());
-        $this->assertSame([], $this->naivelyFound(Access::readerKeysFor(Guide::class, $this->ada), $collection));
+        $this->assertSame(['Guide Pricing'], $this->naivelyFound(Access::indexReaderKeys($this->root, Guide::class), $collection));
+        $this->assertSame(['Guide Pricing'], $this->naivelyFound(Access::indexReaderKeys($this->grace, Guide::class), $collection));
+        $this->assertFalse(Access::indexReaderKeys($this->ada, Guide::class)->isClosed());
+        $this->assertSame([], $this->naivelyFound(Access::indexReaderKeys($this->ada, Guide::class), $collection));
     }
 
     #[Test]

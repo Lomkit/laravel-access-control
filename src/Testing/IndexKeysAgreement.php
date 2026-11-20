@@ -19,13 +19,13 @@ final class IndexKeysAgreement
     {
         $model = $this->control->getModel();
 
-        $this->documents = Access::searchKeysOf((new $model)->newQuery()->get());
+        $this->documents = Access::indexKeysOf((new $model)->newQuery()->get());
     }
 
     /** @return array{indexOnly: list<string>, sqlOnly: list<string>} */
     public function disagreementsFor(?Model $reader): array
     {
-        $values = Access::readerKeysFor($this->control->getModel(), $reader)->values();
+        $values = Access::indexReaderKeys($reader, $this->control->getModel())->values();
         $found = [];
 
         foreach ($this->documents as $key => $document) {

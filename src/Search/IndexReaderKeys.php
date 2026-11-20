@@ -4,7 +4,7 @@ namespace Lomkit\Access\Search;
 
 use Illuminate\Database\Eloquent\Model;
 
-final readonly class ReaderSearchKeys
+final readonly class IndexReaderKeys
 {
     /**
      * @param  class-string<Model>  $model
