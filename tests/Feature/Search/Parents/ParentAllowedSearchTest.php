@@ -39,7 +39,7 @@ class ParentAllowedSearchTest extends ParentSearchTestCase
     }
 
     /** @return list<string> */
-    protected function readerKeys(User $reader): array
+    protected function readableReaderKeys(User $reader): array
     {
         $keys = Access::controlFor(Reply::class)->searchFilter($reader)->readableAccessKeys() ?? [];
         sort($keys);
@@ -57,7 +57,7 @@ class ParentAllowedSearchTest extends ParentSearchTestCase
     {
         $this->grant(['view own threads' => ['Ada'], 'view replies' => [], 'view own replies' => ['Ada']]);
 
-        $this->assertSame(["author.{$this->ada->getKey()}"], $this->readerKeys($this->ada));
+        $this->assertSame(["author.{$this->ada->getKey()}"], $this->readableReaderKeys($this->ada));
         $this->assertSame(['Too expensive', 'Wrong workspace'], $this->searchedReplies($this->ada));
         $this->assertEveryReaderAgrees();
     }
@@ -67,7 +67,7 @@ class ParentAllowedSearchTest extends ParentSearchTestCase
     {
         $this->grant(['view own threads' => ['Ada'], 'view replies' => ['Ada']]);
 
-        $this->assertSame(["through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"], $this->readerKeys($this->ada));
+        $this->assertSame(["through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"], $this->readableReaderKeys($this->ada));
         $this->assertSame(['Ship it', 'Typo in the title'], $this->searchedReplies($this->ada));
         $this->assertEveryReaderAgrees();
     }

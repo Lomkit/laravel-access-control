@@ -22,7 +22,7 @@ use PHPUnit\Framework\Attributes\Test;
 class ParentSearchKeysTest extends ParentSearchTestCase
 {
     /** @return list<string> */
-    protected function readerKeys(User $reader): array
+    protected function readableReaderKeys(User $reader): array
     {
         $keys = Access::controlFor(Reply::class)->searchFilter($reader)->readableAccessKeys() ?? [];
         sort($keys);
@@ -57,7 +57,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
     {
         $this->grant(['view own threads' => ['Ada']]);
 
-        $this->assertSame(["through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"], $this->readerKeys($this->ada));
+        $this->assertSame(["through.thread.2.workspace_id.1.author.{$this->ada->getKey()}"], $this->readableReaderKeys($this->ada));
         $this->assertSame(['Ship it', 'Typo in the title'], $this->searchedReplies($this->ada));
         $this->assertSame([], $this->searchedReplies($this->grace));
         $this->assertEveryReaderAgrees();
@@ -71,7 +71,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
         $this->assertSame([
             "author.{$this->linus->getKey()}",
             "through.thread.2.workspace_id.1.client.{$this->globex->getKey()}",
-        ], $this->readerKeys($this->linus));
+        ], $this->readableReaderKeys($this->linus));
         $this->assertSame(['Too expensive', 'Typo in the title'], $this->searchedReplies($this->linus));
         $this->assertEveryReaderAgrees();
     }
@@ -81,7 +81,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
     {
         $this->grant(['view global threads' => ['Root']]);
 
-        $this->assertSame(['through.thread.2.workspace_id.2'], $this->readerKeys($this->root));
+        $this->assertSame(['through.thread.2.workspace_id.2'], $this->readableReaderKeys($this->root));
         $this->assertSame(['Wrong workspace'], $this->searchedReplies($this->root));
         $this->assertEveryReaderAgrees();
     }
@@ -106,8 +106,8 @@ class ParentSearchKeysTest extends ParentSearchTestCase
             'through.thread.0',
             "through.thread.0.author.{$this->ada->getKey()}",
         ], 'Ship it');
-        $this->assertSame(['through.thread.0'], $this->readerKeys($this->root));
-        $this->assertSame(["through.thread.0.author.{$this->ada->getKey()}"], $this->readerKeys($this->ada));
+        $this->assertSame(['through.thread.0'], $this->readableReaderKeys($this->root));
+        $this->assertSame(["through.thread.0.author.{$this->ada->getKey()}"], $this->readableReaderKeys($this->ada));
         $this->assertSame(['Nowhere', 'Ship it', 'Typo in the title'], $this->searchedReplies($this->ada));
         $this->assertCount(5, $this->searchedReplies($this->root));
         $this->assertEveryReaderAgrees();
@@ -126,7 +126,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
             "through.thread.0.through.forum.0.client.{$this->globex->getKey()}",
         ], array_values(array_filter($this->readableKeysOf('Too expensive'), fn (string $key): bool => str_starts_with($key, 'through.'))));
         $this->assertSame($this->digestsOf($this->readableKeysOf('Too expensive')), $this->digestedAccessKeysOf('Too expensive'));
-        $this->assertSame(["through.thread.0.through.forum.0.client.{$this->globex->getKey()}"], $this->readerKeys($this->linus));
+        $this->assertSame(["through.thread.0.through.forum.0.client.{$this->globex->getKey()}"], $this->readableReaderKeys($this->linus));
         $this->assertSame(['Too expensive'], $this->searchedReplies($this->linus));
         $this->assertCount(5, $this->searchedReplies($this->root));
         $this->assertEveryReaderAgrees();
