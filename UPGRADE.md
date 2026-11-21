@@ -2130,7 +2130,7 @@ protected function perimeters(): array
 {
     return [
         ClientPerimeter::new()
-            ->allowed(fn (User $user) => true)
+            ->allowed(fn (User $user) => $user->client_id !== null)
             ->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id)),
     ];
 }
@@ -2318,7 +2318,7 @@ To turn the extension off, list it in `disabled_extensions` of `config/rest.php`
 ],
 ```
 
-`AccessControlExtension` is final, so that no subclass can drop the restriction of the rows, the filter of the search engines or the decision context of the kept decisions. Keep the conditions that are not access rules, such as a published flag, in `perimeterQuery()` for the SQL lists and in `ScoutEngine::perimeter()` for the text searches, the `database` and `collection` drivers included: rest-api applies both, and the extension adds its restriction to them.
+`AccessControlExtension` is final, so that no subclass can drop the restriction of the rows, the filter of the search engines or the decision context of the kept decisions. Keep the conditions that are not access rules, such as a published flag, in `perimeterQuery()` for the SQL lists and in `ScoutEngine::perimeter()` for the text searches, with the attributes it reads declared by `indexAttributes()`, the `database` and `collection` drivers included: rest-api applies both, and the extension adds its restriction to them.
 
 ```php
 use Lomkit\Rest\Fields\Boolean;

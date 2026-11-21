@@ -32,7 +32,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 Perimeter::new()
-    ->allowed(fn (Model $user, Ability $ability) => $user->can("{$ability} client models"))
+    ->allowed(fn (Model $user, Ability $ability) => $user->client_id !== null && $user->can("{$ability} client models"))
     ->should(fn (Model $user, Model $model)    => $model->client_id === $user->client_id)
     ->query(function (Builder $query, Model $user): void {
         $query->where('client_id', $user->client_id);
@@ -56,7 +56,7 @@ class EditorialPerimeter extends Perimeter
     {
         $reader = $context->reader();
 
-        return $reader instanceof User && $reader->can("{$context->ability()} editorial posts");
+        return $reader instanceof User && $reader->client_id !== null && $reader->can("{$context->ability()} editorial posts");
     }
 
     protected function includes(Model $row, AccessContext $context): bool
@@ -348,7 +348,7 @@ OwnPerimeter::new()
     ->searchKeys(name: 'author', row: fn (Post $post) => $post->author_id, reader: fn (User $user) => $user->id);
 
 ClientPerimeter::new()
-    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+    ->allowed(fn (User $user, Ability $ability) => $user->client_id !== null && $user->can("{$ability} client posts"))
     ->query(fn (Builder $query, User $user) => $query->whereRelation('project', 'client_id', $user->client_id))
     ->searchKeys(name: 'client', row: fn (Post $post) => $post->project->client_id, reader: fn (User $user) => $user->client_id, load: ['project:id,client_id'])
     ->reindexWhen(Project::class, changed: ['client_id'], rows: fn (Project $project) => $project->posts());
@@ -393,6 +393,7 @@ class PostResource extends Resource // the extension restricts the rows: no peri
 
   - With laravel-rest-api ^3.6, never apply a control in `perimeterQuery()` or preload in `prepareAuthorization()`: `AccessControlExtension` does both for every controlled resource and provides its perimeter to `rest:check`, so a resource whose `perimeterQuery()` only did that drops the method, without `#[WithoutPerimeter]`. List in `alwaysSelect()` the columns that the boundary and the `should()` callbacks read (rest-api throws `MissingColumnException` otherwise), and remember that a decision kept by `authorizationCache()` is only renewed with the `updated_at` of the row and, for a delegated ability, of its parents: a perimeter that reads another table through `query()`, or a parent written without touching its `updated_at`, keeps it for the whole duration.
   - No perimeter matches → query is forced to `0=1` (Eloquent), or the search returns an empty page without querying the engine (Scout). Empty results after wiring control usually mean no `allowed()` returned true.
+  - A `query()` or `should()` that compares a column with a value of the reader (`where('client_id', $user->client_id)`, `$post->client_id === $user->client_id`) reaches the rows where that column is `null` when the reader has no value: Laravel writes `IS NULL`. Refuse such a reader in `allowed()` (`$user->client_id !== null && ...`).
   - Order and class no longer decide how perimeters combine: put a hierarchy in `Levels::of()`, widest first (admin grants first, declared with `unrestricted()`), and keep additive grants (shared, delegated) outside the group. Never put a perimeter that does not nest in a group: verify with `assertLevelsNest()`.
   - A tenant or workspace condition belongs in `boundary()`, not repeated in every `query`/`should`, and never in an override of `applies()` (final) or of the removed `applyQueryControl()`. A `Gate::before` that returns true bypasses the boundary (Laravel semantics).
   - A `query` callback must constrain the builder it receives: returning another builder (e.g. `Model::query()->where(...)`) throws `QueryCallbackReturnedAnotherBuilderException`. A `query` callback that adds no `where` (nothing, only `orderBy`/`limit`/`join`, or a `when()` that skips) throws `EmptyQueryCallbackException`: use `unrestricted()` for every row, or `whereRaw('0=1')` for no row. A `query` callback or a boundary `scope()` that adds a join throws `JoinInPerimeterException` (Laravel drops joins inside the nested where group): use `whereHas()` or an `exists` subquery.
