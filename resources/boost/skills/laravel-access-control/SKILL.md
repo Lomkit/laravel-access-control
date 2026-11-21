@@ -19,7 +19,7 @@ Use this skill when working with Lomkit Access Control in a Laravel project that
 - Uses `lomkit/laravel-rest-api` with controlled models, or mentions `AccessControlExtension`, `perimeterQuery()` with `controlled()`, `disabled_extensions` or `InvalidRestReaderException`.
 - Asks why a search still shows a document after a related model changed (stale access keys), or how to reindex the documents when a parent, a pivot or a mass update changes the data a key reads.
 
-Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that the package has no configuration file: a leftover `config/access-control.php` is ignored and can be deleted. Flag that the package is in **Beta** before recommending it for production. Full docs: https://laravel-access-control.lomkit.com
+Before applying, confirm `lomkit/laravel-access-control` is in `composer.json`. If missing, suggest `composer require lomkit/laravel-access-control` and stop. If present, note that the package has no configuration file: a leftover `config/access-control.php` is ignored and can be deleted. Full docs: https://laravel-access-control.lomkit.com
 
 ## Features
 
