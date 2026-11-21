@@ -13,6 +13,8 @@ return new class extends Migration
             $table->unsignedBigInteger('article_id');
             $table->unsignedBigInteger('user_id');
             $table->string('note')->nullable();
+            $table->dateTime('starts_at')->nullable();
+            $table->dateTime('ends_at')->nullable();
             $table->timestamps();
         });
     }

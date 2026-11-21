@@ -4,6 +4,7 @@ namespace Lomkit\Access\Tests\Fixtures\Search;
 
 use Illuminate\Database\Eloquent\Attributes\Unguarded;
 use Illuminate\Database\Eloquent\Attributes\UseFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -67,6 +68,14 @@ class Article extends Model
     public function assignments(): HasMany
     {
         return $this->hasMany(Assignment::class);
+    }
+
+    /** @return HasMany<Assignment, $this> */
+    public function activeAssignments(): HasMany
+    {
+        return $this->hasMany(Assignment::class)
+            ->where('starts_at', '<=', now())
+            ->where(fn (Builder $end) => $end->whereNull('ends_at')->orWhere('ends_at', '>=', now()));
     }
 
     /** @return BelongsToMany<User, $this, ArticleReviewer> */

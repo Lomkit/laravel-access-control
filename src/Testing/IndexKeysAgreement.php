@@ -15,11 +15,25 @@ final class IndexKeysAgreement
     /** @var array<int|string, array{_access: list<string>, _boundary: list<string>}> */
     private array $documents;
 
+    /** @var array<string, Model> */
+    private array $rows = [];
+
     public function __construct(private readonly Control $control)
     {
         $model = $this->control->getModel();
+        $rows = (new $model)->newQuery()->get();
 
-        $this->documents = Access::indexKeysOf((new $model)->newQuery()->get());
+        $this->documents = Access::indexKeysOf($rows);
+
+        foreach ($rows as $row) {
+            $this->rows[self::key($row)] = $row;
+        }
+    }
+
+    /** @return array{row: string, field: string, rules: list<string>, days: int}|null */
+    public function clockDrift(): ?array
+    {
+        return (new ClockIndependence($this->control->searchRules(), $this->rows))->drift();
     }
 
     /** @return array{indexOnly: list<string>, sqlOnly: list<string>} */
