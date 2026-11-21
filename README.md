@@ -28,7 +28,7 @@ No access rule repeated in every query, and a test that proves the policy grants
 
 The full guide lives on the [documentation site](https://laravel-access-control.lomkit.com). Coming from 0.x? Read the [upgrade guide](UPGRADE.md), which lists every change of 1.0 area by area.
 
-For AI assistants, the package ships a Laravel Boost skill with the full feature reference: [resources/boost/skills/laravel-access-control/SKILL.md](resources/boost/skills/laravel-access-control/SKILL.md).
+For AI assistants, the site serves [llms.txt](https://laravel-access-control.lomkit.com/llms.txt) and [llms-full.txt](https://laravel-access-control.lomkit.com/llms-full.txt), and the package ships a Laravel Boost skill with the full feature reference: [resources/boost/skills/laravel-access-control/SKILL.md](resources/boost/skills/laravel-access-control/SKILL.md). See [Use with AI](https://laravel-access-control.lomkit.com/digging-deeper/use-with-ai).
 
 ## Requirements
 
