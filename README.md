@@ -12,18 +12,17 @@
 
 # Laravel Access Control
 
-**Declare who reaches which rows once. Policies, queries and searches follow.**
+**Declare once who can see and change which rows. Policies, queries and searches follow.**
 
-Write one control for an Eloquent model: which users reach which rows, for each ability. Laravel Access Control turns it into the policy behind `$user->can()`, the `controlled()` scope that filters your queries in SQL, the filter of your Laravel Scout searches and the row restriction of your laravel-rest-api resources. They all read the same declaration, so what a list shows and what the policy grants come from one place.
+Write one control for an Eloquent model: which users reach which rows, for each ability. Laravel Access Control turns it into the policy behind `$user->can()`, the `controlled()` scope that filters your queries in SQL, the filter of your Laravel Scout searches and the row restriction of your laravel-rest-api resources. They all read the same control, so each access rule lives in one place.
 
-No access rule repeated in every query, no policy that grants what the list hides.
+No access rule repeated in every query, and a test that proves the policy grants what the list shows.
 
-- **One control per model**: perimeters say who reaches which rows, as SQL constraints and as in-memory checks.
+- **One control per model**: its perimeters say which users reach which rows, for each ability, as SQL constraints and as in-memory checks.
 - **One declaration, everywhere**: automatic policies, `controlled()` queries, controlled Scout searches and the laravel-rest-api extension.
 - **Levels, boundaries and parents**: `Levels::of()` applies the highest level a user reaches, a boundary keeps every row inside the user's workspace or tenant, and `ThroughParent` gives a comment the access of its post.
 - **Fails closed**: no signed-in user, no perimeter or no boundary value means no row, and a missing declaration throws instead of opening rows.
-- **Checked before production**: `php artisan access:check` reports what would throw, open or hide rows, and test assertions prove that the policy, the queries and the search agree on your data.
-- **Ready for AI assistants**: the package ships a Laravel Boost skill.
+- **Checked before production**: `php artisan access:check` reports what would throw, open or hide rows, and test assertions prove that the policy, the queries and the search agree on your test data.
 
 ## Documentation
 
@@ -76,7 +75,7 @@ class PostControl extends Control
                     ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} all posts"))
                     ->unrestricted(),
                 ClientPerimeter::new()
-                    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+                    ->allowed(fn (User $user, Ability $ability) => $user->client_id !== null && $user->can("{$ability} client posts"))
                     ->should(fn (User $user, Post $post) => $post->client_id === $user->client_id)
                     ->query(function (Builder $query, User $user): void {
                         $query->where('client_id', $user->client_id);
@@ -93,7 +92,9 @@ class PostControl extends Control
 }
 ```
 
-`allowed()` says whether a perimeter applies to the user for an ability (`view`, `update`, a business ability such as `approve`), `query()` gives its rows in SQL and `should()` checks one row in memory. In a `Levels::of()` group, widest first, only the highest level the user reaches applies. Perimeters outside a group add up, and a `boundary()` can keep every row inside the user's workspace or tenant.
+`allowed()` says whether a perimeter applies to the user for an ability (`view`, `update`, a business ability such as `approve`): the permission. `query()` gives its rows in SQL, for the lists, and `should()` checks one row in memory, for the policy. They are two rules you write, so they must describe the same rows: `assertControlAgrees()` (step 5) proves it. The client perimeter refuses a user without a client, so a `null` never matches the posts without a client.
+
+In a `Levels::of()` group, widest first, only the highest level the user reaches applies, and perimeters outside a group add up. `GlobalPerimeter` reaches the posts of every client: when clients are tenants, keep each user inside theirs with a `boundary()`.
 
 **2. Link the model.** The control is discovered in `app/Access/Controls` by its `$model`. A control kept elsewhere is named on the model with `#[ControlledBy(PostControl::class)]`.
 
@@ -109,7 +110,7 @@ class Post extends Model
 }
 ```
 
-**3. Register the policies**, in the `boot()` method of a service provider. Every controlled model without a policy of its own gets one for its control.
+**3. Register the policies** in the `boot()` method of a service provider. Every controlled model without a policy of its own gets one for its control.
 
 ```php
 use Lomkit\Access\Access;
@@ -132,7 +133,18 @@ $user->can('update', $post);                     // the policy, from the same pe
 
 A query is controlled only when it says so, and a controlled query without a signed-in user returns no row.
 
-With Laravel Scout, use `ControlledSearchable` instead of `Searchable` and give each perimeter that restricts rows its search keys: here, `->searchKeys(name: 'client', row: fn (Post $post) => $post->client_id, reader: fn (User $user) => $user->client_id)` on the client perimeter, and `->searchKeys(name: 'author', row: fn (Post $post) => $post->author_id, reader: fn (User $user) => $user->id)` on the own perimeter. Each document is indexed with the keys that open it, and a search keeps the documents that share a key with the user.
+With Laravel Scout, give each perimeter that restricts rows its search keys, at the end of its chain in the control. Each document is indexed with the keys that open it, and a search keeps the documents that share a key with the user.
+
+```php
+ClientPerimeter::new()
+    // allowed(), should() and query() as in step 1
+    ->searchKeys(name: 'client', row: fn (Post $post) => $post->client_id, reader: fn (User $user) => $user->client_id),
+OwnPerimeter::new()
+    // allowed(), should() and query() as in step 1
+    ->searchKeys(name: 'author', row: fn (Post $post) => $post->author_id, reader: fn (User $user) => $user->id),
+```
+
+Then use `ControlledSearchable` instead of `Searchable` on the model:
 
 ```php
 use Lomkit\Access\Search\ControlledSearchable;
@@ -145,27 +157,49 @@ class Post extends Model
 Post::search('budget')->controlled()->paginate(25);
 ```
 
-A search must say `controlled()` or `uncontrolled()`. Declare `_access` and `_boundary` as filterable in your engine, turn on Scout's `after_commit` and reindex: see [Search](UPGRADE.md#search).
+A search must say `controlled()` or `uncontrolled()`. Declare `_access` and `_boundary` as filterable in your engine ([Engines](UPGRADE.md#engines)), turn on Scout's `after_commit` ([Keeping the keys fresh](UPGRADE.md#keeping-the-keys-fresh)) and [reindex](UPGRADE.md#reindex).
 
 **5. Check it.** In CI, run the command with the Scout driver of production:
 
 ```bash
-php artisan access:check
+SCOUT_DRIVER=meilisearch php artisan access:check
 ```
 
-In your tests, `InteractsWithAccess` proves that the policy, `controlled()` and the search agree on your test data:
+In your tests, `InteractsWithAccess` proves that the policy, `controlled()` and the search agree on your test data, for each reader you give it:
 
 ```php
+namespace Tests\Feature;
+
+use App\Access\Controls\PostControl;
+use App\Models\Post;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Lomkit\Access\Testing\InteractsWithAccess;
+use Tests\TestCase;
 
 class PostControlTest extends TestCase
 {
-    use InteractsWithAccess;
+    use InteractsWithAccess, RefreshDatabase;
 
     public function test_its_rules_agree(): void
     {
-        $this->assertControlAgrees(PostControl::class, $this->author, Post::uncontrolled()->get());
-        $this->assertSearchAgrees(PostControl::class, readers: [$this->admin, $this->manager, $this->author]);
+        // Give each reader its permissions the way your application does.
+        $admin = User::factory()->create(['client_id' => 1]);   // "... all posts"
+        $manager = User::factory()->create(['client_id' => 1]); // "... client posts"
+        $author = User::factory()->create(['client_id' => 1]);  // "... own posts"
+        $other = User::factory()->create(['client_id' => 2]);   // "... own posts"
+        Post::factory()->create(['client_id' => 1, 'author_id' => $author->id]);
+        Post::factory()->create(['client_id' => 1, 'author_id' => $manager->id]);
+        Post::factory()->create(['client_id' => 2, 'author_id' => $other->id]);
+
+        $readers = [$admin, $manager, $author, $other];
+
+        foreach ($readers as $reader) {
+            $this->assertControlAgrees(PostControl::class, $reader, Post::uncontrolled()->get());
+        }
+
+        $this->assertLevelsNest(PostControl::class, readers: $readers);
+        $this->assertSearchAgrees(PostControl::class, readers: $readers);
     }
 }
 ```
