@@ -140,6 +140,8 @@ A `query` callback that adds no constraint to the builder it receives now throws
 
 A `query` callback, or the `scope()` of a boundary class, that adds a join now throws `JoinInPerimeterException`, which names the perimeter or the boundary: Laravel drops a join added inside the nested `where` group these rules run in, so the rule broke the SQL or filtered nothing. Replace the join with `whereHas()` or an `exists` subquery.
 
+A `query` callback that compares a column with a value of the reader, such as `where('client_id', $user->client_id)`, reaches the rows where that column is `null` when the reader has no value: Laravel turns `where('client_id', null)` into `client_id IS NULL`, and a `should` callback that compares the two with `===` agrees. Refuse such a reader in `allowed()`, such as `$user->client_id !== null && $user->can("{$ability} client posts")`.
+
 ### Unrestricted perimeters
 
 A perimeter that reaches every row is declared with `unrestricted()`, instead of a `query` callback that adds nothing and a `should` callback that returns `true`. Replace your global perimeters:
@@ -683,7 +685,7 @@ ClientPerimeter::new()
 
 // After
 ClientPerimeter::new()
-    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+    ->allowed(fn (User $user, Ability $ability) => $user->client_id !== null && $user->can("{$ability} client posts"))
     ->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id))
     ->searchKeys(
         name: 'client',
@@ -1847,7 +1849,7 @@ protected function allows(AccessContext $context): bool
 {
     $reader = $context->reader();
 
-    return $reader instanceof User && $reader->is_active && $reader->can("{$context->ability()} client posts");
+    return $reader instanceof User && $reader->is_active && $reader->client_id !== null && $reader->can("{$context->ability()} client posts");
 }
 ```
 
@@ -2051,7 +2053,7 @@ The `should` and `query` callbacks receive the ability after their other argumen
 
 ```php
 OwnPerimeter::new()
-    ->allowed(fn (User $user, Ability $ability) => $user->can("{$ability} client posts"))
+    ->allowed(fn (User $user, Ability $ability) => $user->client_id !== null && $user->can("{$ability} client posts"))
     ->should(fn (User $user, Post $post, Ability $ability) => $ability->is('view')
         ? $post->client_id === $user->client_id
         : $post->author_id === $user->id)
@@ -2128,7 +2130,7 @@ protected function perimeters(): array
 {
     return [
         ClientPerimeter::new()
-            ->allowed(fn (User $user) => true)
+            ->allowed(fn (User $user) => $user->client_id !== null)
             ->query(fn (Builder $query, User $user) => $query->where('client_id', $user->client_id)),
     ];
 }
@@ -2316,7 +2318,7 @@ To turn the extension off, list it in `disabled_extensions` of `config/rest.php`
 ],
 ```
 
-`AccessControlExtension` is final, so that no subclass can drop the restriction of the rows, the filter of the search engines or the decision context of the kept decisions. Keep the conditions that are not access rules, such as a published flag, in `perimeterQuery()` for the SQL lists and in `ScoutEngine::perimeter()` for the text searches, the `database` and `collection` drivers included: rest-api applies both, and the extension adds its restriction to them.
+`AccessControlExtension` is final, so that no subclass can drop the restriction of the rows, the filter of the search engines or the decision context of the kept decisions. Keep the conditions that are not access rules, such as a published flag, in `perimeterQuery()` for the SQL lists and in `ScoutEngine::perimeter()` for the text searches, with the attributes it reads declared by `indexAttributes()`, the `database` and `collection` drivers included: rest-api applies both, and the extension adds its restriction to them.
 
 ```php
 use Lomkit\Rest\Fields\Boolean;
@@ -2333,10 +2335,9 @@ class PostResource extends Resource
 
     public function text(): ?TextSearch
     {
-        return ScoutEngine::make()->perimeter(
-            fn (EngineQuery $query) => $query->where('published', '=', true),
-            [Boolean::make('published')],
-        );
+        return ScoutEngine::make()
+            ->perimeter(fn (EngineQuery $query) => $query->where('published', '=', true))
+            ->indexAttributes([Boolean::make('published')]);
     }
 }
 ```
