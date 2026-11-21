@@ -47,7 +47,7 @@
   },
   "scripts": {
     "test": "phpunit",
-    "require-rest-api": "@composer require --dev --no-update --no-interaction \"lomkit/laravel-rest-api:3.x-dev as 3.6.0\"",
+    "require-rest-api": "@composer require --dev --no-update --no-interaction \"lomkit/laravel-rest-api:^3.6\"",
     "analyse": "phpstan analyse --memory-limit=1G",
     "format": "pint",
     "lint": "pint --test"
