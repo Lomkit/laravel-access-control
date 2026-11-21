@@ -93,7 +93,7 @@ class IndexParentsTest extends IndexKeysTestCase
 
         $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage(sprintf(
-            'The keys of the [%s] control differ between two computations: the [_access] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved 400 days forward, in the keys inherited through the [parentGuide] relation, which the row: closures and the boundary of the [%s] control compute.',
+            'The keys of the [%s] control differ between two computations: the [_access] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved 400 days forward, in the keys inherited through the [parentGuide] relation, which the row: closures and the boundary of the [%s] control, or of the parents it reads through, compute.',
             GuideNoteControl::class,
             GuideNote::class,
             $note->getKey(),

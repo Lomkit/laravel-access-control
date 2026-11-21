@@ -63,7 +63,7 @@ final readonly class ClockDrift
     public function message(string $control, string $model): string
     {
         return sprintf(
-            'The keys of the [%s] control differ between two computations: the [%s] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved %d days %s, %s. The keys of a row are computed when it is indexed and stay in the index until it is indexed again, so a row: closure must give the same keys at any instant. Read the clock in the reader: closure of searchKeys(), never in row:, and make row: give the same keys every time, such as by ordering a relation it reads with first(). See "Rights that depend on the date" at %s.',
+            'The keys of the [%s] control differ between two computations: the [%s] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved %d days %s, %s. The keys of a row are computed when it is indexed and stay in the index until it is indexed again, so a row: closure must give the same keys at any instant. Read the clock in the reader: closure of searchKeys(), never in row:, and make row: give the same keys every time, such as by ordering a relation before reading its first(). See "Rights that depend on the date" at %s.',
             $control,
             $this->field,
             $model,
@@ -80,7 +80,7 @@ final readonly class ClockDrift
         $origins = $this->rules === [] ? [] : [sprintf('in the keys of the rules [%s]', implode(', ', $this->rules))];
 
         foreach ($this->parents as $relation => $parent) {
-            $origins[] = sprintf('in the keys inherited through the [%s] relation, which the row: closures and the boundary of the [%s] control compute', $relation, $parent);
+            $origins[] = sprintf('in the keys inherited through the [%s] relation, which the row: closures and the boundary of the [%s] control, or of the parents it reads through, compute', $relation, $parent);
         }
 
         return implode(' and ', $origins);

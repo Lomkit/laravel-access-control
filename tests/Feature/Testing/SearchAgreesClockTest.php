@@ -149,7 +149,7 @@ class SearchAgreesClockTest extends SearchTestCase
     protected function clockMessage(string $direction): string
     {
         return sprintf(
-            'The keys of the [%s] control differ between two computations: the [_access] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved 400 days %s, in the keys of the rules [assigned]. The keys of a row are computed when it is indexed and stay in the index until it is indexed again, so a row: closure must give the same keys at any instant. Read the clock in the reader: closure of searchKeys(), never in row:, and make row: give the same keys every time, such as by ordering a relation it reads with first(). See "Rights that depend on the date" at https://github.com/Lomkit/laravel-access-control/blob/1.x/UPGRADE.md#rights-that-depend-on-the-date.',
+            'The keys of the [%s] control differ between two computations: the [_access] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved 400 days %s, in the keys of the rules [assigned]. The keys of a row are computed when it is indexed and stay in the index until it is indexed again, so a row: closure must give the same keys at any instant. Read the clock in the reader: closure of searchKeys(), never in row:, and make row: give the same keys every time, such as by ordering a relation before reading its first(). See "Rights that depend on the date" at https://github.com/Lomkit/laravel-access-control/blob/1.x/UPGRADE.md#rights-that-depend-on-the-date.',
             ArticleControl::class,
             Article::class,
             $this->primer->getKey(),

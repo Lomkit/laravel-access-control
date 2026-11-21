@@ -186,7 +186,7 @@ class ParentSearchKeysTest extends ParentSearchTestCase
 
         $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessageMatches(sprintf(
-            '/^The keys of the \[%s\] control differ between two computations: the \[_access\] keys of the \[%s\] row with key \[\d+\] are not the same when they are computed again with the clock moved 400 days forward, in the keys inherited through the \[thread\] relation, which the row: closures and the boundary of the \[%s\] control compute\./',
+            '/^The keys of the \[%s\] control differ between two computations: the \[_access\] keys of the \[%s\] row with key \[\d+\] are not the same when they are computed again with the clock moved 400 days forward, in the keys inherited through the \[thread\] relation, which the row: closures and the boundary of the \[%s\] control, or of the parents it reads through, compute\./',
             preg_quote(ReplyControl::class, '/'),
             preg_quote(Reply::class, '/'),
             preg_quote(ConfiguredThreadControl::class, '/'),
