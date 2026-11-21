@@ -165,7 +165,7 @@ A search must say `controlled()` or `uncontrolled()`. Declare `_access` and `_bo
 SCOUT_DRIVER=meilisearch php artisan access:check
 ```
 
-In your tests, `InteractsWithAccess` proves that the policy, `controlled()` and the search agree on your test data, for each reader you give it:
+In your tests, `InteractsWithAccess` proves that the policy, `controlled()` and, with Scout, the search agree on your test data, for each reader you give it. The example uses the factories of your models:
 
 ```php
 namespace Tests\Feature;
@@ -183,7 +183,9 @@ class PostControlTest extends TestCase
 
     public function test_its_rules_agree(): void
     {
-        // Give each reader its permissions the way your application does.
+        // Give each reader the permissions your application gives it: a reader without
+        // permissions sees no row, and the assertions then pass without proving anything.
+        // Clients 1 and 2 must already exist.
         $admin = User::factory()->create(['client_id' => 1]);   // "... all posts"
         $manager = User::factory()->create(['client_id' => 1]); // "... client posts"
         $author = User::factory()->create(['client_id' => 1]);  // "... own posts"
@@ -199,7 +201,7 @@ class PostControlTest extends TestCase
         }
 
         $this->assertLevelsNest(PostControl::class, readers: $readers);
-        $this->assertSearchAgrees(PostControl::class, readers: $readers);
+        $this->assertSearchAgrees(PostControl::class, readers: $readers); // with Scout
     }
 }
 ```
