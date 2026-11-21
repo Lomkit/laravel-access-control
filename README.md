@@ -5,7 +5,7 @@
 Laravel Access Control allows you to fully secure your application in two key areas: Policies and Queries. Manage everything in one place!
 ## Requirements
 
-PHP 8.2+ and Laravel 12+
+PHP 8.3+ and Laravel 13. Applications on Laravel 12 can use 0.7, the last 0.x release.
 
 ## Documentation, Installation, and Usage Instructions
 
