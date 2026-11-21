@@ -19,6 +19,7 @@ use Lomkit\Access\Tests\Fixtures\Index\ConfiguredGuideNoteControl;
 use Lomkit\Access\Tests\Fixtures\Index\Guide;
 use Lomkit\Access\Tests\Fixtures\Index\GuideNote;
 use Lomkit\Access\Tests\Fixtures\Index\GuideNoteControl;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\Test;
 
 class IndexParentsTest extends IndexKeysTestCase
@@ -71,6 +72,35 @@ class IndexParentsTest extends IndexKeysTestCase
         $this->assertIndexKeysAgree(GuideNoteControl::class, $this->readers());
         $this->assertSame(['Onboarding in brand 1', 'Pricing in brand 2'], $this->notesFoundBy($this->grace));
         $this->assertSame(['Billing in brand 1', 'Onboarding in brand 1', 'Pricing in brand 2'], $this->notesFoundBy($this->root));
+    }
+
+    #[Test]
+    public function it_fails_when_a_row_key_of_the_parent_reads_the_clock(): void
+    {
+        ConfiguredGuideControl::bind(
+            ClientPerimeter::new()
+                ->allowed(fn (User $user): bool => true)
+                ->query(fn (Builder $query, User $user): Builder => $query->where('created_at', '>=', now()->subDays(30)))
+                ->searchKeys(
+                    name: 'recent',
+                    row: fn (Guide $guide): ?string => $guide->created_at !== null && $guide->created_at >= now()->subDays(30) ? 'yes' : null,
+                    reader: fn (User $user): string => 'yes',
+                ),
+        );
+        ConfiguredGuideNoteControl::bind(ThroughParent::belongsTo('parentGuide'));
+        GuideNote::query()->where('body', '!=', 'Onboarding in brand 1')->delete();
+        $note = GuideNote::query()->sole();
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage(sprintf(
+            'The keys of the [%s] control differ between two computations: the [_access] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved 400 days forward, in the keys inherited through the [parentGuide] relation, which the row: closures and the boundary of the [%s] control, or of the parents it reads through, compute.',
+            GuideNoteControl::class,
+            GuideNote::class,
+            $note->getKey(),
+            ConfiguredGuideControl::class,
+        ));
+
+        $this->assertIndexKeysAgree(GuideNoteControl::class, $this->readers());
     }
 
     #[Test]

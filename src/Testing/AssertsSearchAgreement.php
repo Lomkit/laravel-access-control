@@ -32,6 +32,8 @@ trait AssertsSearchAgreement
         $agreement = new SearchAgreement($instance);
         $agreed = ['searchOnly' => [], 'sqlOnly' => []];
 
+        $this->assertRowKeysIgnoreTheClock($control, $model, $agreement->clockDrift());
+
         foreach ($readers as $reader) {
             $disagreements = $agreement->disagreementsFor($reader);
             $failure = $disagreements === $agreed ? '' : $this->searchAgreesFailure($control, $reader, $agreement->readerKeys($reader), $disagreements);
@@ -61,6 +63,17 @@ trait AssertsSearchAgreement
 
     /**
      * @param  class-string<Control>  $control
+     * @param  class-string<Model>  $model
+     */
+    private function assertRowKeysIgnoreTheClock(string $control, string $model, ?ClockDrift $drift): void
+    {
+        if ($drift !== null) {
+            Assert::fail($drift->message($control, $model));
+        }
+    }
+
+    /**
+     * @param  class-string<Control>  $control
      * @param  list<Model|null>  $readers
      */
     public function assertIndexKeysAgree(string $control, array $readers): void
@@ -71,8 +84,11 @@ trait AssertsSearchAgreement
 
         Assert::assertNotSame([], $readers, sprintf('assertIndexKeysAgree() received no reader for the [%s] control: the keys of an index agree with the SQL only for the readers it compares.', $control));
 
-        $agreement = new IndexKeysAgreement(Access::control($control));
+        $instance = Access::control($control);
+        $agreement = new IndexKeysAgreement($instance);
         $agreed = ['indexOnly' => [], 'sqlOnly' => []];
+
+        $this->assertRowKeysIgnoreTheClock($control, $instance->getModel(), $agreement->clockDrift());
 
         foreach ($readers as $reader) {
             $disagreements = $agreement->disagreementsFor($reader);

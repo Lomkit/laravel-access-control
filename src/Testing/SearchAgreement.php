@@ -22,6 +22,9 @@ final class SearchAgreement
     /** @var array<string, array<string, list<string>>> */
     private array $documents = [];
 
+    /** @var array<string, Model> */
+    private array $rows = [];
+
     public function __construct(private readonly Control $control)
     {
         $model = $this->control->getModel();
@@ -31,9 +34,15 @@ final class SearchAgreement
         ));
 
         foreach ((new SearchDocuments($this->control->searchRules()))->readableKeysFor($rows) as $index => $keys) {
+            $this->rows[self::key($rows[$index])] = $rows[$index];
             $this->keys[self::key($rows[$index])] = $keys;
             $this->documents[self::key($rows[$index])] = SearchKeyDigest::document($keys);
         }
+    }
+
+    public function clockDrift(): ?ClockDrift
+    {
+        return (new ClockIndependence($this->control->searchRules(), $this->rows))->drift();
     }
 
     /** @return array{searchOnly: list<string>, sqlOnly: list<string>} */
