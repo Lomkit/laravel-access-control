@@ -15,6 +15,7 @@ use Lomkit\Access\Tests\Fixtures\Threads\ConfiguredThreadControl;
 use Lomkit\Access\Tests\Fixtures\Threads\Controls\ReplyControl;
 use Lomkit\Access\Tests\Fixtures\Threads\Reply;
 use Lomkit\Access\Tests\Fixtures\Threads\Thread;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -166,5 +167,31 @@ class ParentSearchKeysTest extends ParentSearchTestCase
         $this->reindexReplies();
 
         $this->assertCount(1 + 3 + 1, $this->digestedAccessKeysOf('Ship it'));
+    }
+
+    #[Test]
+    public function it_fails_when_a_row_key_of_the_parent_reads_the_clock(): void
+    {
+        ConfiguredThreadControl::bindWithin(
+            Boundary::none(),
+            AuthorPerimeter::new()
+                ->allowed(fn (User $user): bool => true)
+                ->query(fn (Builder $query, User $user): Builder => $query->where('author_id', $user->getKey())->where('created_at', '>=', now()->subDays(30)))
+                ->searchKeys(
+                    name: 'author',
+                    row: fn (Thread $thread): mixed => $thread->created_at !== null && $thread->created_at >= now()->subDays(30) ? $thread->getAttribute('author_id') : null,
+                    reader: fn (User $user): mixed => $user->getKey(),
+                ),
+        );
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessageMatches(sprintf(
+            '/^The keys of the \[%s\] control differ between two computations: the \[_access\] keys of the \[%s\] row with key \[\d+\] are not the same when they are computed again with the clock moved 400 days forward, in the keys inherited through the \[thread\] relation, which the row: closures and the boundary of the \[%s\] control compute\./',
+            preg_quote(ReplyControl::class, '/'),
+            preg_quote(Reply::class, '/'),
+            preg_quote(ConfiguredThreadControl::class, '/'),
+        ));
+
+        $this->assertEveryReaderAgrees();
     }
 }

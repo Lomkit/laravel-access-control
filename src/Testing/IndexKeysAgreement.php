@@ -30,8 +30,7 @@ final class IndexKeysAgreement
         }
     }
 
-    /** @return array{row: string, field: string, rules: list<string>, days: int}|null */
-    public function clockDrift(): ?array
+    public function clockDrift(): ?ClockDrift
     {
         return (new ClockIndependence($this->control->searchRules(), $this->rows))->drift();
     }

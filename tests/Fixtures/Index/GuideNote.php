@@ -19,4 +19,10 @@ class GuideNote extends Model
     {
         return $this->belongsTo(Guide::class);
     }
+
+    /** @return BelongsTo<Guide, $this> */
+    public function parentGuide(): BelongsTo
+    {
+        return $this->belongsTo(Guide::class, 'guide_id');
+    }
 }

@@ -3,17 +3,14 @@
 namespace Lomkit\Access\Testing;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Date;
-use Lomkit\Access\Search\Parents\ParentKey;
+use Illuminate\Support\Carbon;
 use Lomkit\Access\Search\SearchDocuments;
 use Lomkit\Access\Search\SearchRules;
 
 /** @internal */
 final readonly class ClockIndependence
 {
-    public const int DAYS_AWAY = 400;
-
-    private const string SEPARATOR = '.';
+    private const int DAYS_AWAY = 400;
 
     /** @param  array<int|string, Model>  $rows */
     public function __construct(
@@ -21,18 +18,17 @@ final readonly class ClockIndependence
         private array $rows,
     ) {}
 
-    /** @return array{row: string, field: string, rules: list<string>, days: int}|null */
-    public function drift(): ?array
+    public function drift(): ?ClockDrift
     {
-        $previous = Date::getTestNow();
-        $now = Date::now();
+        $previous = Carbon::getTestNow();
+        $now = Carbon::now();
 
         try {
-            Date::setTestNow($now);
+            Carbon::setTestNow($now);
             $current = $this->documents();
 
             foreach ([-self::DAYS_AWAY, self::DAYS_AWAY] as $days) {
-                Date::setTestNow($now->copy()->addDays($days));
+                Carbon::setTestNow($now->copy()->addDays($days));
                 $drift = $this->driftBetween($current, $this->documents(), $days);
 
                 if ($drift !== null) {
@@ -42,7 +38,7 @@ final readonly class ClockIndependence
 
             return null;
         } finally {
-            Date::setTestNow($previous);
+            Carbon::setTestNow($previous);
         }
     }
 
@@ -55,9 +51,8 @@ final readonly class ClockIndependence
     /**
      * @param  array<int|string, array<string, list<string>>>  $current
      * @param  array<int|string, array<string, list<string>>>  $moved
-     * @return array{row: string, field: string, rules: list<string>, days: int}|null
      */
-    private function driftBetween(array $current, array $moved, int $days): ?array
+    private function driftBetween(array $current, array $moved, int $days): ?ClockDrift
     {
         foreach ($current as $row => $fields) {
             foreach ($fields as $field => $keys) {
@@ -65,32 +60,11 @@ final readonly class ClockIndependence
                 $changed = [...array_diff($keys, $movedKeys), ...array_diff($movedKeys, $keys)];
 
                 if ($changed !== []) {
-                    return ['row' => (string) $row, 'field' => $field, 'rules' => self::rulesOf($changed), 'days' => $days];
+                    return ClockDrift::of($this->rules, (string) $row, $field, $changed, $days);
                 }
             }
         }
 
         return null;
-    }
-
-    /**
-     * @param  list<string>  $keys
-     * @return list<string>
-     */
-    private static function rulesOf(array $keys): array
-    {
-        $rules = [];
-
-        foreach ($keys as $key) {
-            $components = explode(self::SEPARATOR, $key);
-            $rules[] = $components[0] === ParentKey::PREFIX && isset($components[1])
-                ? $components[0].self::SEPARATOR.$components[1]
-                : $components[0];
-        }
-
-        $rules = array_values(array_unique($rules));
-        sort($rules);
-
-        return $rules;
     }
 }

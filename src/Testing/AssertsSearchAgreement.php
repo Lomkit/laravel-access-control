@@ -64,24 +64,12 @@ trait AssertsSearchAgreement
     /**
      * @param  class-string<Control>  $control
      * @param  class-string<Model>  $model
-     * @param  array{row: string, field: string, rules: list<string>, days: int}|null  $drift
      */
-    private function assertRowKeysIgnoreTheClock(string $control, string $model, ?array $drift): void
+    private function assertRowKeysIgnoreTheClock(string $control, string $model, ?ClockDrift $drift): void
     {
-        if ($drift === null) {
-            return;
+        if ($drift !== null) {
+            Assert::fail($drift->message($control, $model));
         }
-
-        Assert::fail(sprintf(
-            'The keys of the [%s] control read the clock: the [%s] keys of the [%s] row with key [%s], from the rules [%s], change when the clock moves %d days %s. The keys of a row are computed when it is indexed and stay in the index until it is indexed again, so they go stale when a period starts or ends. Read the clock in the reader: closure of searchKeys(), never in row:, as "Rights that depend on the date" in UPGRADE.md shows.',
-            $control,
-            $drift['field'],
-            $model,
-            $drift['row'],
-            implode(', ', $drift['rules']),
-            abs($drift['days']),
-            $drift['days'] < 0 ? 'back' : 'forward',
-        ));
     }
 
     /**

@@ -87,15 +87,17 @@ class IndexParentsTest extends IndexKeysTestCase
                     reader: fn (User $user): string => 'yes',
                 ),
         );
+        ConfiguredGuideNoteControl::bind(ThroughParent::belongsTo('parentGuide'));
         GuideNote::query()->where('body', '!=', 'Onboarding in brand 1')->delete();
         $note = GuideNote::query()->sole();
 
         $this->expectException(AssertionFailedError::class);
         $this->expectExceptionMessage(sprintf(
-            'The keys of the [%s] control read the clock: the [_access] keys of the [%s] row with key [%s], from the rules [through.guide], change when the clock moves 400 days forward.',
+            'The keys of the [%s] control differ between two computations: the [_access] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved 400 days forward, in the keys inherited through the [parentGuide] relation, which the row: closures and the boundary of the [%s] control compute.',
             GuideNoteControl::class,
             GuideNote::class,
             $note->getKey(),
+            ConfiguredGuideControl::class,
         ));
 
         $this->assertIndexKeysAgree(GuideNoteControl::class, $this->readers());

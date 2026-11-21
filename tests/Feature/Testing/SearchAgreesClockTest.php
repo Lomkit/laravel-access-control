@@ -2,6 +2,10 @@
 
 namespace Lomkit\Access\Tests\Feature\Testing;
 
+use Carbon\Carbon as BaseCarbon;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
+use Carbon\Factory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
@@ -12,8 +16,10 @@ use Lomkit\Access\Tests\Fixtures\Search\Article;
 use Lomkit\Access\Tests\Fixtures\Search\ArticleControl;
 use Lomkit\Access\Tests\Fixtures\Search\AssignedPerimeter;
 use Lomkit\Access\Tests\Fixtures\Search\Assignment;
+use Lomkit\Access\Tests\Fixtures\Search\ClockedWorkspaceBoundary;
 use Lomkit\Access\Tests\Fixtures\Search\SearchTestCase;
 use PHPUnit\Framework\AssertionFailedError;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -50,6 +56,14 @@ class SearchAgreesClockTest extends SearchTestCase
         });
     }
 
+    #[\Override]
+    protected function tearDown(): void
+    {
+        Date::useDefault();
+
+        parent::tearDown();
+    }
+
     protected function assign(Article $article, User $user, string $startsAt, ?string $endsAt): void
     {
         Assignment::query()->create([
@@ -82,19 +96,47 @@ class SearchAgreesClockTest extends SearchTestCase
         );
     }
 
-    protected function bindTheClockInTheRow(): void
+    protected function bindTheClockInTheRow(string $clock = 'now'): void
     {
         ConfiguredArticleControl::bind(
             $this->assigned()->searchKeys(
                 name: 'assigned',
                 row: fn (Article $article): array => $article->assignments
-                    ->filter(fn (Assignment $assignment): bool => $assignment->starts_at <= now() && ($assignment->ends_at === null || $assignment->ends_at >= now()))
+                    ->filter(fn (Assignment $assignment): bool => $this->isActive($assignment, self::instantOf($clock)))
                     ->pluck('user_id')
                     ->all(),
                 reader: fn (User $user): mixed => $user->getKey(),
                 load: ['assignments'],
             ),
         );
+    }
+
+    protected function isActive(Assignment $assignment, CarbonInterface $instant): bool
+    {
+        return $assignment->starts_at <= $instant && ($assignment->ends_at === null || $assignment->ends_at >= $instant);
+    }
+
+    protected static function instantOf(string $clock): CarbonInterface
+    {
+        return match ($clock) {
+            'now' => now(),
+            'Date::now' => Date::now(),
+            'Illuminate Carbon::now' => Carbon::now(),
+            'Carbon::now' => BaseCarbon::now(),
+            'CarbonImmutable::now' => CarbonImmutable::now(),
+        };
+    }
+
+    /** @return array<string, array{string}> */
+    public static function clocks(): array
+    {
+        return [
+            'now()' => ['now'],
+            'Date::now()' => ['Date::now'],
+            'Illuminate\\Support\\Carbon::now()' => ['Illuminate Carbon::now'],
+            'Carbon\\Carbon::now()' => ['Carbon::now'],
+            'Carbon\\CarbonImmutable::now()' => ['CarbonImmutable::now'],
+        ];
     }
 
     protected function active(Builder $assignments): Builder
@@ -107,7 +149,7 @@ class SearchAgreesClockTest extends SearchTestCase
     protected function clockMessage(string $direction): string
     {
         return sprintf(
-            'The keys of the [%s] control read the clock: the [_access] keys of the [%s] row with key [%s], from the rules [assigned], change when the clock moves 400 days %s. The keys of a row are computed when it is indexed and stay in the index until it is indexed again, so they go stale when a period starts or ends. Read the clock in the reader: closure of searchKeys(), never in row:, as "Rights that depend on the date" in UPGRADE.md shows.',
+            'The keys of the [%s] control differ between two computations: the [_access] keys of the [%s] row with key [%s] are not the same when they are computed again with the clock moved 400 days %s, in the keys of the rules [assigned]. The keys of a row are computed when it is indexed and stay in the index until it is indexed again, so a row: closure must give the same keys at any instant. Read the clock in the reader: closure of searchKeys(), never in row:, and make row: give the same keys every time, such as by ordering a relation it reads with first(). See "Rights that depend on the date" at https://github.com/Lomkit/laravel-access-control/blob/1.x/UPGRADE.md#rights-that-depend-on-the-date.',
             ArticleControl::class,
             Article::class,
             $this->primer->getKey(),
@@ -253,7 +295,7 @@ class SearchAgreesClockTest extends SearchTestCase
         $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
 
         foreach (['assertSearchAgrees', 'assertIndexKeysAgree'] as $assertion) {
-            $this->assertStringContainsString('control read the clock', $this->failureOf($assertion, $this->ada));
+            $this->assertStringContainsString('control differ between two computations', $this->failureOf($assertion, $this->ada));
 
             $this->assertSame('2026-03-15 12:00:00', Date::now()->format('Y-m-d H:i:s'));
         }
@@ -295,9 +337,118 @@ class SearchAgreesClockTest extends SearchTestCase
         $this->assertFalse(Date::hasTestNow());
 
         foreach (['assertSearchAgrees', 'assertIndexKeysAgree'] as $assertion) {
-            $this->assertStringContainsString('control read the clock', $this->failureOf($assertion, $this->hank));
+            $this->assertStringContainsString('control differ between two computations', $this->failureOf($assertion, $this->hank));
 
             $this->assertFalse(Date::hasTestNow());
         }
+    }
+
+    #[Test]
+    #[DataProvider('clocks')]
+    public function it_fails_on_each_way_of_reading_the_clock_of_laravel(string $clock): void
+    {
+        $this->bindTheClockInTheRow($clock);
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage($this->clockMessage('back'));
+
+        $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);
+    }
+
+    #[Test]
+    #[DataProvider('clocks')]
+    public function it_fails_on_each_way_of_reading_the_clock_under_a_date_factory(string $clock): void
+    {
+        Date::useFactory(new Factory([], Carbon::class));
+        $this->bindTheClockInTheRow($clock);
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage($this->clockMessage('back'));
+
+        $this->assertIndexKeysAgree(ArticleControl::class, readers: [$this->ada]);
+    }
+
+    #[Test]
+    #[DataProvider('clocks')]
+    public function it_fails_on_each_way_of_reading_the_clock_under_a_date_class(string $clock): void
+    {
+        Date::use(CarbonImmutable::class);
+        $this->bindTheClockInTheRow($clock);
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessage($this->clockMessage('back'));
+
+        $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);
+    }
+
+    #[Test]
+    public function it_lets_the_test_travel_again_under_a_date_factory(): void
+    {
+        Date::useFactory(new Factory([], Carbon::class));
+        $this->bindTheRecipe();
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+
+        $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);
+        $this->assertIndexKeysAgree(ArticleControl::class, readers: [$this->ada]);
+        $this->travelTo(Carbon::parse('2026-05-01 08:00:00'));
+
+        $this->assertSame('2026-05-01 08:00:00', now()->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-05-01 08:00:00', Date::now()->format('Y-m-d H:i:s'));
+    }
+
+    #[Test]
+    public function it_checks_the_clock_under_a_date_callable(): void
+    {
+        Date::useCallable(fn (CarbonInterface $date): CarbonInterface => $date);
+        $this->bindTheRecipe();
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+
+        $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);
+        $this->assertIndexKeysAgree(ArticleControl::class, readers: [$this->ada]);
+        $this->assertSame('2026-03-15 12:00:00', now()->format('Y-m-d H:i:s'));
+
+        $this->bindTheClockInTheRow('Date::now');
+
+        $this->assertStringContainsString($this->clockMessage('back'), $this->failureOf('assertSearchAgrees', $this->ada));
+        $this->assertSame('2026-03-15 12:00:00', now()->format('Y-m-d H:i:s'));
+    }
+
+    #[Test]
+    public function it_fails_when_a_boundary_key_reads_the_clock(): void
+    {
+        ConfiguredArticleControl::bindWithin(new ClockedWorkspaceBoundary, $this->assigned()->searchKeys(
+            name: 'assigned',
+            row: fn (Article $article): mixed => $article->getKey(),
+            reader: fn (User $user): array => [],
+        ));
+        $this->travelTo(Carbon::parse('2026-03-15 12:00:00'));
+
+        $this->expectException(AssertionFailedError::class);
+        $this->expectExceptionMessageMatches(sprintf(
+            '/^The keys of the \[%s\] control differ between two computations: the \[_boundary\] keys of the \[%s\] row with key \[\d+\] are not the same when they are computed again with the clock moved 400 days back, in the keys of the rules \[workspace\]\./',
+            preg_quote(ArticleControl::class, '/'),
+            preg_quote(Article::class, '/'),
+        ));
+
+        $this->assertSearchAgrees(ArticleControl::class, readers: [$this->ada]);
+    }
+
+    #[Test]
+    public function it_leaves_the_clock_running_when_a_row_key_throws_under_the_moved_clock(): void
+    {
+        $year = now()->year;
+        ConfiguredArticleControl::bind(
+            $this->assigned()->searchKeys(
+                name: 'assigned',
+                row: fn (Article $article): mixed => now()->year > $year ? throw new LogicException('The clock moved.') : $article->getKey(),
+                reader: fn (User $user): array => [],
+            ),
+        );
+
+        $this->assertThrows(fn () => $this->assertIndexKeysAgree(ArticleControl::class, readers: [$this->ada]), LogicException::class, 'The clock moved.');
+        $this->assertFalse(Carbon::hasTestNow());
     }
 }

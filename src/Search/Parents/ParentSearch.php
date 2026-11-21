@@ -85,6 +85,16 @@ final readonly class ParentSearch
         return $this->key->name();
     }
 
+    public function relation(): string
+    {
+        return $this->relation;
+    }
+
+    public function parent(): Control
+    {
+        return $this->parent;
+    }
+
     /** @return list<string> */
     public function load(): array
     {
